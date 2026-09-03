@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>화음 건반 퀴즈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #EDF1F7;
+    --panel: #FFFFFF;
+    --ink: #1B2340;
+    --ink-soft: #565F80;
+    --gold: #E8A33D;
+    --gold-deep: #C97F1E;
+    --white-key: #FFFFFF;
+    --white-key-border: #C7CEDA;
+    --black-key: #232733;
+    --selected: #4C6FE7;
+    --selected-bg: #EAEEFC;
+    --correct: #2F8F4E;
+    --correct-bg: #E4F4E9;
+    --wrong: #D64550;
+    --wrong-bg: #FBE7E9;
+  }
+
+  * { box-sizing: border-box; touch-action: manipulation; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    overscroll-behavior: none;
+  }
+
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 22px;
+  }
+
+  .topbar h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: -0.01em;
+    user-select: none;
+  }
+
+  .back-link {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    padding: 6px 4px;
+  }
+
+  .score {
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .score b { color: var(--correct); font-weight: 700; }
+
+  .screen { display: none; flex-direction: column; flex: 1; }
+  .screen.active { display: flex; }
+
+  /* ---- start / setup screens ---- */
+  .center-card {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 40px 30px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(27,35,64,0.05), 0 12px 28px rgba(27,35,64,0.06);
+    margin: auto 0;
+    max-width: 480px;
+    width: 100%;
+    align-self: center;
+  }
+
+  .center-card h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 26px;
+    margin: 0 0 10px;
+  }
+
+  .center-card p {
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin: 0 0 26px;
+    line-height: 1.5;
+  }
+
+  .role-buttons { display: flex; flex-direction: column; gap: 12px; }
+
+  .big-btn {
+    border: none;
+    border-radius: 14px;
+    padding: 18px 20px;
+    font-size: 17px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    background: var(--gold);
+    color: #fff;
+  }
+  .big-btn:active { background: var(--gold-deep); }
+  .big-btn.secondary {
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .big-btn.secondary:active { background: var(--selected-bg); }
+
+  .name-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--white-key-border);
+    margin-bottom: 18px;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .name-input:focus { outline: 2px solid var(--selected); }
+
+  .id-fields { display: flex; gap: 10px; }
+  .name-input.small { flex: 1; text-align: center; }
+
+  .mode-pick { display: flex; gap: 10px; margin-bottom: 22px; }
+  .mode-option {
+    flex: 1;
+    border: 2px solid var(--white-key-border);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 14px 10px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    text-align: left;
+  }
+  .mode-option strong { display: block; font-size: 15px; margin-bottom: 3px; }
+  .mode-option span { font-size: 12.5px; color: var(--ink-soft); }
+  .mode-option.picked { border-color: var(--selected); background: var(--selected-bg); }
+
+  .setup-error { color: var(--wrong); font-size: 13.5px; margin: -10px 0 16px; min-height: 16px; }
+
+  /* ---- quiz screen ---- */
+  .stage {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 36px 28px 30px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(27,35,64,0.05), 0 12px 28px rgba(27,35,64,0.06);
+    margin-bottom: 22px;
+  }
+
+  .prompt-label {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+
+  .chord-name {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: clamp(40px, 9vw, 64px);
+    line-height: 1;
+    margin: 0;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .chord-name .quality { color: var(--gold-deep); }
+
+  .feedback {
+    min-height: 30px;
+    margin-top: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    transition: color 0.15s ease;
+  }
+  .feedback.correct { color: var(--correct); }
+  .feedback.wrong { color: var(--wrong); }
+  .feedback.idle { color: var(--ink-soft); font-weight: 500; }
+
+  .progress-dots { display: flex; justify-content: center; gap: 6px; margin-top: 18px; }
+  .progress-dots span {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--selected-bg);
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .progress-dots span.filled { background: var(--selected); transform: scale(1.15); }
+
+  .exam-tag {
+    display: inline-block;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 14px;
+  }
+
+  .piano-wrap {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 18px 18px 22px;
+    box-shadow: 0 1px 2px rgba(27,35,64,0.05), 0 12px 28px rgba(27,35,64,0.06);
+  }
+
+  .piano-keys { position: relative; width: 100%; height: 220px; }
+
+  .key { position: absolute; top: 0; cursor: pointer; transition: background 0.08s ease; }
+
+  .key.white {
+    height: 100%; background: var(--white-key);
+    border: 1px solid var(--white-key-border);
+    border-radius: 0 0 9px 9px; z-index: 1;
+  }
+  .key.white:active { background: #F2F4F9; }
+  .key.white.selected { background: var(--selected-bg); border-color: var(--selected); }
+  .key.white.correct { background: var(--correct-bg); border-color: var(--correct); }
+  .key.white.wrong { background: var(--wrong-bg); border-color: var(--wrong); }
+
+  .key.black {
+    height: 60%; background: var(--black-key);
+    border-radius: 0 0 7px 7px; z-index: 2;
+  }
+  .key.black:active { background: #34394A; }
+  .key.black.selected { background: var(--selected); }
+  .key.black.correct { background: var(--correct); }
+  .key.black.wrong { background: var(--wrong); }
+
+  .controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; }
+
+  .reset-btn {
+    border: none; background: none; color: var(--ink-soft);
+    font-size: 14px; font-family: 'Inter', sans-serif;
+    padding: 8px 14px; cursor: pointer; border-radius: 8px;
+  }
+  .reset-btn:active { background: var(--bg); }
+  .reset-btn[hidden] { display: none; }
+
+  .confirm-btn {
+    border: none; background: var(--gold); color: #fff;
+    font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif;
+    padding: 8px 22px; cursor: pointer; border-radius: 8px;
+  }
+  .confirm-btn:active { background: var(--gold-deep); }
+  .confirm-btn:disabled { background: var(--white-key-border); cursor: default; }
+
+  /* ---- exam result screen ---- */
+  .result-score {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: clamp(48px, 12vw, 76px);
+    margin: 6px 0 4px;
+  }
+  .result-score span { font-size: 0.4em; color: var(--ink-soft); font-family: 'Inter', sans-serif; font-weight: 600; }
+
+  /* ---- teacher dashboard ---- */
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    border: none; background: var(--panel); color: var(--ink-soft);
+    padding: 10px 18px; border-radius: 10px; font-size: 14.5px; font-weight: 600;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+  }
+  .tab-btn.active { background: var(--ink); color: #fff; }
+
+  .dash-panel {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(27,35,64,0.05), 0 12px 28px rgba(27,35,64,0.06);
+  }
+
+  .dash-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .dash-toolbar .updated { font-size: 12.5px; color: var(--ink-soft); }
+  .dash-actions { display: flex; gap: 8px; }
+  .small-btn {
+    border: none; background: var(--bg); color: var(--ink);
+    padding: 7px 13px; border-radius: 8px; font-size: 13px;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+  }
+  .small-btn.danger { color: var(--wrong); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--bg); }
+  th { color: var(--ink-soft); font-weight: 600; font-size: 13px; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .empty-row td { text-align: center; color: var(--ink-soft); padding: 26px 0; }
+  .tag { font-size: 12px; padding: 2px 8px; border-radius: 20px; background: var(--correct-bg); color: var(--correct); }
+  .tag.pending { background: var(--bg); color: var(--ink-soft); }
+
+  tbody tr { cursor: pointer; }
+  tbody tr:active { background: var(--bg); }
+  tbody tr.empty-row { cursor: default; }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(27,35,64,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 18px;
+    max-width: 520px; width: 100%; max-height: 82vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head {
+    padding: 18px 20px 12px; border-bottom: 1px solid var(--bg);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .modal-head h3 { margin: 0 0 3px; font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; }
+  .modal-head p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+  .modal-close {
+    border: none; background: var(--bg); color: var(--ink);
+    width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+    font-size: 16px; line-height: 1; flex-shrink: 0;
+  }
+  .modal-body { overflow-y: auto; padding: 6px 20px 20px; }
+  .modal-body table { font-size: 13.5px; }
+  .modal-body td.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+  .mark-o { color: var(--correct); font-weight: 700; }
+  .mark-x { color: var(--wrong); font-weight: 700; }
+  .pressed-wrong { color: var(--wrong); }
+
+  @media (max-width: 620px) {
+    .stage { padding: 26px 18px 22px; }
+    .piano-keys { height: 170px; }
+    .app { padding: 20px 12px 28px; }
+    table { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <h1>화음 건반 퀴즈</h1>
+    <div id="topbarRight"></div>
+  </div>
+
+  <!-- START -->
+  <div class="screen active" id="screen-start">
+    <div class="center-card">
+      <h2>화음 건반 퀴즈</h2>
+      <p>major·minor 화음을 보고 건반에서 구성음 3개를 골라보는 연습이에요.</p>
+      <div class="role-buttons">
+        <button class="big-btn" id="btnGoStudent">시작하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENT SETUP -->
+  <div class="screen" id="screen-setup">
+    <div class="center-card">
+      <h2>이름과 모드를 선택하세요</h2>
+      <p>선생님이 실시간으로 결과를 확인할 수 있어요.</p>
+      <div class="id-fields">
+        <input class="name-input small" id="gradeInput" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+        <input class="name-input small" id="classInput" type="text" inputmode="numeric" placeholder="반" maxlength="3">
+      </div>
+      <input class="name-input" id="nameInput" type="text" placeholder="이름 (예: 홍길동)" maxlength="20">
+      <div class="mode-pick">
+        <div class="mode-option" data-mode="practice">
+          <strong>연습 모드</strong>
+          <span>화음 이름 공개, 오답 시 재시도 가능</span>
+        </div>
+        <div class="mode-option" data-mode="exam">
+          <strong>시험 모드</strong>
+          <span>16문제, 재시도 없이 정답/오답만 표시</span>
+        </div>
+      </div>
+      <p class="setup-error" id="setupError"></p>
+      <button class="big-btn" id="btnStartQuiz">시작하기</button>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="screen" id="screen-quiz">
+    <div class="stage">
+      <p class="prompt-label" id="promptLabel">건반에서 이 화음의 구성음 3개를 눌러보세요</p>
+      <p class="chord-name" id="chordName">&nbsp;</p>
+      <p class="feedback idle" id="feedback">준비되면 건반을 눌러 시작하세요</p>
+      <div class="progress-dots" id="progressDots"><span></span><span></span><span></span></div>
+      <div class="exam-tag" id="examTag" hidden></div>
+    </div>
+
+    <div class="piano-wrap">
+      <div class="piano-keys" id="pianoKeys"></div>
+      <div class="controls">
+        <button class="reset-btn" id="resetBtn">선택 초기화</button>
+        <button class="confirm-btn" id="confirmBtn">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXAM RESULT -->
+  <div class="screen" id="screen-result">
+    <div class="center-card">
+      <h2>시험이 끝났어요</h2>
+      <p class="result-score" id="resultScore">0<span>/24</span></p>
+      <p id="resultSub">선생님께 결과가 전송되었어요.</p>
+      <div class="role-buttons">
+        <button class="big-btn" id="btnBackToStart">처음 화면으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEACHER AUTH -->
+  <div class="screen" id="screen-teacher-auth">
+    <div class="center-card">
+      <h2>선생님 확인</h2>
+      <p>비밀번호를 입력하면 학생 현황을 볼 수 있어요.</p>
+      <input class="name-input" id="pinInput" type="password" inputmode="numeric" placeholder="비밀번호" maxlength="12">
+      <p class="setup-error" id="pinError"></p>
+      <button class="big-btn" id="btnPinSubmit">확인</button>
+    </div>
+  </div>
+
+  <!-- TEACHER DASHBOARD -->
+  <div class="screen" id="screen-teacher">
+    <div class="tabs">
+      <button class="tab-btn active" id="tabPractice" data-tab="practice">연습 현황</button>
+      <button class="tab-btn" id="tabExam" data-tab="exam">시험 현황</button>
+    </div>
+    <div class="dash-panel">
+      <div class="dash-toolbar">
+        <span class="updated" id="dashUpdated">불러오는 중...</span>
+        <div class="dash-actions">
+          <button class="small-btn" id="btnExport">엑셀로 내려받기</button>
+          <button class="small-btn" id="btnRefresh">새로고침</button>
+          <button class="small-btn danger" id="btnClearDash">기록 초기화</button>
+        </div>
+      </div>
+      <table>
+        <thead id="dashHead"></thead>
+        <tbody id="dashBody"><tr class="empty-row"><td colspan="7">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="detailModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="detailTitle">응답 기록</h3>
+        <p id="detailSub"></p>
+      </div>
+      <button class="modal-close" id="detailClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead><tr><th>번호</th><th>문제</th><th>학생이 누른 음</th><th>정답</th><th>채점</th></tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Google Sheets(Apps Script 웹앱)를 결과 저장소로 사용한다.
+  const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+
+  async function storageRequest(action, params){
+    const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+    const res = await fetch(STORAGE_API_URL + '?' + qs);
+    if (!res.ok) throw new Error('storage request failed: ' + res.status);
+    return res.json();
+  }
+
+  window.storage = {
+    list: (prefix) => storageRequest('list', { prefix }),
+    get: (key) => storageRequest('get', { key }),
+    set: (key, value) => storageRequest('set', { key, value }),
+    delete: (key) => storageRequest('delete', { key })
+  };
+
+  const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const BLACK_PCS = new Set([1,3,6,8,10]);
+
+  const keys = [];
+  for (let midi = 60; midi <= 79; midi++){
+    const pc = midi % 12;
+    keys.push({ midi, pc, black: BLACK_PCS.has(pc) });
+  }
+  const whiteKeys = keys.filter(k => !k.black);
+  const whiteWidth = 100 / whiteKeys.length;
+  const blackWidth = whiteWidth * 0.62;
+  let whiteIndex = 0;
+  keys.forEach(k => {
+    if (!k.black){ k.left = whiteIndex * whiteWidth; k.width = whiteWidth; whiteIndex++; }
+    else { k.left = whiteIndex * whiteWidth - blackWidth / 2; k.width = blackWidth; }
+  });
+
+  const allChords = [];
+  for (let root = 0; root < 12; root++){
+    allChords.push({ root, quality: 'major', name: NAMES[root], pcs: [root, (root+4)%12, (root+7)%12] });
+    allChords.push({ root, quality: 'minor', name: NAMES[root], pcs: [root, (root+3)%12, (root+7)%12] });
+  }
+  const naturalChords = allChords.filter(c => !BLACK_PCS.has(c.root));
+  const sharpChords = allChords.filter(c => BLACK_PCS.has(c.root));
+
+  function buildExamDeck(){
+    const sharpPicks = shuffle(sharpChords).slice(0, 2);
+    return shuffle([...naturalChords, ...sharpPicks]);
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function midiToFreq(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+  function playTone(midi){
+    try {
+      ensureAudio();
+      const t0 = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = midiToFreq(midi);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.6);
+    } catch (e) {}
+  }
+
+  // ---- screens ----
+  const screens = {};
+  document.querySelectorAll('.screen').forEach(el => screens[el.id] = el);
+  function showScreen(id){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[id].classList.add('active');
+    document.getElementById('topbarRight').innerHTML = '';
+    if (id !== 'screen-start'){
+      const back = document.createElement('button');
+      back.className = 'back-link';
+      back.textContent = '← 처음으로';
+      back.addEventListener('click', goHome);
+      document.getElementById('topbarRight').appendChild(back);
+    }
+    if (id === 'screen-quiz'){
+      const scoreEl = document.createElement('div');
+      scoreEl.className = 'score';
+      scoreEl.innerHTML = '맞힌 개수 <b id="correctCount">0</b> / 시도 <span id="attemptCount">0</span>';
+      document.getElementById('topbarRight').appendChild(scoreEl);
+    }
+    if (id === 'screen-teacher') startDashboardPolling(); else stopDashboardPolling();
+  }
+  function goHome(){ showScreen('screen-start'); }
+
+  document.getElementById('btnGoStudent').addEventListener('click', () => showScreen('screen-setup'));
+  // Change this before sharing the link with students.
+  const TEACHER_PIN = '2580';
+
+  // Hidden teacher entry: tap the page title 5 times quickly.
+  let titleTaps = 0;
+  let titleTapTimer = null;
+  document.querySelector('.topbar h1').addEventListener('click', () => {
+    titleTaps++;
+    clearTimeout(titleTapTimer);
+    titleTapTimer = setTimeout(() => { titleTaps = 0; }, 1500);
+    if (titleTaps >= 5){
+      titleTaps = 0;
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinError').textContent = '';
+      showScreen('screen-teacher-auth');
+    }
+  });
+
+  function submitPin(){
+    const val = document.getElementById('pinInput').value.trim();
+    if (val === TEACHER_PIN){
+      showScreen('screen-teacher');
+      loadDashboard();
+    } else {
+      document.getElementById('pinError').textContent = '비밀번호가 올바르지 않아요.';
+    }
+  }
+  document.getElementById('btnPinSubmit').addEventListener('click', submitPin);
+  document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitPin(); });
+  document.getElementById('btnBackToStart').addEventListener('click', goHome);
+
+  // ---- storage helpers ----
+  function sanitizeToken(s){
+    return (s || '').trim().replace(/[\s\/\\'"]+/g, '_').slice(0, 20);
+  }
+  function pad3(n){ return String(n).padStart(3, '0'); }
+
+  // Count how many past sessions this student already has, so the new one
+  // is stored as the next attempt instead of overwriting.
+  async function nextAttemptNo(mode, storageId){
+    try {
+      const res = await window.storage.list(mode + ':' + storageId + ':', true);
+      const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+      let max = 0;
+      keyNames.forEach(k => {
+        const n = parseInt(k.split(':').pop(), 10);
+        if (!isNaN(n) && n > max) max = n;
+      });
+      return max + 1;
+    } catch (e) { return 1; }
+  }
+
+  async function submitScore(state){
+    try {
+      const key = state.mode + ':' + state.storageId + ':' + pad3(state.attemptNo);
+      const value = JSON.stringify({
+        grade: state.grade,
+        klass: state.klass,
+        name: state.name,
+        attemptNo: state.attemptNo,
+        correct: state.correctCount,
+        attempts: state.attemptCount,
+        total: state.mode === 'exam' ? state.examDeck.length : null,
+        completed: state.mode === 'exam' ? (state.examIndex >= state.examDeck.length) : null,
+        log: (state.log || []).slice(-60),
+        updatedAt: Date.now()
+      });
+      await window.storage.set(key, value, true);
+    } catch (e) { console.error('score submit failed', e); }
+  }
+
+  // ---- student setup ----
+  let pickedMode = null;
+  document.querySelectorAll('.mode-option').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('picked'));
+      el.classList.add('picked');
+      pickedMode = el.dataset.mode;
+    });
+  });
+
+  document.getElementById('btnStartQuiz').addEventListener('click', async () => {
+    const btn = document.getElementById('btnStartQuiz');
+    const gradeVal = document.getElementById('gradeInput').value.trim();
+    const classVal = document.getElementById('classInput').value.trim();
+    const nameVal = document.getElementById('nameInput').value.trim();
+    const errEl = document.getElementById('setupError');
+    if (!gradeVal || !classVal){ errEl.textContent = '학년과 반을 입력해주세요.'; return; }
+    if (!nameVal){ errEl.textContent = '이름을 입력해주세요.'; return; }
+    if (!pickedMode){ errEl.textContent = '모드를 선택해주세요.'; return; }
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = '준비 중...';
+    try {
+      await startQuiz({ grade: gradeVal, klass: classVal, name: nameVal }, pickedMode);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '시작하기';
+    }
+  });
+
+  // ---- quiz state ----
+  let quiz = null;
+
+  const pianoEl = document.getElementById('pianoKeys');
+  const chordNameEl = document.getElementById('chordName');
+  const feedbackEl = document.getElementById('feedback');
+  const promptLabelEl = document.getElementById('promptLabel');
+  const examTagEl = document.getElementById('examTag');
+  const dotsEl = document.getElementById('progressDots').children;
+  const resetBtn = document.getElementById('resetBtn');
+  const confirmBtn = document.getElementById('confirmBtn');
+
+  const whiteEls = keys.filter(k => !k.black);
+  const blackEls = keys.filter(k => k.black);
+  function makeKeyEl(k){
+    const el = document.createElement('div');
+    el.className = 'key ' + (k.black ? 'black' : 'white');
+    el.style.left = k.left + '%';
+    el.style.width = k.width + '%';
+    el.dataset.pc = k.pc;
+    el.addEventListener('click', () => onKeyClick(k.pc, k.midi, el));
+    return el;
+  }
+  whiteEls.forEach(k => pianoEl.appendChild(makeKeyEl(k)));
+  blackEls.forEach(k => pianoEl.appendChild(makeKeyEl(k)));
+
+  function clearVisualState(){
+    document.querySelectorAll('.key').forEach(el => el.classList.remove('selected', 'correct', 'wrong'));
+  }
+  function updateDots(){
+    const filled = Math.min(quiz.selected.size, dotsEl.length);
+    for (let i = 0; i < dotsEl.length; i++) dotsEl[i].classList.toggle('filled', i < filled);
+  }
+  function updateConfirmState(){ confirmBtn.disabled = quiz.locked || quiz.selected.size === 0; }
+  function renderChordName(chord){
+    chordNameEl.innerHTML = chord.quality === 'major' ? chord.name : chord.name + '<span class="quality">m</span>';
+  }
+  function updateTopScore(){
+    const c = document.getElementById('correctCount');
+    const a = document.getElementById('attemptCount');
+    if (c) c.textContent = quiz.correctCount;
+    if (a) a.textContent = quiz.attemptCount;
+  }
+
+  async function startQuiz(who, mode){
+    const storageId = sanitizeToken(who.grade) + '-' + sanitizeToken(who.klass) + '-' + sanitizeToken(who.name);
+    const attemptNo = await nextAttemptNo(mode, storageId);
+    quiz = {
+      mode,
+      grade: who.grade,
+      klass: who.klass,
+      name: who.name,
+      storageId,
+      attemptNo,
+      correctCount: 0,
+      attemptCount: 0,
+      selected: new Map(),
+      locked: false,
+      queue: shuffle(allChords),
+      current: null,
+      examDeck: mode === 'exam' ? buildExamDeck() : [],
+      examIndex: 0,
+      log: []
+    };
+    resetBtn.hidden = (mode === 'exam');
+    promptLabelEl.textContent = '건반에서 이 화음의 구성음 3개를 누른 뒤 확인을 눌러보세요';
+    examTagEl.hidden = (mode !== 'exam');
+    showScreen('screen-quiz');
+    updateTopScore();
+    nextChord();
+  }
+
+  function nextChord(){
+    if (quiz.mode === 'exam'){
+      if (quiz.examIndex >= quiz.examDeck.length){ finishExam(); return; }
+      quiz.current = quiz.examDeck[quiz.examIndex];
+      examTagEl.textContent = (quiz.examIndex + 1) + ' / ' + quiz.examDeck.length + '번 문제';
+    } else {
+      if (quiz.queue.length === 0) quiz.queue = shuffle(allChords);
+      quiz.current = quiz.queue.pop();
+    }
+    quiz.selected = new Map();
+    quiz.locked = false;
+    clearVisualState();
+    updateDots();
+    updateConfirmState();
+    renderChordName(quiz.current);
+    feedbackEl.textContent = quiz.mode === 'exam'
+      ? '구성음 3개를 고르고 확인을 눌러보세요'
+      : '건반에서 구성음 3개를 누른 뒤 확인을 눌러보세요';
+    feedbackEl.className = 'feedback idle';
+  }
+
+  function onKeyClick(pc, midi, el){
+    if (!quiz || quiz.locked) return;
+    playTone(midi);
+    if (quiz.selected.has(pc)){
+      quiz.selected.get(pc).classList.remove('selected');
+      quiz.selected.delete(pc);
+      updateDots(); updateConfirmState();
+      return;
+    }
+    quiz.selected.set(pc, el);
+    el.classList.add('selected');
+    updateDots(); updateConfirmState();
+  }
+
+  function checkAnswer(){
+    if (!quiz || quiz.locked || quiz.selected.size === 0) return;
+    quiz.locked = true;
+    quiz.attemptCount++;
+    updateTopScore();
+
+    const target = new Set(quiz.current.pcs);
+    const isCorrect = target.size === quiz.selected.size && [...target].every(pc => quiz.selected.has(pc));
+
+    // Record exactly what the student pressed, for later verification.
+    const pressedPcs = [...quiz.selected.keys()].sort((a, b) => a - b);
+    quiz.log.push({
+      q: quiz.mode === 'exam' ? (quiz.examIndex + 1) : quiz.attemptCount,
+      chord: quiz.current.name + (quiz.current.quality === 'minor' ? 'm' : ''),
+      answer: quiz.current.pcs.slice().sort((a, b) => a - b).map(pc => NAMES[pc]).join(' '),
+      pressed: pressedPcs.map(pc => NAMES[pc]).join(' '),
+      correct: isCorrect,
+      at: Date.now()
+    });
+
+    if (isCorrect){
+      quiz.correctCount++;
+      updateTopScore();
+      quiz.selected.forEach(el => { el.classList.remove('selected'); el.classList.add('correct'); });
+      feedbackEl.textContent = '정답이에요!' + (quiz.mode === 'practice' ? ' 잘했어요' : '');
+      feedbackEl.className = 'feedback correct';
+    } else {
+      quiz.selected.forEach(el => { el.classList.remove('selected'); el.classList.add('wrong'); });
+      feedbackEl.textContent = quiz.mode === 'exam' ? '오답이에요' : '아쉬워요, 다시 눌러보세요';
+      feedbackEl.className = 'feedback wrong';
+    }
+
+    if (quiz.mode === 'exam'){
+      quiz.examIndex++;
+      submitScore(quiz);
+      setTimeout(nextChord, 900);
+    } else {
+      submitScore(quiz);
+      if (isCorrect){
+        setTimeout(nextChord, 900);
+      } else {
+        setTimeout(() => {
+          quiz.selected = new Map();
+          clearVisualState();
+          updateDots();
+          updateConfirmState();
+          quiz.locked = false;
+        }, 750);
+      }
+    }
+  }
+
+  function finishExam(){
+    submitScore(quiz);
+    document.getElementById('resultScore').innerHTML = quiz.correctCount + '<span>/' + quiz.examDeck.length + '</span>';
+    showScreen('screen-result');
+  }
+
+  resetBtn.addEventListener('click', () => {
+    if (!quiz || quiz.locked) return;
+    quiz.selected = new Map();
+    clearVisualState();
+    updateDots();
+    updateConfirmState();
+  });
+  confirmBtn.addEventListener('click', checkAnswer);
+
+  // ---- teacher dashboard ----
+  let currentTab = 'practice';
+  let dashInterval = null;
+  const dashHead = document.getElementById('dashHead');
+  const dashBody = document.getElementById('dashBody');
+  const dashUpdated = document.getElementById('dashUpdated');
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      loadDashboard();
+    });
+  });
+  document.getElementById('btnRefresh').addEventListener('click', loadDashboard);
+
+  document.getElementById('btnExport').addEventListener('click', () => {
+    if (lastRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
+    const isPractice = currentTab === 'practice';
+    const header = isPractice
+      ? ['학년','반','이름','회차','맞힌 개수','시도','정답률(%)']
+      : ['학년','반','이름','회차','점수','총문항','진행','상태'];
+
+    const csvRows = lastRows.map(r => isPractice
+      ? [r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.correct, r.attempts,
+         r.attempts ? Math.round((r.correct / r.attempts) * 100) : '']
+      : [r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.correct, r.total || 16,
+         r.attempts, r.completed ? '완료' : '진행 중']
+    );
+
+    const esc = v => {
+      const s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const csv = [header, ...csvRows].map(row => row.map(esc).join(',')).join('\r\n');
+
+    // BOM so Excel reads Korean text correctly
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = '화음퀴즈_' + (isPractice ? '연습' : '시험') + '_' + stamp + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+  document.getElementById('btnClearDash').addEventListener('click', async () => {
+    const label = currentTab === 'practice' ? '연습' : '시험';
+    if (!confirm(label + ' 기록을 모두 삭제할까요? 되돌릴 수 없어요.')) return;
+    try {
+      const res = await window.storage.list(currentTab + ':', true);
+      const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+      for (const k of keyNames){
+        try { await window.storage.delete(k, true); } catch(e){}
+      }
+    } catch (e) { console.error(e); }
+    loadDashboard();
+  });
+
+  function startDashboardPolling(){
+    stopDashboardPolling();
+    dashInterval = setInterval(loadDashboard, 4000);
+  }
+  function stopDashboardPolling(){
+    if (dashInterval){ clearInterval(dashInterval); dashInterval = null; }
+  }
+
+  let lastRows = [];
+
+  async function loadDashboard(){
+    if (detailModal && detailModal.classList.contains('open')) return;
+    if (currentTab === 'practice'){
+      dashHead.innerHTML = '<tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>맞힌 개수</th><th>시도</th><th>정답률</th></tr>';
+    } else {
+      dashHead.innerHTML = '<tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>점수</th><th>진행</th><th>상태</th></tr>';
+    }
+    try {
+      const res = await window.storage.list(currentTab + ':', true);
+      const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+      const rows = [];
+      for (const k of keyNames){
+        try {
+          const got = await window.storage.get(k, true);
+          if (got && got.value) rows.push(JSON.parse(got.value));
+        } catch (e) {}
+      }
+      const numOr = v => { const n = parseInt(v, 10); return isNaN(n) ? 9999 : n; };
+      rows.sort((a, b) =>
+        numOr(a.grade) - numOr(b.grade) ||
+        numOr(a.klass) - numOr(b.klass) ||
+        (a.name || '').localeCompare(b.name || '', 'ko') ||
+        (a.attemptNo || 1) - (b.attemptNo || 1)
+      );
+      lastRows = rows;
+      renderDashRows(rows);
+      dashUpdated.textContent = rows.length + '명 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
+    } catch (e) {
+      lastRows = [];
+      dashUpdated.textContent = '불러오지 못했어요';
+      dashBody.innerHTML = '<tr class="empty-row"><td colspan="7">데이터를 불러올 수 없어요</td></tr>';
+    }
+  }
+
+  function renderDashRows(rows){
+    if (rows.length === 0){
+      dashBody.innerHTML = '<tr class="empty-row"><td colspan="7">아직 제출한 학생이 없어요</td></tr>';
+      return;
+    }
+    dashBody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.addEventListener('click', () => openDetail(r));
+
+      const gradeTd = document.createElement('td');
+      gradeTd.className = 'num'; gradeTd.textContent = r.grade || '-';
+      tr.appendChild(gradeTd);
+
+      const classTd = document.createElement('td');
+      classTd.className = 'num'; classTd.textContent = r.klass || '-';
+      tr.appendChild(classTd);
+
+      const nameTd = document.createElement('td');
+      nameTd.textContent = r.name || '이름없음';
+      tr.appendChild(nameTd);
+
+      const attemptNoTd = document.createElement('td');
+      attemptNoTd.className = 'num';
+      attemptNoTd.textContent = (r.attemptNo || 1) + '차';
+      tr.appendChild(attemptNoTd);
+
+      if (currentTab === 'practice'){
+        const correctTd = document.createElement('td');
+        correctTd.className = 'num'; correctTd.textContent = r.correct;
+        const attemptTd = document.createElement('td');
+        attemptTd.className = 'num'; attemptTd.textContent = r.attempts;
+        const rateTd = document.createElement('td');
+        rateTd.className = 'num';
+        rateTd.textContent = r.attempts ? Math.round((r.correct / r.attempts) * 100) + '%' : '-';
+        tr.appendChild(correctTd); tr.appendChild(attemptTd); tr.appendChild(rateTd);
+      } else {
+        const scoreTd = document.createElement('td');
+        scoreTd.className = 'num'; scoreTd.textContent = r.correct + ' / ' + (r.total || 16);
+        const progressTd = document.createElement('td');
+        progressTd.className = 'num'; progressTd.textContent = r.attempts + ' / ' + (r.total || 16);
+        const statusTd = document.createElement('td');
+        const tag = document.createElement('span');
+        tag.className = 'tag' + (r.completed ? '' : ' pending');
+        tag.textContent = r.completed ? '완료' : '진행 중';
+        statusTd.appendChild(tag);
+        tr.appendChild(scoreTd); tr.appendChild(progressTd); tr.appendChild(statusTd);
+      }
+      dashBody.appendChild(tr);
+    });
+  }
+
+  // ---- answer detail modal ----
+  const detailModal = document.getElementById('detailModal');
+  const detailBody = document.getElementById('detailBody');
+
+  function closeDetail(){ detailModal.classList.remove('open'); }
+  document.getElementById('detailClose').addEventListener('click', closeDetail);
+  detailModal.addEventListener('click', e => { if (e.target === detailModal) closeDetail(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+
+  function openDetail(r){
+    document.getElementById('detailTitle').textContent =
+      (r.grade || '?') + '학년 ' + (r.klass || '?') + '반 ' + (r.name || '이름없음');
+    const when = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '';
+    document.getElementById('detailSub').textContent =
+      (r.attemptNo || 1) + '차 · ' + (currentTab === 'practice' ? '연습' : '시험') +
+      ' · 맞힌 개수 ' + r.correct + (when ? ' · ' + when : '');
+
+    const log = r.log || [];
+    detailBody.innerHTML = '';
+    if (log.length === 0){
+      detailBody.innerHTML = '<tr class="empty-row"><td colspan="5">저장된 응답 기록이 없어요</td></tr>';
+    } else {
+      log.forEach(item => {
+        const tr = document.createElement('tr');
+
+        const qTd = document.createElement('td');
+        qTd.className = 'num'; qTd.textContent = item.q;
+
+        const chordTd = document.createElement('td');
+        chordTd.textContent = item.chord;
+
+        const pressedTd = document.createElement('td');
+        pressedTd.className = 'mono' + (item.correct ? '' : ' pressed-wrong');
+        pressedTd.textContent = item.pressed;
+
+        const answerTd = document.createElement('td');
+        answerTd.className = 'mono'; answerTd.textContent = item.answer;
+
+        const markTd = document.createElement('td');
+        markTd.className = item.correct ? 'mark-o' : 'mark-x';
+        markTd.textContent = item.correct ? 'O' : 'X';
+
+        tr.appendChild(qTd); tr.appendChild(chordTd);
+        tr.appendChild(pressedTd); tr.appendChild(answerTd); tr.appendChild(markTd);
+        detailBody.appendChild(tr);
+      });
+    }
+    detailModal.classList.add('open');
+  }
+})();
+</script>
+
+</body>
+</html>
