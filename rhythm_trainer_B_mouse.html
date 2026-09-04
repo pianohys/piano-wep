@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>리듬 심화 트레이너 B세트 (마우스용)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f7;--bg3:#ebebed;
+  --text:#1a1a2e;--text2:#555566;--text3:#888899;
+  --border:#dddde8;--border2:#c8c8d8;
+  --radius:14px;--radius-sm:10px;
+  --accent:#0F6E56;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+  --text:#e0e0ee;--text2:#aaaacc;--text3:#777799;
+  --border:#3a3a3c;--border2:#4a4a4e;
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+#app{padding:1.2rem 1rem;max-width:660px;margin:0 auto;}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;}
+.title{font-size:18px;font-weight:600;color:var(--text);}
+.qnum{font-size:13px;color:var(--text3);}
+.prog-bar{height:4px;background:var(--bg3);border-radius:2px;margin-bottom:1rem;}
+.prog-fill{height:4px;background:#0F6E56;border-radius:2px;transition:width .3s;}
+.sc-row{display:flex;gap:8px;margin-bottom:.9rem;}
+.sc{background:var(--bg2);border-radius:var(--radius-sm);padding:7px 10px;text-align:center;flex:1;}
+.sc-num{font-size:20px;font-weight:600;color:var(--text);}
+.sc-lbl{font-size:11px;color:var(--text3);}
+.nc{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem;margin-bottom:.9rem;}
+.nc-lbl{font-size:12px;color:var(--text3);margin-bottom:6px;}
+.status-box{border-radius:var(--radius);padding:.8rem 1.1rem;font-size:14px;font-weight:600;text-align:center;margin-bottom:.9rem;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.s-idle{background:var(--bg2);color:var(--text3);border:1px solid var(--border);}
+.s-metro{background:#FAEEDA;color:#854F0B;border:1px solid #EF9F27;}
+.s-go{background:#E6F1FB;color:#185FA5;border:1px solid #85B7EB;}
+.s-ok{background:#EAF3DE;color:#3B6D11;border:1px solid #97C459;}
+.s-fail{background:#FCEBEB;color:#A32D2D;border:1px solid #F09595;}
+.s-wait{background:#EEEDFE;color:#3C3489;border:1px solid #AFA9EC;}
+.s-done{background:#EAF3DE;color:#3B6D11;border:1px solid #97C459;}
+.hit-btn{width:100%;padding:1.1rem;font-size:16px;font-weight:600;background:var(--bg);border:2px solid var(--border2);border-radius:var(--radius);cursor:pointer;color:var(--text);margin-bottom:.8rem;transition:all .1s;user-select:none;-webkit-tap-highlight-color:transparent;}
+.hit-btn:active{background:var(--bg2);transform:scale(.97);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:.8rem;}
+.act-btn{padding:.6rem 1.1rem;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.act-btn:active{background:var(--bg2);}
+.mic-btn{padding:.6rem 1.1rem;font-size:13px;border-radius:var(--radius-sm);border:1px solid #9FE1CB;background:#E1F5EE;color:#085041;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.mic-btn.active{background:#0F6E56;color:#fff;border-color:#0F6E56;}
+.bpm-row{display:flex;align-items:center;gap:10px;margin-bottom:.8rem;font-size:13px;color:var(--text3);}
+.bpm-row input[type=range]{flex:1;max-width:130px;accent-color:#0F6E56;}
+.done-screen{text-align:center;padding:2rem 1rem;}
+.done-title{font-size:26px;font-weight:700;color:var(--text);margin-bottom:.4rem;}
+.done-sub{font-size:14px;color:var(--text3);margin-bottom:1.2rem;}
+.done-msg{font-size:16px;font-weight:600;color:var(--text);margin-bottom:1.2rem;line-height:1.8;}
+.name-input{width:100%;max-width:340px;padding:.7rem 1rem;font-size:16px;border-radius:var(--radius-sm);border:2px solid var(--border);background:var(--bg);color:var(--text);text-align:center;margin-bottom:1.2rem;outline:none;}
+.name-input:focus{border-color:#0F6E56;}
+.intro-box{background:var(--bg2);border-radius:var(--radius);padding:1.2rem 1.4rem;margin-bottom:.9rem;text-align:center;}
+.intro-msg{font-size:16px;font-weight:600;color:var(--text);line-height:1.9;}
+.perm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:999;padding:1rem;}
+.perm-overlay.show{display:flex;}
+.perm-card{background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);padding:1.5rem;max-width:400px;width:100%;}
+.perm-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:.8rem;}
+.perm-step{font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:1rem;}
+.perm-step strong{color:var(--text);font-weight:600;}
+.perm-diagram{background:var(--bg2);border-radius:var(--radius-sm);padding:.8rem;margin-bottom:1rem;border:1px solid var(--border);}
+.perm-bar{height:34px;background:#e8e8ea;border-radius:6px;display:flex;align-items:center;padding:0 10px;gap:6px;margin-bottom:.5rem;}
+.perm-url{font-size:12px;color:#555;flex:1;}
+.perm-popup{background:#fff;border:1px solid #ddd;border-radius:8px;padding:.7rem .9rem;font-size:12px;color:#222;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+.perm-popup-row{display:flex;align-items:center;gap:8px;margin-bottom:.4rem;}
+.perm-popup select{font-size:11px;border:1px solid #ccc;border-radius:4px;padding:2px 4px;}
+.perm-hint{font-size:11px;color:#888;margin-top:.3rem;}
+.perm-platform{font-size:12px;color:var(--text2);margin-bottom:.8rem;line-height:1.7;}
+.perm-platform strong{color:var(--text);font-weight:600;}
+.perm-close-btn{width:100%;padding:.65rem;font-size:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-weight:500;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <span class="title">🎵 리듬 심화 트레이너 <span style="font-size:13px;color:var(--text3);font-weight:400;">B세트 · 마우스용</span></span>
+    <span class="qnum" id="qnum">문제 1 / 16</span>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="sc-row">
+    <div class="sc"><div class="sc-num" id="sc-ok">0</div><div class="sc-lbl">정답</div></div>
+    <div class="sc"><div class="sc-num" id="sc-att">0</div><div class="sc-lbl">시도</div></div>
+    <div class="sc"><div class="sc-num" id="sc-streak">0</div><div class="sc-lbl">연속</div></div>
+  </div>
+  <div id="intro-box" class="intro-box">
+    <div class="intro-msg">🥁 메트로놈 소리 4박을 듣고<br>바로 리듬을 눌러주세요.<br><span style="font-size:13px;font-weight:400;color:var(--text3);">마우스로 클릭하면 됩니다.</span></div>
+  </div>
+
+  <div class="perm-overlay" id="perm-overlay">
+    <div class="perm-card">
+      <div class="perm-title">🎤 마이크 권한 허용 방법</div>
+      <div class="perm-step">브라우저 주소창 왼쪽의 <strong>자물쇠 🔒</strong> 아이콘을 클릭하고,<br><strong>마이크 → 허용</strong>을 선택한 뒤 페이지를 새로고침하세요.</div>
+      <div class="perm-diagram">
+        <div class="perm-bar"><span>🔒</span><span class="perm-url">파일 열기</span></div>
+        <div class="perm-popup">
+          <div class="perm-popup-row"><span>🎤 마이크</span><select><option>허용</option><option>차단</option></select></div>
+          <div class="perm-hint">변경 후 페이지를 새로고침해주세요.</div>
+        </div>
+      </div>
+      <div class="perm-platform">
+        <strong>iPhone/iPad:</strong> 설정 → Safari → 마이크 → 허용<br>
+        <strong>Android:</strong> 주소창 자물쇠 → 사이트 설정 → 마이크 → 허용
+      </div>
+      <button class="perm-close-btn" id="perm-close">닫기</button>
+    </div>
+  </div>
+
+  <div class="nc">
+    <div class="nc-lbl" id="nc-lbl">리듬</div>
+    <canvas id="nc" height="80" style="width:100%;display:block;"></canvas>
+  </div>
+  <div class="bpm-row">
+    🎚 BPM: <strong id="bpm-val">72</strong>
+    <input type="range" min="50" max="120" value="72" step="1" id="bpm-sl">
+  </div>
+  <div class="status-box s-idle" id="sbox">
+    <span id="stxt">마우스 클릭하면 시작됩니다</span>
+  </div>
+  <button class="hit-btn" id="hit-btn">🖱️ 여기를 클릭하세요</button>
+  <button class="act-btn" id="skip-btn" style="display:none;width:100%;margin-bottom:.5rem;background:#FFF3CD;border-color:#FFC107;color:#856404;" onclick="doSkip()">다음 문제로 보류하고 넘어가기</button>
+  <div class="btn-row">
+    <button class="act-btn" id="metro-btn">🎵 메트로놈 듣기 + 시작</button>
+    <button class="mic-btn" id="mic-btn">🎤 음성인식 OFF</button>
+  </div>
+  <div id="done-screen" class="done-screen" style="display:none;">
+    <div class="done-title">🎉 B세트 완료!</div>
+    <div class="done-sub" id="done-sub"></div>
+    <div class="done-msg">리듬 연습 완료!<br>이름을 입력한 후 캡쳐해주세요.</div>
+    <input class="name-input" id="name-input" type="text" placeholder="이름을 입력하세요">
+    <br><button class="act-btn" id="restart-btn" style="margin-top:.5rem;">처음부터 다시</button>
+  </div>
+</div>
+
+<script>
+let bpm=72,audioCtx=null;
+function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playClick(t,accent){const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.frequency.value=accent?1500:1000;o.type='sine';g.gain.setValueAtTime(accent?.6:.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.07);}
+let _drumBuf=null,_drumBufLoud=null;
+function getDrumBuf(loud){const c=getCtx();if(loud&&_drumBufLoud)return _drumBufLoud;if(!loud&&_drumBuf)return _drumBuf;const buf=c.createBuffer(1,c.sampleRate*.10,c.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/c.sampleRate*40);if(loud)_drumBufLoud=buf;else _drumBuf=buf;return buf;}
+function playDrum(t,loud){const c=getCtx(),buf=getDrumBuf(loud||false),s=c.createBufferSource(),g=c.createGain();s.buffer=buf;g.gain.setValueAtTime(loud?1.1:.65,t);g.gain.exponentialRampToValueAtTime(.001,t+.09);s.connect(g);g.connect(c.destination);s.start(t);}
+function playFanfare(){const c=getCtx(),now=c.currentTime+.1;[[523,0],[659,.15],[784,.3],[1047,.5],[784,.75],[1047,1.0]].forEach(([freq,t])=>{const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=freq;g.gain.setValueAtTime(0,now+t);g.gain.linearRampToValueAtTime(.45,now+t+.04);g.gain.exponentialRampToValueAtTime(.001,now+t+.38);o.connect(g);g.connect(c.destination);o.start(now+t);o.stop(now+t+.4);});[0,.5,1.0].forEach(t=>playDrum(now+t,true));}
+
+const RHYTHMS=[
+  {id:1,name:"1번 리듬",beats:[{t:'q'},{t:'e2'},{t:'q'},{t:'e2'}]},
+  {id:2,name:"2번 리듬",beats:[{t:'q'},{t:'s4'},{t:'q'},{t:'s4'}]},
+  {id:3,name:"3번 리듬",beats:[{t:'q'},{t:'trip'},{t:'q'},{t:'trip'}]},
+  {id:4,name:"4번 리듬",beats:[{t:'q'},{t:'d8_16'},{t:'q'},{t:'d8_16'}]},
+  {id:5,name:"5번 리듬",beats:[{t:'q'},{t:'16_d8'},{t:'q'},{t:'16_d8'}]},
+  {id:6,name:"6번 리듬",beats:[{t:'q'},{t:'e_s_s'},{t:'q'},{t:'e_s_s'}]},
+  {id:7,name:"7번 리듬",beats:[{t:'q'},{t:'s_e_s'},{t:'q'},{t:'s_e_s'}]},
+  {id:8,name:"8번 리듬",beats:[{t:'q'},{t:'s_s_e'},{t:'q'},{t:'s_s_e'}]},
+  {id:9,name:"종합 9",beats:[{t:'q'},{t:'trip'},{t:'e2'},{t:'s4'}]},
+  {id:10,name:"종합 10",beats:[{t:'e2'},{t:'d8_16'},{t:'trip'},{t:'q'}]},
+  {id:11,name:"종합 11",beats:[{t:'d8_16'},{t:'q'},{t:'e2'},{t:'e_s_s'}]},
+  {id:12,name:"종합 12",beats:[{t:'trip'},{t:'s_e_s'},{t:'q'},{t:'s4'}]},
+  {id:13,name:"종합 13",beats:[{t:'s_s_e'},{t:'q'},{t:'e2'},{t:'16_d8'}]},
+  {id:14,name:"종합 14",beats:[{t:'s4'},{t:'d8_16'},{t:'q'},{t:'q'}]},
+  {id:15,name:"종합 15",beats:[{t:'16_d8'},{t:'s_e_s'},{t:'trip'},{t:'e_s_s'}]},
+  {id:16,name:"종합 16",beats:[{t:'s_s_e'},{t:'e_s_s'},{t:'d8_16'},{t:'trip'}]},
+];
+
+function beatHits(t){if(t==='q')return[0];if(t==='e2')return[0,.5];if(t==='s4')return[0,.25,.5,.75];if(t==='trip')return[0,1/3,2/3];if(t==='d8_16')return[0,.75];if(t==='16_d8')return[0,.25];if(t==='e_s_s')return[0,.5,.75];if(t==='s_e_s')return[0,.25,.75];if(t==='s_s_e')return[0,.25,.5];return[0];}
+function getRhythmHitTimes(r){const s=60/bpm;let times=[],bs=0;r.beats.forEach(b=>{beatHits(b.t).forEach(o=>times.push(bs+o*s));bs+=s;});return times;}
+function getTolerance(r){
+  const s=60/bpm;let minGap=s;
+  r.beats.forEach(b=>{const h=beatHits(b.t);for(let i=1;i<h.length;i++)minGap=Math.min(minGap,(h[i]-h[i-1])*s);});
+  return minGap*0.65;
+}
+function scoreHits(r,hits){
+  const S=spb(),offset=S*0.5;
+  const OK_C='#2E9E5B',ERR_C='#E24B4A';
+
+  const exp=[];let bs=0;
+  r.beats.forEach((beat,bi)=>{
+    beatHits(beat.t).forEach(o=>exp.push({t:bs+o*S+offset,bi,bt:beat.t}));
+    bs+=S;
+  });
+
+  const expTimes=exp.map(n=>n.t);
+  const userSorted=hits.slice().sort((a,b)=>a-b);
+  const MAX_DIST=S*0.55;
+
+  // Hungarian greedy matching
+  const pairs=[];
+  expTimes.forEach((et,ei)=>{
+    userSorted.forEach((ut,ui)=>{
+      const d=Math.abs(et-ut);
+      if(d<=MAX_DIST)pairs.push([d,ei,ui]);
+    });
+  });
+  pairs.sort((a,b)=>a[0]-b[0]);
+  const matchedExp=new Array(exp.length).fill(null);
+  const usedUser=new Array(userSorted.length).fill(false);
+  pairs.forEach(([d,ei,ui])=>{
+    if(matchedExp[ei]===null&&!usedUser[ui]){matchedExp[ei]=ui;usedUser[ui]=true;}
+  });
+
+  const beatHitMap=r.beats.map(()=>[]);
+  matchedExp.forEach((ui,ei)=>{if(ui!==null)beatHitMap[exp[ei].bi].push(userSorted[ui]);});
+
+  const beatPass=r.beats.map((beat,bi)=>{
+    const bh=beatHitMap[bi].slice().sort((a,b)=>a-b);
+    const n=bh.length;
+    const bt=beat.t;
+
+    if(bt==='q') return n===1;
+    if(n<2) return false;
+
+    const ivs=bh.slice(1).map((v,i)=>v-bh[i]);
+    const uT=ivs.reduce((a,b)=>a+b,0);
+    if(uT<=0) return false;
+    const uR=ivs.map(v=>v/uT);
+
+    if(bt==='e2') return n===2;
+
+    if(bt==='s4'){
+      if(Math.abs(n-4)>1) return false;
+      const eR=1/ivs.length;
+      const ratioOk=uR.every(v=>Math.abs(v-eR)<=0.35);
+      const expIv=S*0.25;
+      const absOk=ivs.every(v=>Math.abs(v-expIv)<=expIv*0.45);
+      return ratioOk&&absOk;
+    }
+
+    if(bt==='trip'){
+      if(Math.abs(n-3)>1) return false;
+      // strict: intervals must be equal AND avg interval in trip range
+      const eR=1/ivs.length;
+      const ratioOk=uR.every(v=>Math.abs(v-eR)<=0.15); // strict equality
+      const avgIv=uT/ivs.length;
+      const tripRange=Math.abs(avgIv-S/3)<=S/3*0.22; // ±22% of trip interval
+      return ratioOk&&tripRange;
+    }
+
+    if(bt==='d8_16') return ivs[0]>=S*0.55; // longer than 8th note
+    if(bt==='16_d8') return ivs[0]<=S*0.40; // shorter than 8th note
+    if(bt==='e_s_s') return n>=3&&uR[0]>uR[1]+0.08;
+    if(bt==='s_e_s') return n>=3&&uR[1]>uR[0]+0.08;
+    if(bt==='s_s_e'){
+      if(n<3)return false;
+      // intervals must be ~16th note (s*0.25), not trip (s/3)
+      const eR=1/ivs.length;
+      const ratioOk=uR.every(v=>Math.abs(v-eR)<=0.35);
+      const expIv=S*0.25;
+      const absOk=ivs.every(v=>Math.abs(v-expIv)<=expIv*0.30);
+      return ratioOk&&absOk;
+    }
+    return true;
+  });
+
+  const beatColors=beatPass.map(p=>p?OK_C:ERR_C);
+  const acc=Math.round(beatPass.filter(Boolean).length/r.beats.length*100);
+  return{acc,beatColors};
+}
+
+let curQ=0,attempts=0,correct=0,streak=0,phase='intro';
+let userHits=[],practiceAudioStart=0,practiceTimers=[],metroInterval=null,passCount=0,qAttempts=[],skippedQ=[];
+let highlightBeat=-1,highlightColor=null;
+let micOn=false,micStream=null,analyserNode=null,micAnimId=null,lastHitTime=0;
+
+function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+const NOTE_COL=()=>isDark()?'#c8c8e8':'#1a1a2e';
+const HI_COL='#EF9F27',ERR_COL='#E24B4A';
+
+function drawNotation(hiBeat,hiCol,beatColors){
+  highlightBeat=hiBeat;highlightColor=hiCol;
+  const canvas=document.getElementById('nc'),dpr=window.devicePixelRatio||1,W=canvas.offsetWidth||600,H=80;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const r=RHYTHMS[curQ],N=r.beats.length,bw=W/N,lineY=44,dk=isDark();
+  ctx.strokeStyle=dk?'rgba(200,200,220,.3)':'rgba(30,30,50,.2)';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(8,lineY);ctx.lineTo(W-8,lineY);ctx.stroke();
+  r.beats.forEach((beat,bi)=>{
+    const bx=bi*bw;let col=NOTE_COL();
+    if(beatColors&&beatColors[bi])col=beatColors[bi];
+    else if(bi===hiBeat)col=(hiCol==='err'?ERR_COL:HI_COL);
+    drawBeat(ctx,beat.t,bx,bw,lineY,col);
+    if(bi>0){ctx.strokeStyle=dk?'rgba(200,200,220,.1)':'rgba(30,30,50,.08)';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(bx+.5,lineY-32);ctx.lineTo(bx+.5,lineY+14);ctx.stroke();}
+  });
+  document.getElementById('nc-lbl').textContent=r.name;
+}
+function note(ctx,x,y,col){ctx.fillStyle=col;ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.save();ctx.translate(x,y);ctx.rotate(-.22);ctx.ellipse(0,0,7,5,0,0,Math.PI*2);ctx.restore();ctx.fill();}
+function stem(ctx,x,y,col){ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x+6,y-2);ctx.lineTo(x+6,y-32);ctx.stroke();}
+function dot(ctx,x,y,col){ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();}
+function beam(ctx,x1,x2,y,col,w){ctx.strokeStyle=col;ctx.lineWidth=w||3;ctx.beginPath();ctx.moveTo(x1+6,y);ctx.lineTo(x2+6,y);ctx.stroke();}
+function drawBeat(ctx,t,bx,bw,ly,col){
+  const sTop=ly-32;
+  if(t==='q'){const x=bx+bw*.5;note(ctx,x,ly,col);stem(ctx,x,ly,col);}
+  else if(t==='e2'){const x1=bx+bw*.28,x2=bx+bw*.68;note(ctx,x1,ly,col);stem(ctx,x1,ly,col);note(ctx,x2,ly,col);stem(ctx,x2,ly,col);beam(ctx,x1,x2,sTop,col,3);}
+  else if(t==='s4'){const xs=[bx+bw*.12,bx+bw*.36,bx+bw*.60,bx+bw*.84];xs.forEach(x=>{note(ctx,x,ly,col);stem(ctx,x,ly,col);});beam(ctx,xs[0],xs[3],sTop,col,3);beam(ctx,xs[0],xs[3],sTop+6,col,3);}
+  else if(t==='trip'){const xs=[bx+bw*.18,bx+bw*.50,bx+bw*.82];xs.forEach(x=>{note(ctx,x,ly,col);stem(ctx,x,ly,col);});beam(ctx,xs[0],xs[2],sTop,col,3);ctx.fillStyle=col;ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('3',(xs[0]+xs[2])/2+6,sTop-4);}
+  else if(t==='d8_16'){
+    const x1=bx+bw*.20,x2=bx+bw*.72;
+    note(ctx,x1,ly,col);stem(ctx,x1,ly,col);dot(ctx,x1+15,ly-5,col);
+    note(ctx,x2,ly,col);stem(ctx,x2,ly,col);
+    beam(ctx,x1,x2,sTop,col,3);
+    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x2+6-14,sTop+6);ctx.lineTo(x2+6,sTop+6);ctx.stroke();
+  }
+  else if(t==='16_d8'){
+    const x1=bx+bw*.18,x2=bx+bw*.54;
+    note(ctx,x1,ly,col);stem(ctx,x1,ly,col);
+    note(ctx,x2,ly,col);stem(ctx,x2,ly,col);dot(ctx,x2+15,ly-5,col);
+    beam(ctx,x1,x2,sTop,col,3);
+    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x1+6,sTop+6);ctx.lineTo(x1+6+14,sTop+6);ctx.stroke();
+  }
+  else if(t==='e_s_s'){const x1=bx+bw*.17,x2=bx+bw*.54,x3=bx+bw*.79;note(ctx,x1,ly,col);stem(ctx,x1,ly,col);note(ctx,x2,ly,col);stem(ctx,x2,ly,col);note(ctx,x3,ly,col);stem(ctx,x3,ly,col);beam(ctx,x1,x3,sTop,col,3);beam(ctx,x2,x3,sTop+6,col,3);}
+  else if(t==='s_e_s'){const x1=bx+bw*.14,x2=bx+bw*.44,x3=bx+bw*.80;note(ctx,x1,ly,col);stem(ctx,x1,ly,col);note(ctx,x2,ly,col);stem(ctx,x2,ly,col);note(ctx,x3,ly,col);stem(ctx,x3,ly,col);beam(ctx,x1,x3,sTop,col,3);beam(ctx,x1,x1+14,sTop+6,col,3);beam(ctx,x3-14,x3,sTop+6,col,3);}
+  else if(t==='s_s_e'){const x1=bx+bw*.14,x2=bx+bw*.42,x3=bx+bw*.74;note(ctx,x1,ly,col);stem(ctx,x1,ly,col);note(ctx,x2,ly,col);stem(ctx,x2,ly,col);note(ctx,x3,ly,col);stem(ctx,x3,ly,col);beam(ctx,x1,x3,sTop,col,3);beam(ctx,x1,x2,sTop+6,col,3);}
+}
+
+function setStatus(txt,cls){document.getElementById('sbox').className='status-box '+cls;document.getElementById('stxt').textContent=txt;}
+function updateUI(){document.getElementById('sc-ok').textContent=correct;document.getElementById('sc-att').textContent=attempts;document.getElementById('sc-streak').textContent=streak;document.getElementById('prog-fill').style.width=Math.round(curQ/RHYTHMS.length*100)+'%';document.getElementById('qnum').textContent='문제 '+(curQ+1)+' / '+RHYTHMS.length;}
+function spb(){return 60/bpm;}
+function stopMetro(){if(metroInterval){clearInterval(metroInterval);metroInterval=null;}}
+function clearPT(){practiceTimers.forEach(t=>clearTimeout(t));practiceTimers=[];}
+function scheduleMetro(startAT,beatNum,stopAfterBeats){stopMetro();const c=getCtx();let beat=beatNum,nextAT=startAT,count=0;const max=stopAfterBeats||9999;metroInterval=setInterval(()=>{const now=c.currentTime;while(nextAT<now+0.25&&count<max){if(nextAT>=now-0.02)playClick(nextAT,beat%4===0);beat++;count++;nextAT+=spb();}if(count>=max)stopMetro();},30);}
+function startMetroAndPractice(){
+  if(phase==='practicing'||phase==='metro'||phase==='demo')return;
+  clearPT();stopMetro();
+  phase='metro';
+  drawNotation(-1,null);
+  const c=getCtx(),now=c.currentTime+0.1,S=spb();
+  for(let i=0;i<4;i++)playClick(now+i*S,i===0);
+  ['4','3','2','1'].forEach((n,i)=>{
+    practiceTimers.push(setTimeout(()=>setStatus('  '+n+'  ','s-metro'),Math.max(0,(now+i*S-c.currentTime)*1000)));
+  });
+  const goAT=now+4*S;
+  practiceAudioStart=goAT-S*0.5;
+  earlyHitAt=-1;
+  phase='practicing';
+  userHits=[];
+  practiceTimers.push(setTimeout(()=>{if(phase==='practicing')setStatus('\ub9ac\ub4ec\uc744 \ub204\ub985\ub2c8\ub2e4.','s-go');},Math.max(0,(goAT-c.currentTime)*1000+30)));
+  scheduleMetro(goAT,4,RHYTHMS[curQ].beats.length*4);
+  beginPractice(goAT);
+}
+function beginPractice(goAT){
+  const c=getCtx(),r=RHYTHMS[curQ],nb=r.beats.length,S=spb();
+  for(let bi=0;bi<nb;bi++){
+    const d=(goAT-c.currentTime+bi*S)*1000;
+    practiceTimers.push(setTimeout(()=>drawNotation(bi,null),Math.max(0,d)));
+  }
+  practiceTimers.push(setTimeout(()=>finishPractice(),(goAT-c.currentTime+nb*S)*1000+300));
+}
+const INPUT_LATENCY=0.07;
+let lastHitRegistered=0;
+function doRegisterHit(){
+  const now=Date.now();
+  if(now-lastHitRegistered<60)return;
+  lastHitRegistered=now;
+  const c=getCtx();
+  const elapsed=Math.max(0,c.currentTime-practiceAudioStart-INPUT_LATENCY);
+  userHits.push(elapsed);
+  try{playDrum(c.currentTime,true);}catch(ex){}
+  const b=document.getElementById('hit-btn');b.style.transform='scale(.97)';setTimeout(()=>b.style.transform='',100);
+}
+function recordHit(){if(phase!=='practicing')return;doRegisterHit();}
+function finishPractice(){
+  if(phase!=='practicing')return;
+  clearPT();stopMetro();phase='result';attempts++;
+  qAttempts[curQ]=(qAttempts[curQ]||0)+1;
+  const{acc,beatColors}=scoreHits(RHYTHMS[curQ],userHits);
+  drawNotation(-1,null,beatColors);
+  updateUI();
+  const skipBtn=document.getElementById('skip-btn');
+  if(skipBtn)skipBtn.style.display=(qAttempts[curQ]>=4)?'inline-block':'none';
+
+  if(acc>=80){
+    // Pass: play demo once more then advance
+    correct++;streak++;passCount=0;
+    skipBtn&&(skipBtn.style.display='none');
+    if(acc===100){
+      setStatus('\uc644\ubcbd\ud569\ub2c8\ub2e4! \ud55c \ubc88 \ub354 \ub4e4\uc5b4\ubcf4\uace0 \ub2e4\uc74c \ubb38\uc81c\ub85c \ub118\uc5b4\uac11\ub2c8\ub2e4.','s-ok');
+    } else {
+      setStatus('\ub9de\uc558\uc9c0\ub9cc \ud55c \ubc88 \ub354 \ub4e4\uc5b4\ubcf4\uace0 \ub2e4\uc74c \ubb38\uc81c\ub85c \ub118\uc5b4\uac11\ub2c8\ub2e4. (\uc815\ud655\ub3c4 '+acc+'%)','s-ok');
+    }
+    updateUI();
+    setTimeout(()=>playDemoThenAdvance(),1000);
+  } else if(acc>=75){
+    if(passCount>0){
+      correct++;streak++;passCount=0;
+      setStatus('\uc870\uae08 \uc544\uc26c\uc6b0\ub2c8 \ub2e4\uc2dc \ud55c\ubc88 \ub4e4\uc5b4\ubcf4\uace0 \ub2e4\uc74c \ubb38\uc81c\ub85c \ub118\uc5b4\uac11\ub2c8\ub2e4.','s-metro');
+      updateUI();
+      skipBtn&&(skipBtn.style.display='none');
+      playDemoThenAdvance();
+    } else {
+      passCount=1;streak=0;updateUI();
+      setStatus('\uc870\uae08 \uc544\uc26c\uc6b0\ub2c8 \ud55c \ubc88 \ub354 \ub4e4\uc5b4\ubcf4\uace0 \ub2e4\uc2dc \uc2dc\ub3c4\ud558\uc138\uc694 ('+acc+'%)','s-metro');
+      setTimeout(()=>playDemoThenWait(),1500);
+    }
+  } else {
+    passCount=0;streak=0;updateUI();
+    setStatus('\uc815\ud655\ub3c4 '+acc+'% \u2014 &#x1F7E2;\ub9de\uc74c &#x1F7E0;\uc544\uc26c\uc6c0 &#x1F534;\ud2c0\ub9bc','s-fail');
+    setTimeout(()=>playDemoThenWait(),2500);
+  }
+}
+function playDemoThenAdvance(){
+  clearPT();stopMetro();phase='demo';
+  const r=RHYTHMS[curQ],c=getCtx(),demoAT=c.currentTime+0.2,S=spb();
+  scheduleMetro(demoAT,0,r.beats.length);
+  r.beats.forEach((beat,bi)=>{
+    const bAT=demoAT+bi*S;
+    beatHits(beat.t).forEach((off,hi)=>playDrum(bAT+off*S,hi===0&&off===0));
+    practiceTimers.push(setTimeout(()=>drawNotation(bi,'err'),Math.max(0,(bAT-c.currentTime)*1000)));
+  });
+  const totalMs=(demoAT-c.currentTime+r.beats.length*S)*1000+300;
+  practiceTimers.push(setTimeout(()=>{stopMetro();drawNotation(-1,null);advanceQuestion();},totalMs));
+}
+function playDemoThenWait(){clearPT();stopMetro();phase='demo';const r=RHYTHMS[curQ],c=getCtx(),demoAT=c.currentTime+0.2,S=spb();setStatus('리듬을 들어보세요','s-metro');scheduleMetro(demoAT,0,r.beats.length);r.beats.forEach((beat,bi)=>{const bAT=demoAT+bi*S;beatHits(beat.t).forEach((off,hi)=>playDrum(bAT+off*S,hi===0&&off===0));practiceTimers.push(setTimeout(()=>drawNotation(bi,'err'),Math.max(0,(bAT-c.currentTime)*1000)));});practiceTimers.push(setTimeout(()=>{stopMetro();drawNotation(-1,null);phase='wait';waitReadyAt=Date.now()+200;setStatus('다시 도전하려면 마우스 클릭하세요','s-wait');},(demoAT-c.currentTime+r.beats.length*S)*1000+200));}
+function doSkip(){
+  if(phase==='practicing'){clearPT();stopMetro();phase='result';}
+  const idx=curQ;
+  if(!skippedQ.includes(idx))skippedQ.push(idx);
+  qAttempts[idx]=0;passCount=0;
+  document.getElementById('skip-btn').style.display='none';
+  // find next non-skipped
+  let next=curQ+1;
+  while(next<RHYTHMS.length&&skippedQ.includes(next))next++;
+  if(next<RHYTHMS.length){
+    curQ=next;drawNotation(-1,null);updateUI();
+    setStatus('\uba54\ud2b8\ub85c\ub188 4\ubc15 \ud6c4 \ubc14\ub85c \uce58\uc138\uc694!','s-idle');phase='idle';
+  } else if(skippedQ.length>0){
+    curQ=skippedQ[0];drawNotation(-1,null);updateUI();
+    setStatus('\uae00\uc5b4\ub193\uc740 \ubb38\uc81c('+skippedQ.length+'\uac1c)\ub85c \ub3cc\uc544\uac11\ub2c8\ub2e4!','s-wait');
+    phase='idle';
+  } else {showDone();}
+}
+function advanceQuestion(){
+  qAttempts[curQ]=0;
+  if(skippedQ.includes(curQ))skippedQ=skippedQ.filter(q=>q!==curQ);
+  // find next non-skipped main question
+  let next=curQ+1;
+  while(next<RHYTHMS.length&&skippedQ.includes(next))next++;
+  if(next<RHYTHMS.length){
+    curQ=next;
+    drawNotation(-1,null);updateUI();
+    setStatus('\uba54\ud2b8\ub85c\ub188 4\ubc15 \ud6c4 \ubc14\ub85c \uce58\uc138\uc694!','s-idle');phase='idle';
+  } else if(skippedQ.length>0){
+    // all main done — go back to skipped questions
+    curQ=skippedQ[0];
+    drawNotation(-1,null);updateUI();
+    setStatus('\uae00\uc5b4\ub193\uc740 \ubb38\uc81c\ub85c \ub3cc\uc544\uac11\ub2c8\ub2e4! (\ub099\uc740 \ubb38\uc81c: '+skippedQ.join(', ')+')', 's-wait');
+    phase='idle';
+  } else {
+    showDone();
+  }
+}
+function showDone(){phase='done';stopMetro();stopMic();playFanfare();document.getElementById('done-screen').style.display='block';document.getElementById('done-sub').textContent='총 '+attempts+'번 시도 / 정답 '+correct+'문제 / 최고 연속 '+streak+'회';setStatus('모든 리듬 완료! 축하합니다! 🎉','s-done');setTimeout(()=>document.getElementById('name-input').focus(),400);}
+function stopMic(){micOn=false;document.getElementById('mic-btn').classList.remove('active');document.getElementById('mic-btn').textContent='🎤 음성인식 OFF';if(micAnimId){cancelAnimationFrame(micAnimId);micAnimId=null;}if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}analyserNode=null;}
+function doStartMic(){navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(stream=>{micStream=stream;micOn=true;document.getElementById('mic-btn').classList.add('active');document.getElementById('mic-btn').textContent='🎤 음성인식 ON';const ac=getCtx(),source=ac.createMediaStreamSource(stream);analyserNode=ac.createAnalyser();analyserNode.fftSize=512;source.connect(analyserNode);const data=new Uint8Array(analyserNode.fftSize);function loop(){if(!micOn)return;micAnimId=requestAnimationFrame(loop);analyserNode.getByteTimeDomainData(data);let peak=0;for(let i=0;i<data.length;i++)peak=Math.max(peak,Math.abs(data[i]-128));const now=ac.currentTime;if(peak>140&&now-lastHitTime>0.08){lastHitTime=now;if(phase==='practicing')doRegisterHit();}}loop();}).catch(()=>document.getElementById('perm-overlay').classList.add('show'));}
+function startMicHit(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){document.getElementById('perm-overlay').classList.add('show');return;}doStartMic();}
+let waitReadyAt=0;
+let earlyHitAt=-1;
+function handleAnyKey(){
+  if(phase==='done')return;
+  if(document.activeElement===document.getElementById('name-input'))return;
+  getCtx();
+  if(phase==='intro'){document.getElementById('intro-box').style.display='none';phase='idle';startMetroAndPractice();}
+  else if(phase==='idle')startMetroAndPractice();
+  else if(phase==='wait'){if(Date.now()<waitReadyAt)return;startMetroAndPractice();}
+  else if(phase==='practicing')doRegisterHit();
+}
+let lastPointerTime=0;
+function onPointerHit(e){
+  if(e.target.closest('#bpm-sl')||e.target.closest('#mic-btn')||e.target.closest('#metro-btn')||e.target.closest('#perm-overlay')||e.target.closest('#restart-btn')||e.target.closest('#name-input'))return;
+  const now=Date.now();
+  if(now-lastPointerTime<80)return;
+  lastPointerTime=now;
+  if(phase==='practicing') doRegisterHit();
+  else handleAnyKey();
+}
+document.getElementById('hit-btn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();onPointerHit(e);},{capture:true});
+document.getElementById('metro-btn').addEventListener('click',()=>{getCtx();if(phase==='intro'){document.getElementById('intro-box').style.display='none';phase='idle';}startMetroAndPractice();});
+document.getElementById('mic-btn').addEventListener('click',()=>{if(micOn)stopMic();else startMicHit();});
+document.getElementById('perm-close').addEventListener('click',()=>document.getElementById('perm-overlay').classList.remove('show'));
+// keydown disabled — mouse only version
+document.getElementById('bpm-sl').addEventListener('input',e=>{bpm=parseInt(e.target.value);document.getElementById('bpm-val').textContent=bpm;});
+document.getElementById('restart-btn').addEventListener('click',()=>{curQ=0;attempts=0;correct=0;streak=0;passCount=0;qAttempts=[];skippedQ=[];phase='idle';stopMetro();clearPT();document.getElementById('done-screen').style.display='none';document.getElementById('name-input').value='';updateUI();drawNotation(-1,null);setStatus('여기를 탭하거나 눌러서 시작하세요','s-idle');});
+window.addEventListener('resize',()=>drawNotation(highlightBeat,highlightColor));
+updateUI();drawNotation(-1,null);
+</script>
+</body>
+</html>
