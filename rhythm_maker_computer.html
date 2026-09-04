@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리듬 만들기 — 음표를 끌어 음악을 만들어요</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E7; --paper2:#FBF8F1; --ink:#232842; --line:#C9C0AE;
+    --coral:#E4572E; --teal:#2A9D8F; --amber:#F4C95D; --soft:#D8CFBC;
+    --shadow:0 6px 18px rgba(35,40,66,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(circle at 18% 0%, #fff6e6 0, transparent 40%),
+      var(--paper);
+    color:var(--ink);
+    font-family:"Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:22px 18px 60px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+  header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+  h1{font-family:"Gaegu",cursive;font-weight:700;font-size:38px;margin:0;letter-spacing:.5px}
+  .sub{color:#6c6657;font-size:15px}
+  .panel{background:var(--paper2);border:2px solid var(--soft);border-radius:18px;box-shadow:var(--shadow)}
+  .eyebrow{font-family:"Gaegu",cursive;font-weight:700;font-size:21px;color:var(--ink);
+           display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .eyebrow .num{background:var(--ink);color:var(--paper);width:26px;height:26px;border-radius:50%;
+                display:grid;place-items:center;font-family:"Noto Sans KR";font-size:14px;font-weight:700}
+
+  /* palette */
+  .palette{padding:16px 18px;margin:14px 0 18px}
+  .tiles{display:flex;flex-wrap:wrap;gap:12px}
+  .tile{width:104px;background:#fff;border:2px solid var(--soft);border-radius:14px;
+        padding:8px 6px 6px;cursor:grab;user-select:none;text-align:center;
+        transition:transform .12s, box-shadow .12s, border-color .12s}
+  .tile:hover{transform:translateY(-3px);box-shadow:0 8px 16px rgba(35,40,66,.14);border-color:var(--ink)}
+  .tile.sel{border-color:var(--coral);box-shadow:0 0 0 3px rgba(228,87,46,.18)}
+  .tile svg{display:block;margin:0 auto}
+  .tile .lab{font-size:12.5px;margin-top:2px;color:#4a4636;font-weight:500}
+  .tilebox{height:78px;border-radius:10px;background:#fff;
+           display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .tilebox::after{content:"";position:absolute;left:8px;right:8px;top:54%;height:1.5px;background:var(--line)}
+
+  /* controls */
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 0}
+  button{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:12px;
+         padding:11px 18px;cursor:pointer;transition:transform .1s, filter .1s}
+  button:active{transform:translateY(1px)}
+  .btn-play{background:var(--teal);color:#fff}
+  .btn-stop{background:#fff;color:var(--ink);border:2px solid var(--soft)}
+  .btn-clear{background:#fff;color:var(--coral);border:2px solid #f0c9bd}
+  .btn-share{background:var(--ink);color:#fff}
+  .btn-undo{background:#fff;color:var(--ink);border:2px solid var(--soft)}
+  .btn-undo:disabled{opacity:.4;cursor:default}
+  button:hover{filter:brightness(1.04)}
+  .tempo{display:flex;align-items:center;gap:8px;font-size:14px;color:#4a4636}
+  .tempo input[type=range]{accent-color:var(--coral)}
+  .chk{display:flex;align-items:center;gap:6px;font-size:14px;color:#4a4636;cursor:pointer}
+  .status{margin-left:auto;font-size:14px;color:#6c6657;min-height:20px}
+  .status b{color:var(--coral)}
+
+  /* score */
+  .score{padding:18px 18px 8px;margin-top:18px}
+  #board{overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+  .system{display:flex;align-items:stretch;gap:0;margin:10px 0 22px;position:relative;flex-wrap:nowrap}
+  .tsig{width:34px;flex:0 0 34px;position:relative;height:112px}
+  .tsig svg{position:absolute;left:0;top:0}
+  .measure{position:relative;display:flex;flex:0 0 auto;height:112px}
+  .slot{flex:0 0 64px;width:64px;position:relative;cursor:pointer;border-radius:8px;transition:background .1s}
+  .mline{position:absolute;left:0;right:0;height:2px;background:var(--ink);opacity:.85}
+  .barline{position:absolute;width:2px;background:var(--ink);opacity:.85}
+  .slot.over{background:rgba(42,157,143,.16)}
+  .slot.playing{background:rgba(244,201,93,.45)}
+  .slot:hover{background:rgba(35,40,66,.05)}
+  .slot svg{position:absolute;top:0;left:0;width:100%;height:75px;pointer-events:none}
+  .mnum{position:absolute;top:-2px;left:3px;font-size:11px;color:#a89f8c;font-family:"Gaegu",cursive}
+  .hint{font-size:13.5px;color:#807a6a;margin:2px 4px 0}
+  .how{display:flex;gap:18px;flex-wrap:wrap;margin:14px 2px 0;font-size:13.5px;color:#6c6657}
+  .how div{display:flex;align-items:center;gap:6px}
+  /* a lyric letter sits directly under each note/rest */
+  .system{margin:0 0 22px}
+  .lyrc{position:absolute;top:82px;transform:translateX(-50%);text-align:center;
+        border:none;border-bottom:1.7px solid var(--soft);background:transparent;overflow:hidden;
+        font-family:"Gaegu",cursive;color:var(--ink);padding:0;height:28px;line-height:24px}
+  .lyrc:focus{outline:none;border-bottom-color:var(--coral);background:rgba(244,201,93,.20)}
+  .lyrc.empty{border-bottom-color:#e9e2d2}
+  .btn-clear.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+  .savebar{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center}
+  .savebar button,.savebar .savebtn{background:#fff;border:2px solid var(--soft);border-radius:12px;padding:11px 16px;font-size:15px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit}
+  .savebar button:hover,.savebar .savebtn:hover{border-color:var(--teal)}
+  .savebar button.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .measmode .lyrc{pointer-events:none}
+  .measmode .slot,.measmode .measure{cursor:pointer}
+  .measmode .measure:hover{background:rgba(42,157,143,.08);border-radius:8px}
+  .savesep{width:2px;height:26px;background:var(--soft);border-radius:2px;margin:0 4px}
+  .savename{border:2px solid var(--soft);border-radius:12px;padding:11px 14px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff;width:190px;max-width:46vw}
+  .savename:focus{outline:none;border-color:var(--teal)}
+  .lyrhint{font-family:"Gaegu",cursive;font-size:13px;color:#a89f8c}
+  .dotc{width:9px;height:9px;border-radius:50%}
+  @media (max-width:760px){
+    h1{font-size:30px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>리듬 만들기</h1>
+    <span class="sub">음표 상자에서 한 박짜리 음표를 끌어다 빈 악보에 놓고, 메트로놈 박자 뒤에 들어 보세요.</span>
+  </header>
+
+  <!-- PALETTE -->
+  <section class="panel palette">
+    <p class="eyebrow"><span class="num">1</span>음표 상자 <span style="font-weight:400;font-size:14px;color:#807a6a;font-family:'Noto Sans KR'">— 끌어도 상자에는 음표가 그대로 남아 있어요</span></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <!-- SCORE -->
+  <section class="panel score">
+    <p class="eyebrow"><span class="num">2</span>빈 악보 <span style="font-weight:400;font-size:14px;color:#807a6a;font-family:'Noto Sans KR'">— 4/4박자, <span id="meascount">8</span>마디</span></p>
+    <div class="controls">
+      <button class="btn-play" id="play">▶ 메트로놈 후 재생</button>
+      <button class="btn-stop" id="stop">■ 정지</button>
+      <button class="btn-clear" id="clear">음표 지우기</button>
+      <button class="btn-undo" id="undobtn" disabled>↩ 되돌리기</button>
+      <button class="btn-undo" id="redobtn" disabled>↪ 다시</button>
+      <button class="btn-share" id="share">🔗 공유 링크 복사</button>
+      <span class="tempo">빠르기 <input type="range" id="tempo" min="50" max="140" value="88"><b id="bpm">88</b> BPM</span>
+      <label class="chk"><input type="checkbox" id="metoggle" checked> 재생 중 메트로놈</label>
+      <span class="status" id="status">음표를 골라 악보의 칸에 놓아 보세요.</span>
+    </div>
+    <div class="savebar">
+      <button class="btn-mode" id="insmode">↔️ 마디 삽입</button>
+      <button class="btn-mode" id="delmeas">🗑️ 마디 삭제</button>
+      <button class="btn-mode" id="copymeas">📋 마디 복사</button>
+      <button class="btn-mode" id="pastemeas">📥 붙여넣기</button>
+      <span class="savesep"></span>
+      <button id="tsave">💾 임시저장</button>
+      <button id="tload">📂 이어서 하기</button>
+      <input id="savename" class="savename" type="text" placeholder="모둠 이름 (예: 1반2모둠)" maxlength="40">
+      <button id="fsave">⬇️ 파일로 저장</button>
+      <label class="savebtn" for="fopen">📁 파일 열기</label>
+      <input id="fopen" type="file" accept=".html,.json,text/html,application/json" hidden>
+    </div>
+    <div id="board"></div>
+    <p class="hint">가사를 <b>먼저 적어도</b> 돼요 — 빈 칸마다 <b>1~4글자</b>까지 적고 <b>스페이스바</b>로 다음 칸으로 넘어가요(가사를 먼저 쓴 칸엔 그 <b>글자 수와 같은 개수</b>로 이루어진 음표만 놓이고, 음표를 지워도 가사는 남아요). 음표는 상자에서 칸으로 끌어다 놓거나 <b>더블클릭</b>하면 빈 칸에 놓이고, 놓은 음표를 다시 클릭하면 사라져요.</p>
+    <div class="how">
+      <div><span class="dotc" style="background:var(--coral)"></span>선택한 음표</div>
+      <div><span class="dotc" style="background:var(--teal)"></span>놓을 수 있는 칸</div>
+      <div><span class="dotc" style="background:var(--amber)"></span>지금 소리 나는 박</div>
+    </div>
+  </section>
+</div>
+
+<script>
+const INK="#232842", BY=60, TY=22, VW=96, VH=112;
+const H =cx=>`<ellipse cx="${cx}" cy="${BY}" rx="6.2" ry="4.7" transform="rotate(-18 ${cx} ${BY})" fill="${INK}"/>`;
+const S =(cx,t=TY)=>{const x=cx+5.2;return `<line x1="${x}" y1="${BY-2.5}" x2="${x}" y2="${t}" stroke="${INK}" stroke-width="2"/>`};
+const BM=(c1,c2,y,h=4.8)=>{const x1=c1+5.2,x2=c2+5.2;return `<rect x="${x1-1}" y="${y}" width="${x2-x1+2}" height="${h}" rx="1.2" fill="${INK}"/>`};
+const FL=cx=>{const x=cx+5.2;return `<path d="M${x},${TY} c11,2 12,11 5,19 c5,-9 1,-14 -5,-15 z" fill="${INK}"/>`};
+const DT=cx=>`<circle cx="${cx+10}" cy="${BY-2}" r="2.2" fill="${INK}"/>`;
+const QR=cx=>`<path d="M${cx-3.5},${BY-17} l7.5,8.6 l-7.8,8.4 q10,2.2 7.6,9.8 q-1.6,-4.6 -8.8,-2.4 l7.4,-8.6 l-6.8,-8 z" fill="${INK}"/>`;
+const ER=cx=>`<g><circle cx="${cx-1.5}" cy="${BY-9}" r="2.9" fill="${INK}"/><path d="M${cx+1.2},${BY-11.5} l-5.6,17.5" stroke="${INK}" stroke-width="1.9" fill="none"/></g>`;
+const TR=cx=>`<text x="${cx}" y="${TY-3}" font-size="13" font-style="italic" text-anchor="middle" fill="${INK}" font-family="Georgia,serif">3</text>`;
+
+function inner(id){
+  switch(id){
+    case 'q':    return H(44)+S(44);
+    case 'ee':   return H(30)+H(56)+S(30)+S(56)+BM(30,56,TY);
+    case 'ssss': {const xs=[18,36,54,72];return xs.map(H).join('')+xs.map(x=>S(x)).join('')+BM(18,72,TY)+BM(18,72,TY+7);}
+    case 'e_ss': {const xs=[22,48,68];return xs.map(H).join('')+xs.map(x=>S(x)).join('')+BM(22,68,TY)+BM(48,68,TY+7);}
+    case 'ss_e': {const xs=[20,40,66];return xs.map(H).join('')+xs.map(x=>S(x)).join('')+BM(20,66,TY)+BM(20,40,TY+7);}
+    case 'de_s': return H(26)+H(62)+S(26)+S(62)+BM(26,62,TY)+BM(50,62,TY+7)+DT(26);
+    case 'e_er': return H(26)+S(26)+FL(26)+ER(60);
+    case 'qr':   return QR(46);
+    case 'trip': {const xs=[22,44,66];return xs.map(H).join('')+xs.map(x=>S(x)).join('')+BM(22,66,TY)+TR(44);}
+    case 'er_e': return ER(28)+H(60)+S(60)+FL(60);
+    case 's_de': return H(24)+H(62)+S(24)+S(62)+BM(24,62,TY)+BM(24,36,TY+7)+DT(62);
+    case 's_e_s':{const xs=[20,42,64];return xs.map(H).join('')+xs.map(x=>S(x)).join('')+BM(20,64,TY)+BM(20,30,TY+7)+BM(54,64,TY+7);}
+  }
+  return '';
+}
+const PAPER2='#FBF8F1';
+// wrap a note in a background-colored halo so the staff line is hidden where the note is drawn
+function notePaths(id,bg){return `<g stroke="${bg}" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke">${inner(id)}</g>`;}
+function svg(id,cls=''){return `<svg class="${cls}" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">${notePaths(id,'#ffffff')}</svg>`;}
+
+// id, label, onset fractions within the beat (empty = silence/rest)
+const TYPES=[
+  {id:'q',    label:'4분음표',     on:[0]},
+  {id:'ee',   label:'8분 8분',     on:[0,0.5]},
+  {id:'ssss', label:'16분 넷',     on:[0,0.25,0.5,0.75]},
+  {id:'e_ss', label:'8분·16분16분', on:[0,0.5,0.75]},
+  {id:'ss_e', label:'16분16분·8분', on:[0,0.25,0.5]},
+  {id:'de_s', label:'점8분·16분',   on:[0,0.75]},
+  {id:'e_er', label:'8분+쉼표',    on:[0]},
+  {id:'qr',   label:'4분쉼표',     on:[]},
+  {id:'trip', label:'셋잇단',      on:[0,1/3,2/3]},
+  {id:'er_e', label:'쉼표+8분',    on:[0.5]},
+  {id:'s_de', label:'16분·점8분',  on:[0,0.25]},
+  {id:'s_e_s',label:'16분·8분·16분',on:[0,0.25,0.75]},
+];
+const TYPE=Object.fromEntries(TYPES.map(t=>[t.id,t]));
+
+const BEATS=4, MAXMEAS=32; let MEAS=8, SLOTS=MEAS*BEATS;   // measures grow in 4s (8 -> 12 -> 16 ...)
+const board=document.getElementById('board');
+const slotData=new Array(SLOTS).fill(null);
+const order=[];   // slot indices in the order notes were placed (for one-by-one deletion)
+const lyrChar={};   // `${slotIdx}_${eventIdx}` -> one syllable, displayed under that note/rest
+// x-center (in the 0..96 cell viewBox) of each note/rest, so its lyric sits right under it
+const XPOS={q:[44],ee:[30,56],ssss:[18,36,54,72],e_ss:[22,48,68],ss_e:[20,40,66],
+  de_s:[26,62],e_er:[26,60],qr:[46],trip:[22,44,66],er_e:[28,60],s_de:[24,62],s_e_s:[20,42,64]};
+let selected=null;
+let deleteMode=false;     // when on, clicking a note deletes that note
+let lastSpace=0;          // debounce: Korean IME can fire the space key twice
+
+// build palette
+const tiles=document.getElementById('tiles');
+TYPES.forEach(t=>{
+  const el=document.createElement('div');
+  el.className='tile'; el.draggable=true; el.dataset.type=t.id;
+  el.innerHTML=`<div class="tilebox">${svg(t.id)}</div>`;
+  el.querySelector('svg').style.width='64px'; el.querySelector('svg').style.height='74px';
+  el.addEventListener('click',()=>selectTile(t.id,el));
+  el.addEventListener('dblclick',()=>{
+    let idx=-1; for(let i=0;i<SLOTS;i++){ if(slotData[i]===null && canPlace(i,t.id)){ idx=i; break; } }
+    if(idx<0){setStatus('이 음표를 놓을 빈 칸이 없어요(가사 글자 수와 맞는 칸이 없어요).');return;}
+    place(idx,t.id);
+    setStatus(`<b>${t.label}</b> 을(를) ${Math.floor(idx/BEATS)+1}째 마디에 놓았어요.`);
+  });
+  el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',JSON.stringify({src:'pal',type:t.id}));});
+  tiles.appendChild(el);
+});
+function selectTile(id,el){
+  if(measMode) setMeasMode(null);
+  if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); }
+  if(selected===id){selected=null;document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));setStatus('선택 해제됨. 음표를 고르세요.');return;}
+  selected=id;
+  document.querySelectorAll('.tile').forEach(t=>t.classList.toggle('sel',t.dataset.type===id));
+  setStatus(`선택됨: <b>${TYPE[id].label}</b> — 악보의 칸을 클릭하면 놓여요.`);
+}
+function setStatus(html){document.getElementById('status').innerHTML=html;}
+
+// build score: 2 systems x 4 measures x 4 slots
+function tsig(){
+  return `<div class="tsig"><svg width="34" height="75" viewBox="0 0 34 75">
+    <line x1="0" y1="40" x2="34" y2="40" stroke="${INK}" stroke-width="2"/>
+    <text x="17" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="${INK}" font-family="Georgia,serif">4</text>
+    <text x="17" y="58" text-anchor="middle" font-size="22" font-weight="700" fill="${INK}" font-family="Georgia,serif">4</text></svg></div>`;
+}
+function buildBoard(){
+  let html='', mi=0;
+  while(mi<MEAS){
+    html+=`<div class="system">${tsig()}`;
+    for(let j=0;j<4 && mi<MEAS;j++,mi++){
+      html+=`<div class="measure" data-m="${mi}"><div class="mline" style="top:40px"></div><span class="mnum">${mi+1}</span>`;
+      for(let b=0;b<BEATS;b++){ const idx=mi*BEATS+b; html+=`<div class="slot" data-idx="${idx}"></div>`; }
+      html+=`<div class="barline" style="right:0;top:28px;height:24px"></div></div>`;
+    }
+    html+=`</div>`;
+  }
+  board.innerHTML=html;
+  board.querySelectorAll('.system').forEach(sysEl=>{
+    const firstM=sysEl.querySelector('.measure');
+    const bl=document.createElement('div');bl.className='barline';bl.style.left='0';bl.style.top='28px';bl.style.height='24px';
+    firstM.appendChild(bl);
+  });
+  for(let i=0;i<SLOTS;i++) render(i);
+  const mc=document.getElementById('meascount'); if(mc) mc.textContent=MEAS;
+}
+function setMeasures(n){
+  n=Math.max(8, Math.min(MAXMEAS, n));
+  MEAS=n; SLOTS=MEAS*BEATS;
+  while(slotData.length<SLOTS) slotData.push(null);
+  if(slotData.length>SLOTS) slotData.length=SLOTS;
+  buildBoard();
+}
+function addMeasures(){ if(insertMeasure(MEAS)) setStatus(`맨 뒤에 빈 마디를 더했어요. 이제 ${MEAS}마디.`); }
+function removeMeasures(){ if(deleteMeasure(MEAS-1)) setStatus(`맨 끝 마디를 지웠어요. 이제 ${MEAS}마디.`); }
+buildBoard();
+
+// ---------- 되돌리기 / 다시 실행 (undo / redo) ----------
+let undoStack=[], redoStack=[], lastUndoT=0, lastTag='';
+function snapState(){ return {m:MEAS, n:slotData.slice(), l:Object.assign({},lyrChar), b:+tempo.value}; }
+function restoreState(st){
+  MEAS=Math.max(1, Math.min(MAXMEAS, st.m||8)); SLOTS=MEAS*BEATS;
+  slotData.length=0; for(let i=0;i<SLOTS;i++) slotData.push(st.n[i]||null);
+  for(const k in lyrChar) delete lyrChar[k]; Object.assign(lyrChar, st.l||{});
+  if(st.b){ tempo.value=st.b; bpmLbl.textContent=st.b; }
+  order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+  buildBoard();
+}
+function pushUndo(tag){
+  const now=Date.now();
+  if(tag==='lyric' && lastTag==='lyric' && now-lastUndoT<1200){ lastUndoT=now; return; }
+  if(tag==='edit' && now-lastUndoT<10){ return; }   // only merge the synchronous clear+place of one move
+  undoStack.push(snapState()); if(undoStack.length>60) undoStack.shift();
+  redoStack.length=0; lastUndoT=now; lastTag=tag; updateUndoBtns();
+}
+function updateUndoBtns(){ const u=document.getElementById('undobtn'), r=document.getElementById('redobtn');
+  if(u) u.disabled=!undoStack.length; if(r) r.disabled=!redoStack.length; }
+function doUndo(){ if(!undoStack.length){ setStatus('되돌릴 작업이 없어요.'); return; }
+  redoStack.push(snapState()); restoreState(undoStack.pop()); lastTag=''; setStatus('되돌렸어요. (다시 실행은 ↪)'); updateUndoBtns(); }
+function doRedo(){ if(!redoStack.length){ setStatus('다시 실행할 작업이 없어요.'); return; }
+  undoStack.push(snapState()); restoreState(redoStack.pop()); lastTag=''; setStatus('다시 실행했어요.'); updateUndoBtns(); }
+document.getElementById('undobtn').addEventListener('click',doUndo);
+document.getElementById('redobtn').addEventListener('click',doRedo);
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&(e.key==='z'||e.key==='Z')){ if(typeof composing!=='undefined'&&composing) return; e.preventDefault(); if(e.shiftKey) doRedo(); else doUndo(); }
+  else if((e.ctrlKey||e.metaKey)&&(e.key==='y'||e.key==='Y')){ e.preventDefault(); doRedo(); }
+});
+updateUndoBtns();
+
+// ---------- 마디 편집 (삽입 / 삭제 / 복사 / 붙여넣기) ----------
+let measMode=null, measClip=null;
+function rebuildFrom(newN, newL){
+  MEAS=Math.max(1, Math.min(MAXMEAS, Math.round(newN.length/4))); SLOTS=MEAS*4;
+  slotData.length=0; for(let i=0;i<SLOTS;i++) slotData.push(newN[i]||null);
+  for(const k in lyrChar) delete lyrChar[k]; Object.assign(lyrChar,newL);
+  order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+  buildBoard();
+}
+function shiftedLyrics(at, delta, dropRange){
+  const out={};
+  for(const k in lyrChar){ const mm=k.match(/^(\d+)_(\d+)$/); if(!mm)continue; let si=+mm[1];
+    if(dropRange && si>=at && si<at+4) continue;
+    if(si>=at) si+=delta;
+    out[si+'_'+mm[2]]=lyrChar[k];
+  }
+  return out;
+}
+function insertMeasure(m){
+  if(MEAS>=MAXMEAS){ setStatus(`마디는 최대 ${MAXMEAS}개까지예요.`); return false; }
+  pushUndo('edit'); const at=m*4;
+  const newN=slotData.slice(0,at).concat([null,null,null,null], slotData.slice(at));
+  rebuildFrom(newN, shiftedLyrics(at, 4, false)); return true;
+}
+function deleteMeasure(m){
+  if(MEAS<=1){ setStatus('마지막 한 마디는 지울 수 없어요.'); return false; }
+  pushUndo('edit'); const at=m*4;
+  const newN=slotData.slice(0,at).concat(slotData.slice(at+4));
+  rebuildFrom(newN, shiftedLyrics(at, -4, true)); return true;
+}
+function copyMeasure(m){
+  const at=m*4; const n=[], l={};
+  for(let b=0;b<4;b++){ n.push(slotData[at+b]||null); for(let k=0;k<4;k++){ const v=lyrChar[(at+b)+'_'+k]; if(v) l[b+'_'+k]=v; } }
+  measClip={n,l};
+}
+function pasteMeasure(m){
+  if(!measClip){ setStatus('먼저 「📋 마디 복사」로 마디를 복사하세요.'); return; }
+  if(MEAS>=MAXMEAS){ setStatus(`마디는 최대 ${MAXMEAS}개까지예요.`); return; }
+  pushUndo('edit'); const at=m*4;
+  const newN=slotData.slice(0,at).concat(measClip.n.slice(), slotData.slice(at));
+  const newL=shiftedLyrics(at, 4, false);
+  for(const k in measClip.l){ const mm=k.match(/^(\d+)_(\d+)$/); if(mm) newL[(at + (+mm[1]))+'_'+mm[2]]=measClip.l[k]; }
+  rebuildFrom(newN, newL);
+  setStatus(`복사한 마디를 ${m+1}째 마디 앞에 넣었어요.`);
+}
+function setMeasMode(mode){
+  measMode=mode;
+  ['insmode','delmeas','copymeas','pastemeas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
+  board.classList.toggle('measmode', !!measMode);
+  if(measMode){
+    deleteMode=false; const cb=document.getElementById('clear'); if(cb) cb.classList.remove('active');
+    selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
+    const map={insert:'insmode',delete:'delmeas',copy:'copymeas',paste:'pastemeas'};
+    const el=document.getElementById(map[measMode]); if(el) el.classList.add('active');
+    const prompts={insert:'빈 마디를 넣을 곳의 마디를 클릭하세요(그 앞에 들어가고 뒤 악보는 밀려요).', delete:'지울 마디를 클릭하세요.', copy:'복사할 마디를 클릭하세요.', paste:(measClip?'붙여넣을 곳의 마디를 클릭하세요(그 앞에 들어가요).':'먼저 「📋 마디 복사」로 마디를 복사하세요.')};
+    setStatus(prompts[measMode]);
+  } else setStatus('마디 편집을 끝냈어요.');
+}
+document.getElementById('insmode').addEventListener('click',()=>setMeasMode(measMode==='insert'?null:'insert'));
+document.getElementById('delmeas').addEventListener('click',()=>setMeasMode(measMode==='delete'?null:'delete'));
+document.getElementById('copymeas').addEventListener('click',()=>setMeasMode(measMode==='copy'?null:'copy'));
+document.getElementById('pastemeas').addEventListener('click',()=>setMeasMode(measMode==='paste'?null:'paste'));
+
+// ---- lyric letters live UNDER each note (one syllable per note/rest) ----
+function allLyrcs(){return [...board.querySelectorAll('.lyrc')];}
+function nextLyrc(c){const a=allLyrcs(),i=a.indexOf(c);return i>=0&&i<a.length-1?a[i+1]:null;}
+function prevLyrc(c){const a=allLyrcs(),i=a.indexOf(c);return i>0?a[i-1]:null;}
+function cascade(c,chars){let cur=c;for(const ch of chars){const nx=nextLyrc(cur);if(!nx)break;nx.value=ch;lyrChar[nx.dataset.idx+'_'+nx.dataset.k]=ch;cur=nx;}return cur;}
+function commitCell(c,advance){
+  const key=c.dataset.idx+'_'+c.dataset.k;
+  const chars=[...c.value];           // split into individual syllables/letters
+  const first=chars.shift()||'';
+  c.value=first; lyrChar[key]=first;
+  let last=c;
+  if(chars.length) last=cascade(c,chars);   // spread extra syllables onto the next notes
+  if(advance && first){const nx=nextLyrc(last);if(nx)nx.focus();}
+}
+function hasNote(c){ return slotData[+c.dataset.idx]!=null; }
+function storeRaw(c){ lyrChar[c.dataset.idx+'_'+c.dataset.k]=c.value; }
+let composing=false, justComposed=false;
+board.addEventListener('compositionstart',e=>{ if(e.target.closest('.lyrc')) composing=true; });
+board.addEventListener('compositionend',e=>{ const c=e.target.closest('.lyrc'); if(!c)return;
+  composing=false; justComposed=true; setTimeout(()=>{justComposed=false;},0);
+  if(hasNote(c)){
+    // a syllable just finished under a note: keep ONE here, push extras to following boxes, then move to the next box
+    const chars=[...c.value]; const first=chars.shift()||'';
+    c.value=first; storeRaw(c);
+    let last=c; if(chars.length) last=cascade(c,chars);
+    if(first){ const nx=nextLyrc(last); if(nx) setTimeout(()=>{ try{ nx.focus(); const v=nx.value; nx.setSelectionRange&&nx.setSelectionRange(v.length,v.length); }catch(_){} },0); }
+  } else { storeRaw(c); }   // empty beat: keep the whole word in one box (lyrics-first)
+});
+board.addEventListener('input',e=>{ const c=e.target.closest('.lyrc'); if(!c)return;
+  pushUndo('lyric');
+  if(composing||e.isComposing||justComposed){ storeRaw(c); return; }   // Korean IME is handled in compositionend
+  if(hasNote(c)) commitCell(c,true);   // non-IME typing under a note: one per box, auto-advance
+  else storeRaw(c);                    // empty beat: keep as many letters as typed (1~4)
+});
+board.addEventListener('focusout',e=>{ const c=e.target.closest('.lyrc'); if(c){ if(hasNote(c)) commitCell(c,false); else storeRaw(c); } });
+board.addEventListener('keydown',e=>{
+  const c=e.target.closest('.lyrc'); if(!c)return;
+  if(e.key===' '||e.code==='Space'){          // space -> the very next box (debounced: IME may fire space twice)
+    e.preventDefault();
+    const t=Date.now(); if(t-lastSpace<250) return; lastSpace=t;
+    if(hasNote(c)) commitCell(c,true);
+    else { storeRaw(c); const n=nextLyrc(c); if(n)n.focus(); }
+  } else if(e.key==='Backspace' && !c.value){
+    e.preventDefault(); const p=prevLyrc(c); if(p)p.focus();
+  } else if(e.key==='ArrowRight'){ const n=nextLyrc(c); if(n){e.preventDefault();n.focus();} }
+    else if(e.key==='ArrowLeft'){ const p=prevLyrc(c); if(p){e.preventDefault();p.focus();} }
+});
+
+
+// slot interactions
+function render(idx){
+  const slot=board.querySelector(`.slot[data-idx="${idx}"]`);
+  const id=slotData[idx];
+  const xs = id ? XPOS[id] : [48];      // empty beat: one wide box to write 1~4 letters
+  const n=xs.length;
+  let w, fs;
+  if(!id){ w=58; fs=16; } else { w = n>=4?14:(n===3?20:26); fs = n>=4?13:(n===3?16:19); }
+  let h = id ? `<svg class="note" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="none">${notePaths(id,PAPER2)}</svg>` : '';
+  xs.forEach((x,k)=>{
+    const ch=(lyrChar[idx+'_'+k]||'').replace(/"/g,'&quot;');
+    h+=`<input class="lyrc${id?'':' empty'}" data-idx="${idx}" data-k="${k}" autocomplete="off" `
+      +`style="left:${(x/VW*100).toFixed(2)}%;width:${w}px;font-size:${fs}px" value="${ch}">`;
+  });
+  slot.innerHTML=h;
+}
+function beatLen(idx){ return [...[0,1,2,3].map(k=>lyrChar[idx+'_'+k]||'').join('')].length; }
+function canPlace(idx,id){ const L=beatLen(idx); return L===0 || L===XPOS[id].length; }   // 0 letters: any note; else letters must equal note count
+function place(idx,id){
+  { const L=beatLen(idx); if(L>0 && L!==XPOS[id].length){ setStatus(`이 칸엔 가사가 ${L}글자라, <b>${L}개로 이루어진 음표</b>만 놓을 수 있어요.`); return false; } }
+  pushUndo('edit');
+  if(slotData[idx]===null) order.push(idx);
+  const N=XPOS[id].length;
+  const whole=[0,1,2,3].map(k=>lyrChar[idx+'_'+k]||'').join('');
+  for(let k=0;k<4;k++) delete lyrChar[idx+'_'+k];
+  const chars=[...whole];
+  for(let k=0;k<N;k++){ const v=(k<N-1)? (chars[k]||'') : chars.slice(N-1).join(''); if(v) lyrChar[idx+'_'+k]=v; }
+  slotData[idx]=id; render(idx); return true;
+}
+function clearSlot(idx){
+  pushUndo('edit');
+  const oi=order.indexOf(idx); if(oi>-1)order.splice(oi,1);
+  const whole=[0,1,2,3].map(k=>lyrChar[idx+'_'+k]||'').join('');
+  for(let k=0;k<4;k++) delete lyrChar[idx+'_'+k];
+  if(whole) lyrChar[idx+'_0']=whole;
+  slotData[idx]=null; render(idx);
+}
+
+board.addEventListener('click',e=>{
+  if(measMode){
+    const mel=e.target.closest('.measure'); if(!mel) return;
+    const m=+mel.dataset.m;
+    if(measMode==='insert'){ if(insertMeasure(m)) setStatus(`빈 마디를 넣었어요. 이제 ${MEAS}마디.`); }
+    else if(measMode==='delete'){ if(deleteMeasure(m)) setStatus(`마디를 지웠어요. 이제 ${MEAS}마디.`); }
+    else if(measMode==='copy'){ copyMeasure(m); setMeasMode('paste'); setStatus(`${m+1}째 마디를 복사했어요. 붙여넣을 곳의 마디를 클릭하세요.`); }
+    else if(measMode==='paste'){ pasteMeasure(m); }
+    return;
+  }
+  if(e.target.closest('.lyrc'))return;          // clicking a lyric box = type lyrics
+  const slot=e.target.closest('.slot'); if(!slot)return;
+  const idx=+slot.dataset.idx;
+  if(deleteMode){
+    if(slotData[idx]){ clearSlot(idx); setStatus('이 음표를 지웠어요. 더 지우려면 다른 음표를 클릭하세요.'); }
+    else setStatus('지울 음표를 <b>클릭</b>하세요.');
+    return;
+  }
+  if(selected){ if(place(idx,selected)) setStatus(`<b>${TYPE[selected].label}</b> 놓음. 계속 놓거나 다른 음표를 고르세요.`);}
+  else if(slotData[idx]){ clearSlot(idx); setStatus('음표를 위로 올렸어요(삭제).'); }
+});
+// drag & drop
+board.addEventListener('dragstart',e=>{
+  if(e.target.closest('.lyrc')){e.preventDefault();return;}
+  const slot=e.target.closest('.slot'); if(!slot||!slotData[slot.dataset.idx])return;
+  e.dataTransfer.setData('text/plain',JSON.stringify({src:'slot',type:slotData[slot.dataset.idx],from:+slot.dataset.idx}));
+});
+board.querySelectorAll('.slot').forEach(s=>s.setAttribute('draggable','true'));
+board.addEventListener('dragover',e=>{const s=e.target.closest('.slot');if(s){e.preventDefault();s.classList.add('over');}});
+board.addEventListener('dragleave',e=>{const s=e.target.closest('.slot');if(s)s.classList.remove('over');});
+board.addEventListener('drop',e=>{
+  const s=e.target.closest('.slot'); if(!s)return; e.preventDefault(); s.classList.remove('over');
+  let d; try{d=JSON.parse(e.dataTransfer.getData('text/plain'));}catch(_){return;}
+  const idx=+s.dataset.idx;
+  if(!canPlace(idx,d.type)){ const L=beatLen(idx); setStatus(`이 칸엔 가사가 ${L}글자라, <b>${L}개로 이루어진 음표</b>만 놓을 수 있어요.`); return; }
+  if(d.src==='slot' && d.from!==idx) clearSlot(d.from);
+  place(idx,d.type);
+});
+// drop on palette = remove (return up)
+tiles.addEventListener('dragover',e=>e.preventDefault());
+tiles.addEventListener('drop',e=>{
+  let d; try{d=JSON.parse(e.dataTransfer.getData('text/plain'));}catch(_){return;}
+  if(d.src==='slot'){clearSlot(d.from);setStatus('음표를 위로 올렸어요(삭제).');}
+});
+
+// controls
+const tempo=document.getElementById('tempo'), bpmLbl=document.getElementById('bpm');
+tempo.addEventListener('input',()=>bpmLbl.textContent=tempo.value);
+document.getElementById('clear').addEventListener('click',()=>{
+  if(measMode) setMeasMode(null);
+  deleteMode=!deleteMode;
+  document.getElementById('clear').classList.toggle('active',deleteMode);
+  if(deleteMode){
+    selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
+    setStatus('지울 음표를 <b>클릭</b>하세요. (끝내려면 「음표 지우기」를 다시 누르세요)');
+  } else setStatus('음표 지우기를 끝냈어요.');
+});
+
+// ---------- tiny LZString (URL-safe compress) for short share links ----------
+var LZString=(function(){
+var f=String.fromCharCode;
+var keyStrUriSafe="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$";
+var baseReverseDic={};
+function getBaseValue(alphabet,character){
+  if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i;}}
+  return baseReverseDic[alphabet][character];
+}
+var LZString={
+  compressToEncodedURIComponent:function(input){ if(input==null)return""; return _compress(input,6,function(a){return keyStrUriSafe.charAt(a);}); },
+  decompressFromEncodedURIComponent:function(input){ if(input==null)return""; if(input=="")return null; input=input.replace(/ /g,"+"); return _decompress(input.length,32,function(index){return getBaseValue(keyStrUriSafe,input.charAt(index));}); }
+};
+function _compress(uncompressed,bitsPerChar,getCharFromInt){
+  if(uncompressed==null)return"";
+  var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;
+  for(ii=0;ii<uncompressed.length;ii+=1){
+    context_c=uncompressed.charAt(ii);
+    if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true;}
+    context_wc=context_w+context_c;
+    if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc;}else{
+      if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){
+        if(context_w.charCodeAt(0)<256){
+          for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}}
+          value=context_w.charCodeAt(0);
+          for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+        }else{
+          value=1;
+          for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=0;}
+          value=context_w.charCodeAt(0);
+          for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+        }
+        context_enlargeIn--; if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++;}
+        delete context_dictionaryToCreate[context_w];
+      }else{
+        value=context_dictionary[context_w];
+        for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+      }
+      context_enlargeIn--; if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++;}
+      context_dictionary[context_wc]=context_dictSize++; context_w=String(context_c);
+    }
+  }
+  if(context_w!==""){
+    if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){
+      if(context_w.charCodeAt(0)<256){
+        for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}}
+        value=context_w.charCodeAt(0);
+        for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+      }else{
+        value=1;
+        for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=0;}
+        value=context_w.charCodeAt(0);
+        for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+      }
+      context_enlargeIn--; if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++;}
+      delete context_dictionaryToCreate[context_w];
+    }else{
+      value=context_dictionary[context_w];
+      for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+    }
+    context_enlargeIn--; if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++;}
+  }
+  value=2;
+  for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0;}else{context_data_position++;}value=value>>1;}
+  while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break;}else context_data_position++;}
+  return context_data.join('');
+}
+function _decompress(length,resetValue,getNextValue){
+  var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};
+  for(i=0;i<3;i+=1){dictionary[i]=i;}
+  bits=0;maxpower=Math.pow(2,2);power=1;
+  while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}
+  switch(next=bits){
+    case 0: bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}c=f(bits);break;
+    case 1: bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}c=f(bits);break;
+    case 2: return"";
+  }
+  dictionary[3]=c;w=c;result.push(c);
+  while(true){
+    if(data.index>length){return"";}
+    bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}
+    switch(c=bits){
+      case 0: bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;
+      case 1: bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++);}bits|=(resb>0?1:0)*power;power<<=1;}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;
+      case 2: return result.join('');
+    }
+    if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
+    if(dictionary[c]){entry=dictionary[c];}else{if(c===dictSize){entry=w+w.charAt(0);}else{return null;}}
+    result.push(entry);
+    dictionary[dictSize++]=w+entry.charAt(0);
+    enlargeIn--; w=entry;
+    if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++;}
+  }
+}
+return LZString;
+})();
+// ---------- save / share (works offline via a link, no server needed) ----------
+const NOTE_IDS=['q','ee','ssss','e_ss','ss_e','de_s','e_er','qr','trip','er_e','s_de','s_e_s'];
+const N2C={}, C2N={}; NOTE_IDS.forEach((id,i)=>{ const c="123456789abc"[i]; N2C[id]=c; C2N[c]=id; });
+function applyObj(obj){
+  const bb=obj.b||obj.t; if(bb){ tempo.value=bb; bpmLbl.textContent=bb; }
+  MEAS=Math.max(1, Math.min(MAXMEAS, obj.m||8)); SLOTS=MEAS*BEATS;
+  slotData.length=0;
+  if(typeof obj.n==='string'){ for(let i=0;i<SLOTS;i++){ const c=obj.n[i]; slotData.push(c&&C2N[c]? C2N[c] : null); } }
+  else { for(let i=0;i<SLOTS;i++) slotData.push((obj.n&&obj.n[i])? obj.n[i] : null); }
+  for(const k in lyrChar) delete lyrChar[k];
+  Object.assign(lyrChar, obj.l||{});
+  order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+  buildBoard();
+  return true;
+}
+function encodeState(){   // base64 JSON — 파일 저장/임시저장용 (호환 유지)
+  const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar};
+  return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+}
+function encodeShare(){   // 압축한 짧은 공유 링크
+  const n=slotData.map(x=> x&&N2C[x]? N2C[x] : '0').join('');
+  return LZString.compressToEncodedURIComponent(JSON.stringify({t:+tempo.value, m:MEAS, n, l:lyrChar}));
+}
+function decodeState(s){ try{ return applyObj(JSON.parse(decodeURIComponent(escape(atob(s))))); }catch(e){ return false; } }
+function decodeShare(s){ try{ const j=LZString.decompressFromEncodedURIComponent(s); return j? applyObj(JSON.parse(j)) : false; }catch(e){ return false; } }
+document.getElementById('share').addEventListener('click',()=>{
+  const url=location.origin+location.pathname+'#z='+encodeShare();
+  history.replaceState(null,'',url);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(
+      ()=>setStatus('공유 링크를 복사했어요! 붙여넣어 전달하면, 받은 사람이 똑같은 악보와 가사를 보게 돼요.'),
+      ()=>window.prompt('이 링크를 복사해서 공유하세요:',url));
+  } else window.prompt('이 링크를 복사해서 공유하세요:',url);
+});
+// load a shared link on open
+if(location.hash.indexOf('#z=')===0){ if(decodeShare(location.hash.slice(3))) setStatus('공유된 악보를 불러왔어요. ▶ 로 들어 보세요.'); }
+else if(location.hash.indexOf('#d=')===0){ if(decodeState(location.hash.slice(3))) setStatus('공유된 악보를 불러왔어요. ▶ 로 들어 보세요.'); }
+const __rm=document.querySelector('meta[name="rm-state"]');
+if(__rm && __rm.getAttribute('content')){ if(decodeState(__rm.getAttribute('content'))) setStatus('저장한 파일을 열었어요. 이어서 작업하세요.'); }
+
+// ---------- save / temporary save ----------
+const SAVEKEY='rhythm-maker-save-v1';
+document.getElementById('tsave').addEventListener('click',()=>{
+  try{ localStorage.setItem(SAVEKEY, encodeState()); setStatus('임시저장했어요. 다음에 열면 「📂 이어서 하기」로 불러올 수 있어요.'); }
+  catch(_){ setStatus('이 브라우저에선 임시저장이 안 돼요. 「⬇️ 파일로 저장」을 이용해 주세요.'); }
+});
+document.getElementById('tload').addEventListener('click',()=>{
+  try{ const s=localStorage.getItem(SAVEKEY);
+    if(!s){ setStatus('임시저장된 내용이 없어요.'); return; }
+    pushUndo('edit'); if(decodeState(s)) setStatus('임시저장한 내용을 불러왔어요.'); else setStatus('불러오기에 실패했어요.');
+  }catch(_){ setStatus('불러오기에 실패했어요.'); }
+});
+function saveBaseName(){
+  const el=document.getElementById('savename');
+  let nm=(el&&el.value||'').trim().replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,'_').slice(0,40);
+  return nm || '리듬만들기';
+}
+document.getElementById('fsave').addEventListener('click',()=>{
+  const code=encodeState();
+  const clone=document.documentElement.cloneNode(true);          // copy the whole page
+  const bd=clone.querySelector('#board'); if(bd) bd.innerHTML=''; // these are rebuilt by script on open
+  const tl=clone.querySelector('#tiles'); if(tl) tl.innerHTML='';
+  const au=clone.querySelector('#maudio'); if(au){ au.removeAttribute('src'); au.style.display='none'; }
+  const cb=clone.querySelector('#clear'); if(cb) cb.classList.remove('active');
+  let meta=clone.querySelector('meta[name="rm-state"]');
+  if(!meta){ meta=document.createElement('meta'); meta.setAttribute('name','rm-state'); clone.querySelector('head').appendChild(meta); }
+  meta.setAttribute('content',code);                              // embed the saved work
+  const html='<!DOCTYPE html>\n'+clone.outerHTML;
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=saveBaseName()+'_저장.html'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  setStatus('<b>'+saveBaseName()+'_저장.html</b> 로 저장했어요. 그 파일을 더블클릭하면 작업이 그대로 열려요.');
+});
+document.getElementById('fopen').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ let code=null; const txt=String(r.result||'');
+    const m=txt.match(/name="rm-state"\s+content="([^"]+)"/);   // saved .html
+    if(m){ code=m[1]; }
+    else { try{ const o=JSON.parse(txt); if(o&&o.code) code=o.code; }catch(_){} }
+    if(code && (pushUndo('edit'),decodeState(code))) setStatus('저장한 파일을 불러왔어요.');
+    else setStatus('이 파일은 불러올 수 없어요.');
+  };
+  r.readAsText(f);
+  e.target.value='';
+});
+
+// ---------- audio ----------
+let actx=null, sources=[], timers=[], playing=false;
+function ac(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(t,freq,dur,vol,type='triangle'){
+  const o=ac().createOscillator(),g=ac().createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(ac().destination);o.start(t);o.stop(t+dur+0.02);
+  sources.push(o);
+}
+function metro(t,accent){ tone(t,accent?1560:1040,0.05,accent?0.5:0.32,'square'); }
+function hit(t){ tone(t,660,0.09,0.5,'triangle'); tone(t,330,0.10,0.22,'sine'); }
+
+function stopAll(){
+  playing=false;
+  sources.forEach(s=>{try{s.stop();}catch(_){} }); sources=[];
+  timers.forEach(clearTimeout); timers=[];
+  board.querySelectorAll('.slot.playing').forEach(s=>s.classList.remove('playing'));
+  document.getElementById('play').textContent='▶ 메트로놈 후 재생';
+}
+document.getElementById('stop').addEventListener('click',stopAll);
+
+document.getElementById('play').addEventListener('click',()=>{
+  if(playing){stopAll();return;}
+  const A=ac(); if(A.state==='suspended')A.resume();
+  const bpm=+tempo.value, beat=60/bpm;
+  const useMet=document.getElementById('metoggle').checked;
+  const t0=A.currentTime+0.18;
+  playing=true; document.getElementById('play').textContent='⏸ 재생 중…';
+
+  // count-in: one full measure of metronome
+  for(let i=0;i<BEATS;i++) metro(t0+i*beat, i===0);
+  const start=t0+BEATS*beat;
+
+  // notes + optional running metronome + visual playhead
+  for(let s=0;s<SLOTS;s++){
+    const bt=start+s*beat;
+    if(useMet) metro(bt, s%BEATS===0);
+    const id=slotData[s];
+    if(id) TYPE[id].on.forEach(o=>hit(bt+o*beat));
+    // playhead highlight
+    const slotEl=board.querySelector(`.slot[data-idx="${s}"]`);
+    timers.push(setTimeout(()=>{ if(!playing)return;
+      board.querySelectorAll('.slot.playing').forEach(x=>x.classList.remove('playing'));
+      slotEl.classList.add('playing');
+    }, (bt-A.currentTime)*1000));
+  }
+  // count-in highlight (pulse the status)
+  for(let i=0;i<BEATS;i++) timers.push(setTimeout(()=>{ if(!playing)return; setStatus(`메트로놈… ${i+1}`); },(t0+i*beat-A.currentTime)*1000));
+  timers.push(setTimeout(()=>{ if(playing) setStatus('연주 중 ♪'); },(start-A.currentTime)*1000));
+  const total=(start+SLOTS*beat - A.currentTime)*1000 + 120;
+  timers.push(setTimeout(()=>{ stopAll(); setStatus('연주 끝! 다시 들어 보거나 음표를 바꿔 보세요.'); }, total));
+});
+</script>
+</body>
+</html>
