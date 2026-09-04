@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음감연습3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#211712; --bg-mid:#2c2018; --panel:#3a2b1f; --panel-light:#463424;
+    --ivory:#f3ead9; --ivory-dim:#cdc0a8; --brass:#c9a24b; --brass-bright:#e6c469;
+    --good:#7ea377; --bad:#b1503a; --wood-line: rgba(243,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(201,162,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(201,162,75,0.08), transparent 50%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg-mid));
+    color:var(--ivory); font-family:'Noto Sans KR', sans-serif;
+    display:flex; justify-content:center; padding:32px 16px 60px;
+  }
+  .app{ width:100%; max-width:720px; }
+  header{ text-align:center; margin-bottom:22px; }
+  .eyebrow{ font-size:12px; letter-spacing:0.32em; color:var(--brass); text-transform:uppercase; margin-bottom:8px; font-weight:500; }
+  h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:28px; margin:0 0 10px; letter-spacing:-0.01em; }
+  .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
+  .desc b{color:var(--brass-bright);font-weight:700;}
+  .card{
+    background: linear-gradient(180deg, var(--panel), var(--bg-mid));
+    border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:22px 20px 24px; margin-top:20px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative; overflow:hidden;
+  }
+  .card::before{ content:""; position:absolute; inset:0; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 40px); pointer-events:none; }
+  .menu-intro{ text-align:center; margin-bottom:16px; }
+  .menu-intro .note-icon{ font-size:32px; color:var(--brass-bright); margin-bottom:6px; }
+  .menu-intro p{ color:var(--ivory-dim); font-size:13px; margin:0; }
+  .menu-grid{ display:flex; flex-direction:column; gap:12px; }
+  .step-card{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    border:1px solid rgba(201,162,75,0.3); border-radius:14px; padding:16px 18px;
+    cursor:pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color .15s ease, background .15s ease;
+  }
+  .step-card:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,0.3); }
+  .step-card .title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:16px; color:var(--brass-bright); margin-bottom:4px; }
+  .step-card .sub{ font-size:12.5px; color:var(--ivory-dim); line-height:1.5; }
+  .step-card .badge{ flex:none; font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:999px; background:rgba(243,234,217,0.08); color:var(--ivory-dim); white-space:nowrap; }
+  .step-card.completed{ border-color: var(--good); background: linear-gradient(180deg, rgba(126,163,119,0.20), var(--panel)); }
+  .step-card.completed .title{ color:var(--good); }
+  .step-card.completed .badge{ background:rgba(126,163,119,0.28); color:var(--good); }
+  .step-banner{ text-align:center; margin-bottom:14px; }
+  .step-banner .step-title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:16px; color:var(--brass-bright); }
+  .step-banner .step-sub{ font-size:12px; color:var(--ivory-dim); margin-top:3px; }
+  .scorebar{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--ivory-dim); margin-bottom:14px; letter-spacing:0.02em; }
+  .scorebar span b{color:var(--brass-bright);font-weight:700;}
+  .status{ text-align:center; font-size:14px; color:var(--brass-bright); min-height:20px; margin-bottom:6px; font-weight:500; letter-spacing:0.03em; }
+  .status.pulse{ animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
+  .staff-wrap{
+    display:flex; justify-content:center; margin:10px 0 6px;
+    background:#ffffff; border-radius:14px; padding:16px 8px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08), 0 10px 24px rgba(0,0,0,0.28);
+    overflow-x:auto;
+  }
+  svg{display:block; max-width:100%; height:auto;}
+  .staffline{stroke:#20180f; stroke-width:1.4; opacity:0.85;}
+  .ledger{stroke:#20180f; stroke-width:1.6; opacity:0.85;}
+  .clef{fill:#20180f; font-size:88px; font-family:'Noto Music', 'Noto Serif KR', serif;}
+  .note-hit{ cursor:pointer; }
+  .note-hit ellipse{
+    fill:none; stroke:#20180f; stroke-width:2.4; pointer-events:all;
+    transition: stroke 0.15s ease, fill 0.15s ease, opacity 0.2s ease, stroke-width 0.15s ease;
+  }
+  .note-hit:hover ellipse{ stroke:var(--brass); stroke-width:3; }
+  .note-hit.wrong{ pointer-events:none; }
+  .note-hit.wrong ellipse{ fill:var(--bad); stroke:var(--bad); }
+  .note-hit.correct ellipse{ fill:var(--good); stroke:var(--good); }
+  .note-hit.locked{ pointer-events:none; }
+  .note-hit.locked:not(.correct) ellipse{ opacity:0.3; }
+  .accidental{ font-size:26px; fill:#0d0904; font-family:'Noto Serif KR', serif; font-weight:700; text-anchor:middle; }
+  .note-label{ font-size:12px; fill:#4a4238; text-anchor:middle; font-family:'Noto Sans KR', sans-serif; font-weight:500; }
+  .controls{ display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap; }
+  .controls-top{ display:flex; justify-content:flex-start; margin-bottom:8px; }
+  button{
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
+    border-radius:999px; padding:11px 20px; border:1px solid rgba(201,162,75,0.4);
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    color:var(--ivory); cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing:0.01em;
+  }
+  button.ghost{ background:transparent; border-color:rgba(243,234,217,0.25); font-size:12.5px; padding:7px 14px; }
+  button:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,0.3);}
+  button:active{transform:translateY(0);}
+  button.primary{ background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none; }
+  button:disabled{ opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+  #triadWrap button.correct{ background: linear-gradient(180deg, var(--good), #5d8355); color:#0e1a0d; border:none; }
+  #triadWrap button.wrong{ background: linear-gradient(180deg, var(--bad), #7c3626); color:#fff; border:none; }
+  #chordChoiceWrap{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:12px; margin-top:14px;
+  }
+  #chordChoiceWrap button{
+    background:#ffffff; border:2.5px solid rgba(201,162,75,0.4); border-radius:12px;
+    padding:8px 4px; display:flex; justify-content:center; align-items:center; cursor:pointer;
+    transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease, opacity .15s ease;
+  }
+  #chordChoiceWrap button:hover{ transform:translateY(-2px); border-color:var(--brass); }
+  #chordChoiceWrap button.correct{ border-color:var(--good); box-shadow:0 0 0 3px rgba(126,163,119,0.35); }
+  #chordChoiceWrap button.wrong{ border-color:var(--bad); box-shadow:0 0 0 3px rgba(177,80,58,0.35); opacity:0.5; }
+  #chordChoiceWrap button:disabled{ cursor:default; }
+  .clef-mini{ fill:#20180f; font-size:58px; font-family:'Noto Music', 'Noto Serif KR', serif; }
+  .ledger-mini{ stroke:#20180f; stroke-width:1.3; opacity:0.85; }
+  .notehead-mini{ fill:none; stroke:#20180f; stroke-width:1.8; }
+  .accidental-mini{ font-size:13px; fill:#0d0904; font-weight:700; font-family:'Noto Serif KR', serif; text-anchor:middle; }
+  .feedback-text{ text-align:center; font-size:14px; font-weight:700; margin-top:14px; min-height:20px; }
+  .feedback-text.good{color:var(--good);}
+  .feedback-text.bad{color:var(--bad);}
+  .transition-screen{ text-align:center; padding:20px 6px; }
+  .transition-screen .big{ font-family:'Noto Serif KR', serif; font-size:22px; font-weight:700; color:var(--brass-bright); margin-bottom:10px; }
+  .transition-screen p{ color:var(--ivory-dim); font-size:13.5px; line-height:1.7; margin-bottom:18px; }
+  footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); margin-top:24px; opacity:0.6; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">EAR TRAINING · CHORD DICTATION</div>
+    <h1>음감연습3</h1>
+    <div class="desc">
+      <b>방법</b> — 단계를 선택하면 시작돼요. Step 1은 화음을 듣고 메이저·마이너를 골라요. Step 2·3은 다장조 음계 후 동시에 울리는 화음의 음들을 한 악보에서 모두 찾아보세요. 화음심화는 들은 화음과 같은 것을 악보 보기 중에서 골라보세요.
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="menuScreen">
+      <div class="menu-intro">
+        <div class="note-icon">♪ ♫ ♪</div>
+        <p>단계는 순서와 상관없이 자유롭게 선택할 수 있어요. 소리가 나오니 볼륨을 확인해주세요.</p>
+      </div>
+      <div class="menu-grid">
+        <div class="step-card" id="card0" data-step="0">
+          <div>
+            <div class="title">Step 1 · 메이저 · 마이너 맞히기</div>
+            <div class="sub">화음을 듣고 메이저인지 마이너인지 골라보세요</div>
+          </div>
+          <div class="badge" id="badge0">도전하기</div>
+        </div>
+        <div class="step-card" id="card1" data-step="1">
+          <div>
+            <div class="title">Step 2 · 2개 화음 맞히기</div>
+            <div class="sub">동시에 울리는 두 음을 한 악보에서 맞혀보세요</div>
+          </div>
+          <div class="badge" id="badge1">도전하기</div>
+        </div>
+        <div class="step-card" id="card2" data-step="2">
+          <div>
+            <div class="title">Step 3 · 3개 화음 맞히기</div>
+            <div class="sub">3화음의 세 음을 한 악보에서 맞혀보세요</div>
+          </div>
+          <div class="badge" id="badge2">도전하기</div>
+        </div>
+        <div class="step-card" id="card3" data-step="3">
+          <div>
+            <div class="title">화음심화 · 3개 화음 (샵·플랫)</div>
+            <div class="sub">들은 화음과 같은 것을 악보 보기 중에서 골라보세요</div>
+          </div>
+          <div class="badge" id="badge3">도전하기</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="stepIntroScreen" class="transition-screen" style="display:none;">
+      <div class="big" id="introTitle"></div>
+      <p id="introDesc"></p>
+      <div class="controls">
+        <button id="introMenuBtn">메뉴로 돌아가기</button>
+        <button class="primary" id="introStartBtn">시작하기</button>
+      </div>
+    </div>
+
+    <div id="stepCompleteScreen" class="transition-screen" style="display:none;">
+      <div class="big" id="completeTitle"></div>
+      <p id="completeStats"></p>
+      <p style="margin-top:-10px; font-weight:700; color:var(--brass-bright);">다시 연습해보시겠습니까?</p>
+      <div class="controls">
+        <button class="primary" id="retryStepBtn">이 단계 다시 연습하기</button>
+        <button id="toMenuBtn">메뉴로 돌아가기</button>
+      </div>
+    </div>
+
+    <div id="testScreen" style="display:none;">
+      <div class="controls-top">
+        <button class="ghost" id="menuBackBtn">← 메뉴로</button>
+      </div>
+      <div class="step-banner">
+        <div class="step-title" id="stepTitle"></div>
+        <div class="step-sub" id="stepSub"></div>
+      </div>
+      <div class="scorebar">
+        <span>문제 <b id="roundNum">0</b>/<b id="roundTarget">10</b></span>
+        <span>첫시도 정답 <b id="firstTryNum">0</b></span>
+        <span>정확도 <b id="accuracy">-</b></span>
+      </div>
+      <div class="status" id="statusText">재생하는 중...</div>
+
+      <div class="staff-wrap" id="staffWrap"><svg id="staffSvg" width="680" height="250" viewBox="0 0 680 250"></svg></div>
+
+      <div id="chordChoiceWrap" style="display:none;"></div>
+
+      <div class="controls" id="triadWrap" style="display:none; margin-top:14px;">
+        <button id="majorBtn" style="min-width:140px; font-size:16px; padding:16px 22px;">메이저</button>
+        <button id="minorBtn" style="min-width:140px; font-size:16px; padding:16px 22px;">마이너</button>
+      </div>
+
+
+      <div class="feedback-text" id="feedbackText"></div>
+      <div class="controls">
+        <button id="replaySeq">🎵 처음부터 다시 듣기</button>
+        <button class="primary" id="nextBtn" style="display:none;">다음 문제 →</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Claude가 만든 절대음감 연습 도구 · 이어폰 사용을 권장합니다 · 매번 새로운 문제로 출제돼요</footer>
+</div>
+
+<script>
+(function(){
+  // ---------- Note pools ----------
+  const NOTES_ONE = [ // 한 옥타브, 흰건반만
+    {name:"C4", freq:261.63, step:-2, label:"도", accidental:null},
+    {name:"D4", freq:293.66, step:-1, label:"레", accidental:null},
+    {name:"E4", freq:329.63, step:0,  label:"미", accidental:null},
+    {name:"F4", freq:349.23, step:1,  label:"파", accidental:null},
+    {name:"G4", freq:392.00, step:2,  label:"솔", accidental:null},
+    {name:"A4", freq:440.00, step:3,  label:"라", accidental:null},
+    {name:"B4", freq:493.88, step:4,  label:"시", accidental:null},
+    {name:"C5", freq:523.25, step:5,  label:"도", accidental:null},
+  ];
+  const NOTES_CHROMA = [ // 한 옥타브, 샵/플랫 포함 (index === 반음 offset)
+    {name:"C4",  freq:261.63, step:-2, label:"도",  accidental:null},
+    {name:"C#4", freq:277.18, step:-2, label:"도♯", accidental:"#"},
+    {name:"D4",  freq:293.66, step:-1, label:"레",  accidental:null},
+    {name:"Eb4", freq:311.13, step:0,  label:"미♭", accidental:"b"},
+    {name:"E4",  freq:329.63, step:0,  label:"미",  accidental:null},
+    {name:"F4",  freq:349.23, step:1,  label:"파",  accidental:null},
+    {name:"F#4", freq:369.99, step:1,  label:"파♯", accidental:"#"},
+    {name:"G4",  freq:392.00, step:2,  label:"솔",  accidental:null},
+    {name:"Ab4", freq:415.30, step:3,  label:"라♭", accidental:"b"},
+    {name:"A4",  freq:440.00, step:3,  label:"라",  accidental:null},
+    {name:"Bb4", freq:466.16, step:4,  label:"시♭", accidental:"b"},
+    {name:"B4",  freq:493.88, step:4,  label:"시",  accidental:null},
+    {name:"C5",  freq:523.25, step:5,  label:"도",  accidental:null},
+  ];
+  const SCALE = NOTES_ONE;
+  const POOL_SIZE = 30; // 기본 문제 풀 크기
+  const ROUNDS_PER_SESSION = 10; // 실제로 출제할 문제 수
+
+  // 한 옥타브 흰건반 안에서 장3도/단3도/완전4도가 되는 음 쌍 (인덱스, 낮은음-높은음)
+  const CHORD_PAIRS = [
+    [0,2],[0,3],[1,3],[1,4],[2,4],[2,5],[3,5],[4,6],[4,7],[5,7]
+  ];
+  // 메이저·마이너 맞히기(Step1)용: 12개 반음 전체 x 장조/단조 = 24가지 화음 (다양성 확보, 화면 표시 없이 소리만 재생하므로 옥타브 제약 없음)
+  const TRIAD_ROOTS_FOR_QUALITY_GAME = [];
+  for(let s=0; s<12; s++){
+    TRIAD_ROOTS_FOR_QUALITY_GAME.push({semitone:s, quality:"major"});
+    TRIAD_ROOTS_FOR_QUALITY_GAME.push({semitone:s, quality:"minor"});
+  }
+  // 다장조 화음(메이저/마이너)을 만들 수 있는 근음 (온음계) — Step3용, 한 옥타브 안에서 표시 가능해야 함
+  const TRIAD_ROOTS = [
+    {semitone:0, quality:"major"}, {semitone:2, quality:"minor"},
+    {semitone:4, quality:"minor"}, {semitone:5, quality:"major"},
+    {semitone:7, quality:"major"}, {semitone:9, quality:"minor"},
+  ];
+  // Step3: 한 옥타브 안에서 세 음이 모두 표현되는 온음계 근음만
+  const TRIAD_ROOTS_IN_RANGE = TRIAD_ROOTS.filter(r=> r.semitone <= 5);
+  // 화음심화: 샵·플랫 근음도 포함 (한 옥타브 안에서 표현 가능한 범위)
+  // 한 화음 안에서 샵과 플랫이 섞이지 않도록, 필요한 곳은 음을 직접 지정
+  const DB4 = {name:"Db4", freq:277.18, step:-1, label:"레♭", accidental:"b"};
+  const GB4 = {name:"Gb4", freq:369.99, step:2,  label:"솔♭", accidental:"b"};
+  const GS4 = {name:"G#4", freq:415.30, step:2,  label:"솔♯", accidental:"#"};
+  // 각 근음(도~파, 반음0~5)마다 장조/단조를 모두 포함 — 같은 근음의 장/단조를 헷갈리는 보기로 쓰기 위함
+  const TRIAD_ROOTS_CHROMA = [
+    {semitone:0, quality:"major"},                                                // C - E - G
+    {semitone:0, quality:"minor"},                                                // C - Eb - G
+    {semitone:1, quality:"major", customNotes:[DB4, NOTES_CHROMA[5], NOTES_CHROMA[8]]},   // Db - F - Ab
+    {semitone:1, quality:"minor", customNotes:[NOTES_CHROMA[1], NOTES_CHROMA[4], GS4]},   // C# - E - G#
+    {semitone:2, quality:"major"},                                                // D - F# - A
+    {semitone:2, quality:"minor"},                                                // D - F - A
+    {semitone:3, quality:"major"},                                                // Eb - G - Bb
+    {semitone:3, quality:"minor", customNotes:[NOTES_CHROMA[3], GB4, NOTES_CHROMA[10]]},  // Eb - Gb - Bb
+    {semitone:4, quality:"major", customNotes:[NOTES_CHROMA[4], GS4, NOTES_CHROMA[11]]},  // E - G# - B
+    {semitone:4, quality:"minor"},                                                // E - G - B
+    {semitone:5, quality:"major"},                                                // F - A - C5
+    {semitone:5, quality:"minor"},                                                // F - Ab - C5
+  ];
+  function freqFromSemitone(offset){ return 261.63 * Math.pow(2, offset/12); }
+
+  const STEPS = [
+    { key:"triad", mode:"triad", target:ROUNDS_PER_SESSION,
+      title:"Step 1 · 메이저 · 마이너 맞히기", sub:"화음을 듣고 메이저인지 마이너인지 골라보세요",
+      statusPick:"들은 화음이 메이저인지 마이너인지 골라보세요",
+      intro:"화음을 듣고 메이저, 마이너 중 무엇인지 맞히기" },
+    { key:"chord2", mode:"chord2", target:ROUNDS_PER_SESSION, pool:NOTES_ONE,
+      title:"Step 2 · 2개 화음 맞히기", sub:"동시에 울리는 두 음을 골라보세요",
+      statusPick:"들은 두 음을 악보에서 골라보세요",
+      intro:"다장조 음계 후 동시에 울리는 두 음 맞히기" },
+    { key:"chord3", mode:"chord3", target:ROUNDS_PER_SESSION, pool:NOTES_ONE,
+      title:"Step 3 · 3개 화음 맞히기", sub:"3화음의 세 음을 골라보세요",
+      statusPick:"들은 세 음을 악보에서 골라보세요",
+      intro:"다장조 음계 후 화음을 듣고, 세 음 맞히기" },
+    { key:"chord3Chroma", mode:"chord3Chroma", target:ROUNDS_PER_SESSION, pool:NOTES_CHROMA,
+      title:"화음심화 · 3개 화음 (샵·플랫)", sub:"들은 화음과 같은 것을 악보 보기 중에서 골라보세요",
+      statusPick:"들은 화음과 같은 악보를 골라보세요",
+      intro:"다장조 음계 후 화음을 듣고, 악보 보기 중에서 같은 화음 맞히기" },
+  ];
+
+  // ---------- State ----------
+  let audioCtx = null;
+  let currentStepIdx = 0;
+  let completedRounds = 0;
+  let firstTryRounds = 0;
+  let attempts = 0;
+  let currentTargets = [];
+  let currentTriad = null;
+  let correctChordRoot = null;
+  let currentChordOptions = [];
+  let foundNames = new Set();
+  let roundQueue = []; // 이번 세션에서 쓸 10개 문제 (30개 풀에서 샘플링)
+  const completedSteps = new Set();
+
+  // ---------- Audio ----------
+  function ensureCtx(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function scheduleTone(freq, startTime, duration){
+    const ctx = ensureCtx();
+    const osc = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const gain2 = ctx.createGain();
+    osc.type = "triangle"; osc.frequency.value = freq;
+    osc2.type = "sine"; osc2.frequency.value = freq * 2;
+    const peak = 0.45;
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(peak, startTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(peak*0.35, startTime + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    gain2.gain.setValueAtTime(0, startTime);
+    gain2.gain.linearRampToValueAtTime(peak*0.12, startTime + 0.015);
+    gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration*0.6);
+    osc.connect(gain).connect(ctx.destination);
+    osc2.connect(gain2).connect(ctx.destination);
+    osc.start(startTime); osc.stop(startTime + duration + 0.05);
+    osc2.start(startTime); osc2.stop(startTime + duration + 0.05);
+  }
+
+  function playScale(onDone){
+    const ctx = ensureCtx();
+    const noteDur = 0.34;
+    const now = ctx.currentTime + 0.05;
+    SCALE.forEach((n, i)=>{ scheduleTone(n.freq, now + i*noteDur, noteDur*0.95); });
+    const totalMs = (SCALE.length*noteDur)*1000;
+    if(onDone) setTimeout(onDone, totalMs);
+    return totalMs;
+  }
+
+  function playChordNotes(notes, dur, onDone){
+    const ctx = ensureCtx();
+    const now = ctx.currentTime + 0.05;
+    notes.forEach(n=> scheduleTone(n.freq, now, dur));
+    if(onDone) setTimeout(onDone, dur*1000 + 150);
+  }
+
+  function playTriadRoot(root, onDone){
+    const dur = 1.3;
+    const thirdOffset = root.quality === "major" ? 4 : 3;
+    playChordNotes([
+      {freq:freqFromSemitone(root.semitone)},
+      {freq:freqFromSemitone(root.semitone+thirdOffset)},
+      {freq:freqFromSemitone(root.semitone+7)},
+    ], dur, onDone);
+  }
+
+  // ---------- 정답/오답 효과음 ----------
+  function playClapBurst(startTime, volume){
+    const ctx = ensureCtx();
+    const dur = 0.045 + Math.random()*0.02;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){
+      // 앞부분에 강한 임팩트를 주고 빠르게 감쇠 (손뼉의 스냅감)
+      const env = Math.pow(1 - i/bufferSize, 3.2);
+      data[i] = (Math.random()*2-1) * env;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    // 손뼉 특유의 밝고 넓은 대역 (고역 스냅 + 중역 바디)
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = "bandpass";
+    bandpass.frequency.value = 2200 + Math.random()*2200;
+    bandpass.Q.value = 0.7 + Math.random()*0.6;
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 900;
+
+    const gain = ctx.createGain();
+    const peak = (volume !== undefined ? volume : 0.6) * (0.75 + Math.random()*0.5);
+    gain.gain.setValueAtTime(peak, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+
+    noise.connect(bandpass).connect(highpass).connect(gain).connect(ctx.destination);
+    noise.start(startTime);
+    noise.stop(startTime + dur + 0.02);
+  }
+
+  function playSuccessSound(){
+    const ctx = ensureCtx();
+    const now = ctx.currentTime + 0.02;
+    // 여러 사람이 짝짝짝 치는 박수 소리처럼: 촘촘한 노이즈 클랩을 겹치고 시간이 갈수록 밀도가 옅어지게
+    const totalClaps = 22;
+    const spread = 0.85;
+    for(let i=0;i<totalClaps;i++){
+      const progress = i/totalClaps;
+      const t = now + progress*spread + (Math.random()-0.5)*0.03;
+      const volume = 0.55 * (1 - progress*0.5); // 시간이 지날수록 살짝 잦아듦
+      playClapBurst(t, volume);
+    }
+  }
+
+  function playFailSound(){
+    const ctx = ensureCtx();
+    const now = ctx.currentTime + 0.02;
+    const wahs = [
+      {f0:320, f1:230, start:now,        dur:0.26},
+      {f0:280, f1:170, start:now + 0.30, dur:0.42},
+    ];
+    wahs.forEach(w=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(w.f0, w.start);
+      osc.frequency.exponentialRampToValueAtTime(w.f1, w.start + w.dur);
+      gain.gain.setValueAtTime(0.0001, w.start);
+      gain.gain.exponentialRampToValueAtTime(0.22, w.start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, w.start + w.dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(w.start);
+      osc.stop(w.start + w.dur + 0.05);
+    });
+  }
+
+  function playRoundAudio(onDone){
+    const step = STEPS[currentStepIdx];
+    if(step.mode === "triad"){
+      setTimeout(()=>{ playTriadRoot(currentTriad, onDone); }, 300);
+      return;
+    }
+    const scaleMs = playScale();
+    const dur = (step.mode === "chord2") ? 1.2 : 1.3;
+    setTimeout(()=>{ playChordNotes(currentTargets, dur, onDone); }, scaleMs + 2000);
+  }
+
+  // ---------- Staff rendering ----------
+  const svg = document.getElementById("staffSvg");
+  const NS = "http://www.w3.org/2000/svg";
+  const stepPx = 9;
+  const baseY = 170;
+  const staffLeft = 70;
+  const staffRight = 660;
+
+  function yOf(step){ return baseY - step*stepPx; }
+
+  function ledgerSteps(step){
+    const steps = [];
+    if(step < 0){
+      const bottomNeeded = (step % 2 === 0) ? step : step + 1;
+      for(let e=-2; e>=bottomNeeded; e-=2) steps.push(e);
+    } else if(step > 8){
+      const topNeeded = (step % 2 === 0) ? step : step - 1;
+      for(let e=10; e<=topNeeded; e+=2) steps.push(e);
+    }
+    return steps;
+  }
+
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function drawStaffBase(){
+    svg.innerHTML = "";
+    const clefZoneLeft = staffLeft - 66;
+    [0,2,4,6,8].forEach(s=>{
+      const y = yOf(s);
+      svg.appendChild(el("line", {class:"staffline", x1:clefZoneLeft, y1:y, x2:staffRight, y2:y}));
+    });
+    const clefText = el("text", {class:"clef", x: clefZoneLeft+6, y: yOf(0)});
+    clefText.textContent = "𝄞";
+    svg.appendChild(clefText);
+  }
+
+  let noteGroups = [];
+
+  function drawOptions(options, onPick){
+    noteGroups = [];
+    const slotCount = options.length;
+    const usableWidth = staffRight - (staffLeft+50) - 20;
+    const spacing = usableWidth / (slotCount-1);
+    options.forEach((note, i)=>{
+      const x = staffLeft + 50 + spacing*i;
+      const y = yOf(note.step);
+
+      const g = el("g", {class:"note-hit"});
+      ledgerSteps(note.step).forEach(ls=>{
+        g.appendChild(el("line", {class:"ledger", x1:x-15, y1:yOf(ls), x2:x+15, y2:yOf(ls)}));
+      });
+      if(note.accidental){
+        const symbol = note.accidental === "#" ? "♯" : "♭";
+        const acc = el("text", {class:"accidental", x:x-24, y:y+8});
+        acc.textContent = symbol;
+        g.appendChild(acc);
+      }
+      const ellipse = el("ellipse", {cx:x, cy:y, rx:11, ry:7.2});
+      g.appendChild(ellipse);
+      const label = el("text", {class:"note-label", x:x, y: baseY + 48});
+      label.textContent = note.label;
+      g.appendChild(label);
+
+      g.addEventListener("click", ()=> onPick(note, g));
+      svg.appendChild(g);
+      noteGroups.push({note, g});
+    });
+  }
+
+  function lockRemaining(){
+    noteGroups.forEach(ng=>{ if(!ng.g.classList.contains("correct")) ng.g.classList.add("locked"); });
+  }
+
+  // 5지선다 보기용 작은 악보 하나 그리기 (클릭은 버튼 전체가 담당, 음표 개별 클릭 아님)
+  function drawMiniChord(svgEl, notes){
+    svgEl.innerHTML = "";
+    const stepPxM = 7, baseYM = 78, leftM = 42, rightM = 194;
+    const clefZoneLeftM = leftM - 34;
+    const yM = (s)=> baseYM - s*stepPxM;
+    [0,2,4,6,8].forEach(s=>{
+      svgEl.appendChild(el("line", {class:"staffline", x1:clefZoneLeftM, y1:yM(s), x2:rightM, y2:yM(s)}));
+    });
+    const clefText = el("text", {class:"clef-mini", x:clefZoneLeftM+4, y:yM(0)});
+    clefText.textContent = "𝄞";
+    svgEl.appendChild(clefText);
+
+    // 화음이므로 한 줄(같은 x축)에 세로로 쌓아서 표시. 바로 붙어있는 2도 음정만 살짝 옆으로 offset.
+    const sorted = notes.slice().sort((a,b)=> a.step-b.step);
+    const centerX = (leftM + rightM) / 2 + 10;
+    let lastStep = null;
+    let toggle = false;
+    const positions = sorted.map(note=>{
+      const isAdjacent = (lastStep !== null && note.step - lastStep === 1);
+      if(isAdjacent) toggle = !toggle; else toggle = false;
+      lastStep = note.step;
+      return { note, dx: toggle ? 9 : 0 };
+    });
+
+    // 레저선은 겹치지 않게 필요한 step을 모아 한 번씩만 그림
+    const allLedgerSteps = new Set();
+    positions.forEach(p=> ledgerSteps(p.note.step).forEach(ls=> allLedgerSteps.add(ls)));
+    allLedgerSteps.forEach(ls=>{
+      svgEl.appendChild(el("line", {class:"ledger-mini", x1:centerX-11, y1:yM(ls), x2:centerX+20, y2:yM(ls)}));
+    });
+
+    positions.forEach(({note, dx})=>{
+      const x = centerX + dx;
+      const y = yM(note.step);
+      if(note.accidental){
+        const symbol = note.accidental === "#" ? "♯" : "♭";
+        const acc = el("text", {class:"accidental-mini", x:x-15, y:y+4});
+        acc.textContent = symbol;
+        svgEl.appendChild(acc);
+      }
+      svgEl.appendChild(el("ellipse", {class:"notehead-mini", cx:x, cy:y, rx:6.5, ry:4.5}));
+    });
+  }
+
+  // ---------- UI refs ----------
+  const statusText = document.getElementById("statusText");
+  const feedbackText = document.getElementById("feedbackText");
+  const roundNum = document.getElementById("roundNum");
+  const roundTarget = document.getElementById("roundTarget");
+  const firstTryNum = document.getElementById("firstTryNum");
+  const accuracy = document.getElementById("accuracy");
+  const nextBtn = document.getElementById("nextBtn");
+  const replaySeqBtn = document.getElementById("replaySeq");
+  const stepTitleEl = document.getElementById("stepTitle");
+  const stepSubEl = document.getElementById("stepSub");
+  const staffWrap = document.getElementById("staffWrap");
+  const triadWrap = document.getElementById("triadWrap");
+  const chordChoiceWrap = document.getElementById("chordChoiceWrap");
+  const majorBtn = document.getElementById("majorBtn");
+  const minorBtn = document.getElementById("minorBtn");
+
+  const menuScreen = document.getElementById("menuScreen");
+  const testScreen = document.getElementById("testScreen");
+  const stepCompleteScreen = document.getElementById("stepCompleteScreen");
+  const stepIntroScreen = document.getElementById("stepIntroScreen");
+
+  function renderMenu(){
+    STEPS.forEach((step, i)=>{
+      const card = document.getElementById("card"+i);
+      const badge = document.getElementById("badge"+i);
+      if(completedSteps.has(step.key)){
+        card.classList.add("completed");
+        badge.textContent = "✓ 완료 · 다시 연습";
+      } else {
+        card.classList.remove("completed");
+        badge.textContent = "도전하기";
+      }
+    });
+  }
+
+  function updateScore(){
+    const step = STEPS[currentStepIdx];
+    roundNum.textContent = completedRounds;
+    roundTarget.textContent = step.target;
+    firstTryNum.textContent = firstTryRounds;
+    accuracy.textContent = completedRounds ? Math.round(firstTryRounds/completedRounds*100)+"%" : "-";
+    stepTitleEl.textContent = step.title;
+    stepSubEl.textContent = step.sub;
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  // 유효한 후보 목록을 30개로 채운 뒤(부족하면 반복), 섞어서 10개만 이번 세션에 사용
+  function buildRoundQueue(candidates){
+    const pool = [];
+    while(pool.length < POOL_SIZE){
+      pool.push(candidates[Math.floor(Math.random()*candidates.length)]);
+    }
+    const seq = shuffle(pool).slice(0, ROUNDS_PER_SESSION);
+    // 바로 앞 문제와 같은 것이 연달아 나오지 않도록 보정
+    for(let i=1;i<seq.length;i++){
+      let guard = 0;
+      while(seq[i] === seq[i-1] && guard < 30){
+        seq[i] = candidates[Math.floor(Math.random()*candidates.length)];
+        guard++;
+      }
+    }
+    return seq;
+  }
+
+  // NOTES_ONE은 음계 순서(0~7) 인덱스라 반음 오프셋과 다름 -> 매핑 필요
+  const SEMITONE_TO_DIATONIC = {0:0, 2:1, 4:2, 5:3, 7:4, 9:5, 11:6, 12:7};
+
+  function triadNotesFromRoot(root, pool, chromaPool){
+    if(root.customNotes) return root.customNotes;
+    const thirdOffset = root.quality === "major" ? 4 : 3;
+    const offsets = [root.semitone, root.semitone+thirdOffset, root.semitone+7];
+    if(chromaPool){
+      return offsets.map(o=> pool[o]); // NOTES_CHROMA는 반음 offset === 배열 index
+    }
+    return offsets.map(o=> pool[SEMITONE_TO_DIATONIC[o]]);
+  }
+
+  function triadLabel(root){
+    return triadNotesFromRoot(root, NOTES_CHROMA, true).map(n=> n.label).join(" · ");
+  }
+
+  let currentOptionsPool = NOTES_ONE;
+
+  function pickRoundNotes(){
+    const step = STEPS[currentStepIdx];
+    const item = roundQueue[completedRounds];
+    if(step.mode === "triad"){
+      currentTriad = item;
+    } else if(step.mode === "chord2"){
+      currentTargets = [step.pool[item[0]], step.pool[item[1]]];
+      currentOptionsPool = step.pool;
+    } else if(step.mode === "chord3"){
+      currentTargets = triadNotesFromRoot(item, step.pool, false);
+      currentOptionsPool = step.pool;
+    } else if(step.mode === "chord3Chroma"){
+      correctChordRoot = item;
+      currentTargets = triadNotesFromRoot(item, NOTES_CHROMA, true);
+      const sameRootOpposite = TRIAD_ROOTS_CHROMA.find(r=>
+        r.semitone === item.semitone && r.quality !== item.quality);
+      const restPool = TRIAD_ROOTS_CHROMA.filter(r=> r !== item && r !== sameRootOpposite);
+      const restPicks = shuffle(restPool).slice(0, sameRootOpposite ? 3 : 4);
+      const others = sameRootOpposite ? [sameRootOpposite, ...restPicks] : restPicks;
+      currentChordOptions = shuffle([item, ...others]);
+    }
+  }
+
+  function startRound(){
+    attempts = 0;
+    foundNames = new Set();
+    feedbackText.textContent = "";
+    feedbackText.className = "feedback-text";
+    nextBtn.style.display = "none";
+
+    const step = STEPS[currentStepIdx];
+    replaySeqBtn.textContent = step.mode === "triad" ? "🎵 화음 다시 듣기" : "🎵 음계부터 다시 듣기";
+    if(step.mode === "triad"){
+      staffWrap.style.display = "none";
+      chordChoiceWrap.style.display = "none";
+      triadWrap.style.display = "flex";
+      majorBtn.className = ""; minorBtn.className = "";
+    } else if(step.mode === "chord3Chroma"){
+      staffWrap.style.display = "none";
+      triadWrap.style.display = "none";
+      chordChoiceWrap.style.display = "none";
+      chordChoiceWrap.innerHTML = "";
+    } else {
+      triadWrap.style.display = "none";
+      chordChoiceWrap.style.display = "none";
+      staffWrap.style.display = "flex";
+      drawStaffBase();
+    }
+
+    pickRoundNotes();
+    updateScore();
+
+    statusText.textContent = step.mode === "triad" ? "🎵 화음을 재생하는 중..." : "🎵 다장조 음계를 재생하는 중...";
+    statusText.classList.add("pulse");
+
+    playRoundAudio(()=>{
+      statusText.classList.remove("pulse");
+      statusText.textContent = step.statusPick;
+      if(step.mode === "triad"){
+        majorBtn.disabled = false; minorBtn.disabled = false;
+      } else if(step.mode === "chord3Chroma"){
+        renderChordChoices();
+      } else {
+        drawStaffBase();
+        drawOptions(currentOptionsPool, onPick);
+      }
+    });
+  }
+
+  function replayFromStart(afterFn){
+    const step = STEPS[currentStepIdx];
+    statusText.textContent = step.mode === "triad" ? "🎵 화음을 다시 재생하는 중..." : "🎵 다장조 음계부터 다시 재생하는 중...";
+    statusText.classList.add("pulse");
+    playRoundAudio(()=>{
+      statusText.classList.remove("pulse");
+      afterFn();
+    });
+  }
+
+  function onPick(note, g){
+    if(g.classList.contains("correct") || g.classList.contains("wrong") || g.classList.contains("locked")) return;
+    const step = STEPS[currentStepIdx];
+    const needed = currentTargets.length;
+    const isTarget = currentTargets.some(t=> t.name === note.name);
+
+    if(isTarget){
+      foundNames.add(note.name);
+      g.classList.add("correct");
+
+      if(foundNames.size < needed){
+        const remaining = needed - foundNames.size;
+        feedbackText.textContent = `한 음을 찾았어요! 나머지 ${remaining}개 음도 찾아보세요 🎯`;
+        feedbackText.classList.add("good");
+      } else {
+        lockRemaining();
+        completedRounds++;
+        const firstTry = attempts === 0;
+        if(firstTry) firstTryRounds++;
+        feedbackText.textContent = firstTry ? "정답이에요! 모든 음을 찾았어요 🎯" : "정답이에요! 다음 문제로 넘어가요.";
+        feedbackText.classList.remove("bad");
+        feedbackText.classList.add("good");
+        updateScore();
+        playSuccessSound();
+
+        if(completedRounds >= step.target){
+          completedSteps.add(step.key);
+          setTimeout(()=> showStepComplete(), 700);
+        } else {
+          setTimeout(()=> startRound(), 900);
+        }
+      }
+    } else {
+      attempts++;
+      g.classList.add("wrong");
+      feedbackText.textContent = "틀렸어요. 음계부터 다시 들려드릴게요 🔁";
+      feedbackText.classList.remove("good");
+      feedbackText.classList.add("bad");
+      playFailSound();
+      setTimeout(()=>{
+        replayFromStart(()=>{
+          statusText.textContent = step.statusPick;
+          const remaining = needed - foundNames.size;
+          feedbackText.textContent = foundNames.size > 0 ? `한 음을 찾았어요! 나머지 ${remaining}개 음도 찾아보세요 🎯` : "";
+          feedbackText.className = foundNames.size > 0 ? "feedback-text good" : "feedback-text";
+        });
+      }, 700);
+    }
+  }
+
+  function onTriadPick(quality, btn){
+    if(majorBtn.disabled) return;
+    const step = STEPS[currentStepIdx];
+    if(quality === currentTriad.quality){
+      majorBtn.disabled = true; minorBtn.disabled = true;
+      btn.classList.add("correct");
+      completedRounds++;
+      const firstTry = attempts === 0;
+      if(firstTry) firstTryRounds++;
+      feedbackText.textContent = firstTry ? "정답이에요! 🎯" : "정답이에요! 다음 문제로 넘어가요.";
+      feedbackText.className = "feedback-text good";
+      updateScore();
+      playSuccessSound();
+
+      if(completedRounds >= step.target){
+        completedSteps.add(step.key);
+        setTimeout(()=> showStepComplete(), 700);
+      } else {
+        setTimeout(()=> startRound(), 900);
+      }
+    } else {
+      attempts++;
+      btn.classList.add("wrong");
+      majorBtn.disabled = true; minorBtn.disabled = true;
+      feedbackText.textContent = "틀렸어요. 화음을 다시 들려드릴게요 🔁";
+      feedbackText.className = "feedback-text bad";
+      playFailSound();
+      setTimeout(()=>{
+        btn.classList.remove("wrong");
+        replayFromStart(()=>{
+          statusText.textContent = step.statusPick;
+          feedbackText.textContent = "";
+          feedbackText.className = "feedback-text";
+          majorBtn.disabled = false; minorBtn.disabled = false;
+        });
+      }, 700);
+    }
+  }
+  majorBtn.addEventListener("click", ()=> onTriadPick("major", majorBtn));
+  minorBtn.addEventListener("click", ()=> onTriadPick("minor", minorBtn));
+
+  function renderChordChoices(){
+    chordChoiceWrap.innerHTML = "";
+    chordChoiceWrap.style.display = "grid";
+    currentChordOptions.forEach(root=>{
+      const btn = document.createElement("button");
+      const svgEl = document.createElementNS(NS, "svg");
+      svgEl.setAttribute("width", "200");
+      svgEl.setAttribute("height", "130");
+      svgEl.setAttribute("viewBox", "0 0 200 130");
+      btn.appendChild(svgEl);
+      drawMiniChord(svgEl, triadNotesFromRoot(root, NOTES_CHROMA, true));
+      btn.addEventListener("click", ()=> onChordChoicePick(root, btn));
+      chordChoiceWrap.appendChild(btn);
+    });
+  }
+
+  function onChordChoicePick(root, btn){
+    if(btn.disabled || btn.classList.contains("correct") || btn.classList.contains("wrong")) return;
+    const step = STEPS[currentStepIdx];
+    if(root === correctChordRoot){
+      Array.from(chordChoiceWrap.children).forEach(b=> b.disabled = true);
+      btn.classList.add("correct");
+      completedRounds++;
+      const firstTry = attempts === 0;
+      if(firstTry) firstTryRounds++;
+      feedbackText.textContent = firstTry ? "정답이에요! 🎯" : "정답이에요! 다음 문제로 넘어가요.";
+      feedbackText.className = "feedback-text good";
+      updateScore();
+      playSuccessSound();
+
+      if(completedRounds >= step.target){
+        completedSteps.add(step.key);
+        setTimeout(()=> showStepComplete(), 700);
+      } else {
+        setTimeout(()=> startRound(), 900);
+      }
+    } else {
+      attempts++;
+      btn.classList.add("wrong");
+      btn.disabled = true;
+      feedbackText.textContent = "틀렸어요. 화음을 다시 들려드릴게요 🔁";
+      feedbackText.className = "feedback-text bad";
+      playFailSound();
+      Array.from(chordChoiceWrap.children).forEach(b=> b.disabled = true);
+      setTimeout(()=>{
+        replayFromStart(()=>{
+          statusText.textContent = step.statusPick;
+          feedbackText.textContent = "";
+          feedbackText.className = "feedback-text";
+          Array.from(chordChoiceWrap.children).forEach(b=>{
+            if(!b.classList.contains("wrong")) b.disabled = false;
+          });
+        });
+      }, 700);
+    }
+  }
+
+  function showStepComplete(){
+    testScreen.style.display = "none";
+    stepCompleteScreen.style.display = "block";
+    const step = STEPS[currentStepIdx];
+    const acc = completedRounds ? Math.round(firstTryRounds/completedRounds*100) : 0;
+    document.getElementById("completeTitle").textContent = `🎉 ${step.title} 완료!`;
+    document.getElementById("completeStats").textContent =
+      `첫 시도 정답 ${firstTryRounds}회 (정확도 ${acc}%)`;
+  }
+
+  function candidatesForStep(step){
+    if(step.mode === "triad") return TRIAD_ROOTS_FOR_QUALITY_GAME;
+    if(step.mode === "chord2") return CHORD_PAIRS;
+    if(step.mode === "chord3") return TRIAD_ROOTS_IN_RANGE;
+    if(step.mode === "chord3Chroma") return TRIAD_ROOTS_CHROMA;
+    return [];
+  }
+
+  function prepareStep(idx){
+    currentStepIdx = idx;
+    completedRounds = 0; firstTryRounds = 0;
+    roundQueue = buildRoundQueue(candidatesForStep(STEPS[idx]));
+  }
+
+  function showIntro(idx){
+    prepareStep(idx);
+    const step = STEPS[idx];
+    document.getElementById("introTitle").textContent = step.title;
+    document.getElementById("introDesc").textContent = step.intro;
+    menuScreen.style.display = "none";
+    stepCompleteScreen.style.display = "none";
+    stepIntroScreen.style.display = "block";
+  }
+
+  function beginStepRounds(){
+    ensureCtx();
+    stepIntroScreen.style.display = "none";
+    testScreen.style.display = "block";
+    startRound();
+  }
+
+  function selectStep(idx){
+    ensureCtx();
+    prepareStep(idx);
+    menuScreen.style.display = "none";
+    stepCompleteScreen.style.display = "none";
+    testScreen.style.display = "block";
+    startRound();
+  }
+
+  function goToMenu(){
+    testScreen.style.display = "none";
+    stepCompleteScreen.style.display = "none";
+    stepIntroScreen.style.display = "none";
+    renderMenu();
+    menuScreen.style.display = "block";
+  }
+
+  STEPS.forEach((step, i)=>{
+    document.getElementById("card"+i).addEventListener("click", ()=> showIntro(i));
+  });
+
+  document.getElementById("introStartBtn").addEventListener("click", beginStepRounds);
+  document.getElementById("introMenuBtn").addEventListener("click", goToMenu);
+  document.getElementById("retryStepBtn").addEventListener("click", ()=> showIntro(currentStepIdx));
+  document.getElementById("toMenuBtn").addEventListener("click", goToMenu);
+  document.getElementById("menuBackBtn").addEventListener("click", goToMenu);
+
+  nextBtn.addEventListener("click", startRound);
+  replaySeqBtn.addEventListener("click", ()=>{ playRoundAudio(()=>{}); });
+
+  renderMenu();
+})();
+</script>
+</body>
+</html>
