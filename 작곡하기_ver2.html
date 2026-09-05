@@ -270,8 +270,6 @@
   .recResult{margin-top:12px}
   .recResult audio{width:100%;max-width:480px;display:block}
   .recResultLabel{font-size:13px;font-weight:700;color:#8c8570;margin:0 0 4px}
-  .recResultBlock{margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--soft)}
-  .recResultBlock .btn-save-audio{margin-top:8px}
   #saveAudioNC{margin-top:8px}
 
   /* 녹음 방식 선택 — 「음원 녹음하기」를 누르면 팝업 안에 이 두 큰 버튼이 먼저 뜨고, 하나를 고르면
@@ -544,8 +542,8 @@
     <div id="recModeChoice">
       <p class="popupSub">어떤 방식으로 녹음할까요?</p>
       <div class="recModeBtns">
-        <button type="button" class="btn-record-mode" id="modeMelodyBtn">🎵 멜로디만 녹음하기<span class="recModeSub">노래(마이크) 없이 연주 소리만 파일로 만들어요</span></button>
-        <button type="button" class="btn-record-mode" id="modeVoiceBtn">🎤 반주와 함께 녹음하기<span class="recModeSub">이어폰을 끼고 노래를 불러서 반주와 함께 녹음해요</span></button>
+        <button type="button" class="btn-record-mode" id="modeMelodyBtn">🎵 멜로디 음원만 녹음하기<span class="recModeSub">화음 반주와 노래(마이크) 없이 멜로디 소리만 파일로 만들어요 — 수노에 깔끔하게 올리기 좋아요</span></button>
+        <button type="button" class="btn-record-mode" id="modeVoiceBtn">🎤 멜로디와 화음반주에 목소리 녹음하기<span class="recModeSub">이어폰을 끼고 노래를 불러서 멜로디+화음 반주와 함께 녹음해요</span></button>
       </div>
     </div>
     <div class="recBtnRow">
@@ -555,11 +553,6 @@
       <div class="recResultLabel" id="recResultLabelNC">🎵 녹음 결과</div>
       <audio id="recPlayer" controls=""></audio>
       <button type="button" class="btn-save-audio btn-save-audio--nc" id="saveAudioNC" disabled="">💾 음성 파일로 저장</button>
-      <div class="recResultBlock" id="recResultWC" style="display:none">
-        <div class="recResultLabel">🎹 화음 포함 녹음</div>
-        <audio id="recPlayerWC" controls=""></audio>
-        <button type="button" class="btn-save-audio btn-save-audio--wc" id="saveAudioWC" disabled="">💾 화음 포함 저장</button>
-      </div>
     </div>
   </div>
 </div>
@@ -2468,47 +2461,6 @@ async function offerDownload(filename, data){
     return {ok:true};
   }catch(_){ return {ok:false, code:'unavailable'}; }
 }
-// 녹음 결과에 "화음 없이"와 "화음 포함" 두 버전이 다 있을 때, 팝업에는 저장 버튼이 하나뿐이므로 그
-// 버튼 한 번으로 두 파일이 다 저장되게 함(따로따로 두 번 누르지 않아도 됨). 파일 공유가 되는
-// 기기에서는 두 파일을 한 번에 같은 공유 시트로 보내고(가능한 경우), 그게 안 되면 각 파일을 순서대로
-// (offerDownload를 두 번) 저장함.
-async function offerDownloadPair(items){
-  if(window.claude && typeof window.claude.use==='function'){
-    try{
-      const downloads=await window.claude.use('downloads');
-      if(downloads){
-        let okCount=0, declined=false;
-        for(const it of items){
-          try{ await downloads.save({filename:it.filename, data:it.data}); okCount++; }
-          catch(err){ if(err && err.code==='declined') declined=true; }
-        }
-        if(okCount===items.length) return {ok:true};
-        if(okCount===0 && declined) return {ok:false, code:'declined'};
-        return {ok:okCount>0, code:okCount>0?'partial':'unavailable'};
-      }
-    }catch(_){ /* use() 자체가 실패하면 아래 방식들로 넘어감 */ }
-  }
-  const blobs=items.map(it=>(it.data instanceof Blob)?it.data:new Blob([it.data]));
-  if(navigator.share && navigator.canShare){
-    try{
-      const files=items.map((it,i)=>new File([blobs[i]], it.filename, {type:blobs[i].type||'application/octet-stream'}));
-      if(navigator.canShare({files})){
-        await navigator.share({files});
-        return {ok:true};
-      }
-    }catch(err){
-      if(err && (err.name==='AbortError')) return {ok:false, code:'declined'};
-      // 한 번에 공유가 안 되면(파일 여러 개 공유를 지원하지 않는 기기 등) 아래에서 하나씩 저장을 시도함
-    }
-  }
-  let okCount=0;
-  for(let i=0;i<items.length;i++){
-    const res=await offerDownload(items[i].filename, blobs[i]);
-    if(res.ok) okCount++;
-  }
-  if(okCount===items.length) return {ok:true};
-  return {ok:okCount>0, code:okCount>0?'partial':'unavailable'};
-}
 document.getElementById('fsave').addEventListener('click',async ()=>{
   if(blockIfUnfinished('파일로 저장할')) return;
   const code=encodeState();
@@ -3037,21 +2989,13 @@ function recSyncDelaySeconds(A){
           : 0.12;
   return Math.min(0.35, Math.max(0.03, L));
 }
-// "화음 포함" 버전(WC = with chord) — 화음이 실제로 하나라도 배치돼 있을 때만 두 번째 믹스/녹음기를
-// 나란히 돌려서, 기본(화음 없이=NC) 버전과 동시에 두 개의 파일을 만듦. 화음이 하나도 없으면 두
-// 버전이 완전히 같은 소리가 되므로 그냥 만들지 않음(기존 단일 녹음 동작 그대로 유지).
-let recWantsChordVersion=false;
-let recDest2=null, recMicSource2=null, recMicGain2=null, recMusicDuck2=null, recMicComp2=null, recSyncDelay2=null;
-let recMR2=null, recMRChunks2=[];
-let recProcessor2=null, recSourceNode2=null, recSilentGain2=null, recChunks2=[];
-let recBlobWC=null, recExtWC='wav';
-function hasAnyChord(){ return chordData.some(x=>x); }
 function pickMRMime(){
   if(typeof MediaRecorder==='undefined' || !MediaRecorder.isTypeSupported) return null;
   const cands=['audio/mp4','audio/webm;codecs=opus','audio/webm'];
   for(const c of cands){ try{ if(MediaRecorder.isTypeSupported(c)) return c; }catch(_){ } }
   return null;
 }
+// "반주와 함께 녹음하기" — 멜로디+화음 반주와 마이크(노래)를 한 번에 섞어서 하나의 파일로 담음.
 async function startMicCapture(){
   // 파일을 그냥 열었을 때(file://)는 브라우저가 애초에 마이크 접근 자체를 내주지 않는 경우가 많음 —
   // 이건 "권한을 허용해 주세요"로는 해결이 안 되는, 아예 다른 문제라서 따로 구분해서 알려줘야 함.
@@ -3067,15 +3011,15 @@ async function startMicCapture(){
   // call), so turning them off avoids the whole problem.
   recStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
   const A=ac();
-  recWantsChordVersion = hasAnyChord();
-  // mix the mic together with the accompaniment melody (musicBus — see tone()/noiseHit()/metro()
-  // above) into ONE stream, so the saved recording actually has both the music and the voice —
-  // previously only the raw mic stream was captured, so the melody (audible live through the
-  // speakers/earphones) never made it into the recorded file. Building this mix graph can fail in
-  // rare edge cases (e.g. a mic stream that isn't fully ready yet has no audio track, and
-  // createMediaStreamSource throws on that) — if so, fall back to recording the raw mic stream alone
-  // rather than letting the whole recording attempt fail.
-  recDest=null; recDest2=null;
+  // mix the mic together with the accompaniment (musicBus=멜로디, chordBus=화음 반주 — see
+  // tone()/noiseHit()/metro() above) into ONE stream, so the saved recording actually has the
+  // melody, the chord accompaniment, and the voice all together — previously only the raw mic
+  // stream was captured, so the accompaniment (audible live through the speakers/earphones) never
+  // made it into the recorded file. Building this mix graph can fail in rare edge cases (e.g. a mic
+  // stream that isn't fully ready yet has no audio track, and createMediaStreamSource throws on
+  // that) — if so, fall back to recording the raw mic stream alone rather than letting the whole
+  // recording attempt fail.
+  recDest=null;
   try{
     recDest=A.createMediaStreamDestination();
     recMicSource=A.createMediaStreamSource(recStream);
@@ -3086,39 +3030,17 @@ async function startMicCapture(){
     recMicComp.connect(recDest);
     recMusicDuck=A.createGain(); recMusicDuck.gain.value=REC_MUSIC_DUCK;
     getMusicBus().connect(recMusicDuck);
+    getChordBus().connect(recMusicDuck);
     recSyncDelay=A.createDelay(1.0); recSyncDelay.delayTime.value=recSyncDelaySeconds(A);
     recMusicDuck.connect(recSyncDelay);
     recSyncDelay.connect(recDest);
   }catch(_){ recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMicComp=null; recSyncDelay=null; }
-  // 화음이 있으면 "화음 포함" 믹스도 하나 더 만듦 — 마이크는 같은 recStream에서 두 번째
-  // MediaStreamSource로 또 뽑아 쓸 수 있음(같은 트랙을 여러 destination에 동시에 연결 가능).
-  if(recWantsChordVersion){
-    try{
-      recDest2=A.createMediaStreamDestination();
-      recMicSource2=A.createMediaStreamSource(recStream);
-      recMicGain2=A.createGain(); recMicGain2.gain.value=REC_MIC_BOOST;
-      recMicComp2=makeMicLimiter(A);
-      recMicSource2.connect(recMicGain2);
-      recMicGain2.connect(recMicComp2);
-      recMicComp2.connect(recDest2);
-      recMusicDuck2=A.createGain(); recMusicDuck2.gain.value=REC_MUSIC_DUCK;
-      getMusicBus().connect(recMusicDuck2);
-      getChordBus().connect(recMusicDuck2);
-      recSyncDelay2=A.createDelay(1.0); recSyncDelay2.delayTime.value=recSyncDelaySeconds(A);
-      recMusicDuck2.connect(recSyncDelay2);
-      recSyncDelay2.connect(recDest2);
-    }catch(_){ recDest2=null; recMicSource2=null; recMicGain2=null; recMusicDuck2=null; recMicComp2=null; recSyncDelay2=null; recWantsChordVersion=false; }
-  }
   const outStream = recDest ? recDest.stream : recStream;
   recMRMime=pickMRMime();
   if(recMRMime){
-    recMode='mr'; recMRChunks=[]; recMRChunks2=[];
+    recMode='mr'; recMRChunks=[];
     recMR=new MediaRecorder(outStream, {mimeType:recMRMime});
     recMR.ondataavailable=e=>{ if(e.data && e.data.size>0) recMRChunks.push(e.data); };
-    if(recWantsChordVersion && recDest2){
-      recMR2=new MediaRecorder(recDest2.stream, {mimeType:recMRMime});
-      recMR2.ondataavailable=e=>{ if(e.data && e.data.size>0) recMRChunks2.push(e.data); };
-    } else { recMR2=null; }
     return;
   }
   recMode='pcm';
@@ -3131,34 +3053,21 @@ async function startMicCapture(){
   recSourceNode.connect(recProcessor);
   recProcessor.connect(recSilentGain);
   recSilentGain.connect(A.destination);
-  if(recWantsChordVersion && recDest2){
-    recSourceNode2=A.createMediaStreamSource(recDest2.stream);
-    recProcessor2=A.createScriptProcessor(4096,1,1);
-    recChunks2=[];
-    recProcessor2.onaudioprocess=e=>{ if(captureActive) recChunks2.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
-    recSilentGain2=A.createGain(); recSilentGain2.gain.value=0;
-    recSourceNode2.connect(recProcessor2);
-    recProcessor2.connect(recSilentGain2);
-    recSilentGain2.connect(A.destination);
-  } else {
-    recSourceNode2=null; recProcessor2=null; recSilentGain2=null;
-  }
 }
-// "멜로디만 녹음하기" — 마이크 없이, 지금 연주되는 소리(멜로디 + 화음 반주가 있으면 그것까지)를 그대로
-// 하나의 파일로 담음. startMicCapture()와 같은 전역 변수(recDest/recMusicDuck/recSyncDelay/recMR 등)를
-// 그대로 재사용해서, 녹음을 마무리하는 stopMicCapture()/finishRecording()은 손대지 않고 그대로 씀 —
-// 그 함수들은 이미 각 노드를 "있으면만" 정리하도록 돼 있어서 마이크 관련 노드가 비어 있어도 안전함.
-// 마이크가 없으니 반주를 낮출(duck) 이유도 없어서 recMusicDuck의 게인은 1(원래 크기)로 둠.
+// "멜로디 음원만 녹음하기" — 마이크도, 화음 반주도 없이 멜로디 소리만 그대로 하나의 파일로 담음
+// (수노 등에 곡을 깔끔하게 올리기 위한 용도). startMicCapture()와 같은 전역 변수
+// (recDest/recMusicDuck/recSyncDelay/recMR 등)를 그대로 재사용해서, 녹음을 마무리하는
+// stopMicCapture()/finishRecording()은 손대지 않고 그대로 씀 — 그 함수들은 이미 각 노드를 "있으면만"
+// 정리하도록 돼 있어서 마이크 관련 노드가 비어 있어도 안전함. 마이크가 없으니 반주를 낮출(duck)
+// 이유도 없어서 recMusicDuck의 게인은 1(원래 크기)로 둠.
 async function startInstrumentalCapture(){
   const A=ac();
-  recWantsChordVersion=false;   // 화음까지 이미 한 파일에 다 담기니, 마이크 모드처럼 화음없이/화음포함 두 버전으로 나눌 필요가 없음
   recStream=null; recMicSource=null; recMicGain=null; recMicComp=null;   // 이전 세션(반주와함께 모드)의 마이크 관련 값이 남아있지 않도록 확실히 비움
-  recDest=null; recDest2=null;
+  recDest=null;
   try{
     recDest=A.createMediaStreamDestination();
     recMusicDuck=A.createGain(); recMusicDuck.gain.value=1;
-    getMusicBus().connect(recMusicDuck);
-    getChordBus().connect(recMusicDuck);
+    getMusicBus().connect(recMusicDuck);   // 화음(chordBus)은 일부러 연결하지 않음 — 멜로디 소리만 담아야 함
     recSyncDelay=A.createDelay(1.0); recSyncDelay.delayTime.value=0;
     recMusicDuck.connect(recSyncDelay);
     recSyncDelay.connect(recDest);
@@ -3167,10 +3076,9 @@ async function startInstrumentalCapture(){
   const outStream=recDest.stream;
   recMRMime=pickMRMime();
   if(recMRMime){
-    recMode='mr'; recMRChunks=[]; recMRChunks2=[];
+    recMode='mr'; recMRChunks=[];
     recMR=new MediaRecorder(outStream, {mimeType:recMRMime});
     recMR.ondataavailable=e=>{ if(e.data && e.data.size>0) recMRChunks.push(e.data); };
-    recMR2=null;
     return;
   }
   recMode='pcm';
@@ -3183,7 +3091,6 @@ async function startInstrumentalCapture(){
   recSourceNode.connect(recProcessor);
   recProcessor.connect(recSilentGain);
   recSilentGain.connect(A.destination);
-  recSourceNode2=null; recProcessor2=null; recSilentGain2=null;
 }
 function stopMicCapture(){
   if(recProcessor){ try{recProcessor.disconnect();}catch(_){ } }
@@ -3194,23 +3101,12 @@ function stopMicCapture(){
   if(recMicComp){ try{recMicComp.disconnect();}catch(_){ } }
   if(recMusicDuck){ try{recMusicDuck.disconnect();}catch(_){ } }
   if(recSyncDelay){ try{recSyncDelay.disconnect();}catch(_){ } }
-  if(recProcessor2){ try{recProcessor2.disconnect();}catch(_){ } }
-  if(recSourceNode2){ try{recSourceNode2.disconnect();}catch(_){ } }
-  if(recSilentGain2){ try{recSilentGain2.disconnect();}catch(_){ } }
-  if(recMicSource2){ try{recMicSource2.disconnect();}catch(_){ } }
-  if(recMicGain2){ try{recMicGain2.disconnect();}catch(_){ } }
-  if(recMicComp2){ try{recMicComp2.disconnect();}catch(_){ } }
-  if(recMusicDuck2){ try{recMusicDuck2.disconnect();}catch(_){ } }
-  if(recSyncDelay2){ try{recSyncDelay2.disconnect();}catch(_){ } }
   if(musicBus && recMusicDuck){ try{musicBus.disconnect(recMusicDuck);}catch(_){ } }   // stop feeding the melody into this
                                                                               // (now finished) recording mix — leaves
                                                                               // musicBus's normal connection to the
                                                                               // speakers alone, so playback still works
-  if(musicBus && recMusicDuck2){ try{musicBus.disconnect(recMusicDuck2);}catch(_){ } }
-  if(chordBus && recMusicDuck2){ try{chordBus.disconnect(recMusicDuck2);}catch(_){ } }
+  if(chordBus && recMusicDuck){ try{chordBus.disconnect(recMusicDuck);}catch(_){ } }
   recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMicComp=null; recSyncDelay=null;
-  recDest2=null; recMicSource2=null; recMicGain2=null; recMusicDuck2=null; recMicComp2=null; recSyncDelay2=null;
-  recMR2=null;
   if(recStream){ recStream.getTracks().forEach(t=>t.stop()); }
   // 아이폰/아이패드 사파리는 마이크를 한 번 쓰고 나면(getUserMedia/MediaRecorder), 같은
   // AudioContext를 계속 쓸 경우 소리 나가는 경로가 꼬여서 그 뒤로 "▶ 재생"을 눌러도 소리가 전혀
@@ -3284,13 +3180,8 @@ async function blobToMp3(blob){
   return encodeMp3FromPCM16(floatTo16BitPCM(samples), audioBuffer.sampleRate);
 }
 async function convertMrBlobsToMp3(){
-  if(typeof lamejs==='undefined') return;
-  if(recBlob){
-    try{ recBlob=await blobToMp3(recBlob); recExt='mp3'; }catch(_){ /* 실패하면 원래 형식(mp4/webm) 그대로 저장 */ }
-  }
-  if(recBlobWC){
-    try{ recBlobWC=await blobToMp3(recBlobWC); recExtWC='mp3'; }catch(_){ }
-  }
+  if(typeof lamejs==='undefined' || !recBlob) return;
+  try{ recBlob=await blobToMp3(recBlob); recExt='mp3'; }catch(_){ /* 실패하면 원래 형식(mp4/webm) 그대로 저장 */ }
 }
 function safeFileToken(s, fallback){
   s=(s||'').trim().replace(/[\\/:*?"<>|]/g,'');
@@ -3383,7 +3274,6 @@ function beginRecordedPlayback(){
   recBtn.textContent='🔴 녹음 중… (누르면 정지)'; recBtn.classList.add('recording');
   setRecStatus(recKind==='melody' ? '🎵 연주를 녹음하는 중…' : '🎤 노래해보세요!');
   if(recMode==='mr' && recMR && recMR.state==='inactive'){ try{ recMR.start(); }catch(_){ } }
-  if(recMode==='mr' && recMR2 && recMR2.state==='inactive'){ try{ recMR2.start(); }catch(_){ } }
   startPlayback(false,false,{textContent:''});   // countIn=false, useMet=false — 녹음에는 메트로놈 소리가 섞이지 않음
 }
 function mimeToExt(baseMime){
@@ -3396,48 +3286,31 @@ function mimeToExt(baseMime){
 }
 function showRecResult(){
   showRecordPopup();   // 녹음이 끝났으니 결과(또는 실패 메시지)를 다시 팝업으로 보여줌
-  const wcBlock=document.getElementById('recResultWC');
   const ncLabel=document.getElementById('recResultLabelNC');
-  if(!recBlob && !recBlobWC){
+  if(!recBlob){
     setRecStatus('녹음된 소리가 없어요. 다시 녹음해보세요.');
-    if(wcBlock) wcBlock.style.display='none';
     return;
   }
-  const showWC = !!recBlobWC;
-  if(recBlob){
-    const url=URL.createObjectURL(recBlob);
-    document.getElementById('recPlayer').src=url;
-  }
-  if(ncLabel) ncLabel.textContent = recKind==='melody' ? '🎵 멜로디 녹음' : (showWC ? '🎵 화음 없이 (멜로디+노래)' : '🎵 노래 녹음');
+  const url=URL.createObjectURL(recBlob);
+  document.getElementById('recPlayer').src=url;
+  if(ncLabel) ncLabel.textContent = recKind==='melody' ? '🎵 멜로디 음원 (화음 없이)' : '🎵 멜로디+화음+목소리';
   document.getElementById('recResult').style.display='block';
   saveAudioBtn.disabled=!recBlob;
-  saveAudioBtn.textContent = showWC ? '💾 화음 없이 저장' : '💾 음성 파일로 저장';
-  // 녹음 결과 팝업 안(화음 포함 녹음 바로 위)에도 「화음 없이 저장」 버튼을 나란히 보여줌 — 위
-  // topActions의 saveAudioBtn과 상태·문구를 항상 똑같이 맞춰두고, 눌리면 그 버튼 클릭을 그대로
-  // 대신 눌러줌(저장 로직을 새로 만들지 않고 기존 걸 그대로 재사용).
+  saveAudioBtn.textContent = '💾 음성 파일로 저장';
+  // 녹음 결과 팝업 안에도 같은 저장 버튼을 하나 더 보여줌 — 위 topActions의 saveAudioBtn과
+  // 상태·문구를 항상 똑같이 맞춰두고, 눌리면 그 버튼 클릭을 그대로 대신 눌러줌(저장 로직을 새로
+  // 만들지 않고 기존 걸 그대로 재사용).
   if(saveAudioNCBtn){
     saveAudioNCBtn.disabled=!recBlob;
     saveAudioNCBtn.textContent=saveAudioBtn.textContent;
   }
-  if(wcBlock){
-    if(showWC){
-      const urlWC=URL.createObjectURL(recBlobWC);
-      document.getElementById('recPlayerWC').src=urlWC;
-      wcBlock.style.display='block';
-      const wcBtn=document.getElementById('saveAudioWC');
-      if(wcBtn) wcBtn.disabled=false;
-    } else {
-      wcBlock.style.display='none';
-    }
-  }
-  setRecStatus(recKind==='melody' ? '녹음이 끝났어요! 들어보고 저장해보세요.' : (showWC ? '녹음이 끝났어요! 두 버전을 들어보고 저장해보세요.' : '녹음이 끝났어요! 들어보고 저장해보세요.'));
+  setRecStatus('녹음이 끝났어요! 들어보고 저장해보세요.');
 }
 function finishRecording(){
   recState='idle'; captureActive=false;
   recBtn.textContent='🎵 음원 녹음하기'; recBtn.classList.remove('recording');
   if(recMode==='mr' && recMR){
     if(recMR.state==='recording'){
-      let pending = 1 + ((recMR2 && recMR2.state==='recording') ? 1 : 0);
       const finalize=async ()=>{
         stopMicCapture();
         if(recMRChunks.length===0){ recBlob=null; }
@@ -3447,29 +3320,14 @@ function finishRecording(){
           recExt=mimeToExt(baseMime);
         }
         recMRChunks=[];
-        if(recMRChunks2.length===0){ recBlobWC=null; }
-        else{
-          const baseMime2=(recMRMime||'').split(';')[0];
-          recBlobWC=new Blob(recMRChunks2, {type:baseMime2});
-          recExtWC=mimeToExt(baseMime2);
-        }
-        recMRChunks2=[];
-        if(recBlob || recBlobWC) setRecStatus('mp3로 변환하는 중…');
+        if(recBlob) setRecStatus('mp3로 변환하는 중…');
         await convertMrBlobsToMp3();
         showRecResult();
       };
-      const onStop=()=>{ pending--; if(pending<=0) finalize(); };
-      recMR.addEventListener('stop', onStop, {once:true});
-      try{ recMR.stop(); }catch(_){ onStop(); }
-      if(recMR2 && recMR2.state==='recording'){
-        recMR2.addEventListener('stop', onStop, {once:true});
-        try{ recMR2.stop(); }catch(_){ onStop(); }
-      } else if(recMR2){
-        // 두 번째 녹음기가 아직 recording 상태로 진입하지 못했다면(권한 지연 등) 그냥 빈 결과로 처리
-        recMRChunks2=[];
-      }
+      recMR.addEventListener('stop', finalize, {once:true});
+      try{ recMR.stop(); }catch(_){ finalize(); }
     } else {
-      stopMicCapture(); recBlob=null; recBlobWC=null; showRecResult();   // 녹음이 실제로 시작되기 전에 취소된 경우
+      stopMicCapture(); recBlob=null; showRecResult();   // 녹음이 실제로 시작되기 전에 취소된 경우
     }
     return;
   }
@@ -3480,12 +3338,6 @@ function finishRecording(){
     catch(_){ recBlob=encodeWav(recChunks, recSampleRate); recExt='wav'; }
   }
   recChunks=[];
-  if(recChunks2.length===0){ recBlobWC=null; }
-  else{
-    try{ recBlobWC=encodeMp3FromFloat32(recChunks2, recSampleRate); recExtWC='mp3'; }
-    catch(_){ recBlobWC=encodeWav(recChunks2, recSampleRate); recExtWC='wav'; }
-  }
-  recChunks2=[];
   showRecResult();
 }
 // "브라우저에서 마이크 권한을 허용해주세요" 한 줄만으로는 그 설정이 정확히 어디 있는지 찾기
@@ -3580,7 +3432,7 @@ function handleRecordClick(){
     if(preCountdownTimer){ clearTimeout(preCountdownTimer); preCountdownTimer=null; }
     clearInterval(countdownIv); countdownIv=null;
     countdownOverlay.classList.remove('show');
-    stopMicCapture(); recChunks=[]; recMRChunks=[]; recChunks2=[]; recMRChunks2=[]; captureActive=false;
+    stopMicCapture(); recChunks=[]; recMRChunks=[]; captureActive=false;
     recState='idle';
     showRecordPopup();   // 카운트다운 중이었다면 팝업이 닫혀 있었으니, 취소 메시지가 보이도록 다시 염
     setRecStatus('녹음을 취소했어요.');
@@ -3623,8 +3475,6 @@ async function beginRecordFlow(mode){
   document.getElementById('recResult').style.display='none';
   saveAudioBtn.disabled=true; recBlob=null;
   if(saveAudioNCBtn) saveAudioNCBtn.disabled=true;
-  const wcBtn0=document.getElementById('saveAudioWC'); if(wcBtn0) wcBtn0.disabled=true;
-  recBlobWC=null;
   if(mode==='voice') playFirstNoteThenCountdown();
   else runCountdown();   // 멜로디만 모드는 노래할 사람이 없으니 시작 음 미리듣기 없이 바로 카운트다운
 }
@@ -3638,41 +3488,11 @@ recBtn.addEventListener('click', handleRecordClick);
 saveAudioBtn.addEventListener('click', async ()=>{
   if(!recBlob) return;
   if(blockIfUnfinished('음성 파일로 저장할')) return;
-  const filename=recFileName(recBlobWC?'화음없이':'', recExt);
+  const filename=recFileName('', recExt);
   setRecStatus('저장하는 중…');
   const res=await offerDownload(filename, recBlob);
   if(res.ok){
     setRecStatus(`저장했어요: ${filename}`);
-  } else if(res.code==='declined'){
-    setRecStatus('저장을 취소했어요.');
-  } else {
-    setRecStatus('이 화면에서는 음성 파일 저장이 아직 안 될 수 있어요.');
-  }
-});
-document.getElementById('saveAudioWC').addEventListener('click', async ()=>{
-  if(!recBlobWC) return;
-  if(blockIfUnfinished('음성 파일로 저장할')) return;
-  const filenameWC=recFileName('화음포함', recExtWC);
-  // 팝업엔 저장 버튼이 이거 하나뿐이니, 화음 없는 버전(recBlob)도 같이 있으면 한 번에 둘 다 저장함.
-  if(recBlob){
-    const filenameNC=recFileName('화음없이', recExt);
-    setRecStatus('저장하는 중… (화음 포함 + 화음 없이)');
-    const res=await offerDownloadPair([{filename:filenameNC, data:recBlob}, {filename:filenameWC, data:recBlobWC}]);
-    if(res.ok){
-      setRecStatus(`저장했어요: ${filenameNC}, ${filenameWC}`);
-    } else if(res.code==='declined'){
-      setRecStatus('저장을 취소했어요.');
-    } else if(res.code==='partial'){
-      setRecStatus('두 개 중 하나만 저장됐어요 — 다시 눌러서 나머지도 저장해 보세요.');
-    } else {
-      setRecStatus('이 화면에서는 음성 파일 저장이 아직 안 될 수 있어요.');
-    }
-    return;
-  }
-  setRecStatus('저장하는 중… (화음 포함)');
-  const res=await offerDownload(filenameWC, recBlobWC);
-  if(res.ok){
-    setRecStatus(`저장했어요: ${filenameWC}`);
   } else if(res.code==='declined'){
     setRecStatus('저장을 취소했어요.');
   } else {
