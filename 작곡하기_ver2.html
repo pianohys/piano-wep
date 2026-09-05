@@ -283,13 +283,6 @@
   .btn-record-mode:hover{border-color:var(--teal);background:rgba(42,157,143,.06)}
   .recModeSub{display:block;font-size:12px;font-weight:400;color:#807a6a;margin-top:3px}
 
-  /* 제출하기 — 녹음 결과(들)가 다 만들어진 뒤 저장 버튼들과 나란히 뜸. 눌러야만 실제로
-     선생님 스프레드시트로 전송되고, 안 눌러도 저장은 그대로 할 수 있음(제출은 선택 사항). */
-  .recSubmitRow{margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--soft);
-    display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .btn-submit{background:var(--ink);color:#fff}
-  .btn-submit:disabled{background:#cdc6b4;color:#8c8570;cursor:not-allowed}
-
   .countdownOverlay{position:fixed;inset:0;background:rgba(35,40,66,.55);display:none;
     align-items:center;justify-content:center;z-index:999}
   .countdownOverlay.show{display:flex}
@@ -566,10 +559,6 @@
         <div class="recResultLabel">🎹 화음 포함 녹음</div>
         <audio id="recPlayerWC" controls=""></audio>
         <button type="button" class="btn-save-audio btn-save-audio--wc" id="saveAudioWC" disabled="">💾 화음 포함 저장</button>
-      </div>
-      <div class="recSubmitRow">
-        <button type="button" class="btn-submit" id="submitBtn" disabled="">📤 제출하기</button>
-        <span class="status" id="submitStatus"></span>
       </div>
     </div>
   </div>
@@ -3346,8 +3335,6 @@ function showRecResult(){
   showRecordPopup();   // 녹음이 끝났으니 결과(또는 실패 메시지)를 다시 팝업으로 보여줌
   const wcBlock=document.getElementById('recResultWC');
   const ncLabel=document.getElementById('recResultLabelNC');
-  if(submitBtn){ submitBtn.disabled=true; }
-  setSubmitStatus('');
   if(!recBlob && !recBlobWC){
     setRecStatus('녹음된 소리가 없어요. 다시 녹음해보세요.');
     if(wcBlock) wcBlock.style.display='none';
@@ -3360,7 +3347,6 @@ function showRecResult(){
   }
   if(ncLabel) ncLabel.textContent = recKind==='melody' ? '🎵 멜로디 녹음' : (showWC ? '🎵 화음 없이 (멜로디+노래)' : '🎵 노래 녹음');
   document.getElementById('recResult').style.display='block';
-  if(submitBtn) submitBtn.disabled=!(recBlob||recBlobWC);
   saveAudioBtn.disabled=!recBlob;
   saveAudioBtn.textContent = showWC ? '💾 화음 없이 저장' : '💾 음성 파일로 저장';
   // 녹음 결과 팝업 안(화음 포함 녹음 바로 위)에도 「화음 없이 저장」 버튼을 나란히 보여줌 — 위
@@ -3623,50 +3609,6 @@ document.getElementById('saveAudioWC').addEventListener('click', async ()=>{
   }
 });
 
-// ---------- 제출하기: 녹음 결과를 선생님의 구글 스프레드시트로 바로 전송 ----------
-// 선생님이 구글 앱스 스크립트로 만든 웹앱 주소를 이 상수에 붙여넣으면 「📤 제출하기」가 실제로
-// 작동함(비어 있으면 저장 기능만 그대로 쓸 수 있고, 제출 버튼을 누르면 안내 메시지만 뜸).
-const SUBMIT_API_URL='https://script.google.com/macros/s/AKfycbzff2jVFclNEYSpbm1uykvIxhzHE4RtlB8ywUydyDI8AfKINTOqZMGF8MMi0UXBK6jb/exec';
-function blobToBase64(blob){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onload=()=>{ const s=String(r.result||''); const i=s.indexOf(','); resolve(i>-1 ? s.slice(i+1) : s); };
-    r.onerror=()=>reject(new Error('read failed'));
-    r.readAsDataURL(blob);
-  });
-}
-const submitBtn=document.getElementById('submitBtn');
-const submitStatusEl=document.getElementById('submitStatus');
-function setSubmitStatus(t){ if(submitStatusEl) submitStatusEl.textContent=t||''; }
-if(submitBtn) submitBtn.addEventListener('click', async ()=>{
-  const blob = recBlobWC || recBlob;
-  if(!blob){ setSubmitStatus('제출할 녹음이 없어요.'); return; }
-  if(!SUBMIT_API_URL){ setSubmitStatus('제출 기능이 아직 설정되지 않았어요 — 선생님께 문의해주세요.'); return; }
-  submitBtn.disabled=true;
-  setSubmitStatus('제출하는 중… (파일이 클수록 시간이 걸려요)');
-  try{
-    const {title,grade,cls,num,name}=studentTokens();
-    const ext = recBlobWC ? (recExtWC||'wav') : (recExt||'wav');
-    const kind = recKind==='melody' ? '멜로디만' : (recBlobWC ? '반주포함(화음)' : '반주포함');
-    const filename = recFileName(recBlobWC?'화음포함':'', ext);
-    const base64 = await blobToBase64(blob);
-    // 앱스 스크립트 웹앱은 POST 요청에 Content-Type이 application/json이면 브라우저가 먼저 보내는
-    // "사전 확인(preflight)" 요청을 처리하지 못해 막히는 경우가 많아서, 기본값인 text/plain으로 그냥
-    // 보냄(Apps Script 쪽에서 e.postData.contents를 직접 JSON.parse). 또한 앱스 스크립트 응답에는
-    // 이 페이지 주소를 향한 CORS 허용 헤더가 없는 경우가 흔해 응답 내용을 못 읽을 수 있어서
-    // mode:'no-cors'로 보냄 — 이 경우 성공/실패를 정확히 구분해서 알려줄 수는 없지만, 요청 자체는
-    // 확실히 전달됨(인터넷이 끊기는 등 진짜 오류가 아니면 선생님 시트에는 정상적으로 기록됨).
-    await fetch(SUBMIT_API_URL, {
-      method:'POST',
-      mode:'no-cors',
-      body: JSON.stringify({app:'작곡하기_ver2', title, grade, cls, num, name, kind, filename, mimeType:blob.type, base64})
-    });
-    setSubmitStatus('✅ 제출했어요! (확인은 선생님 스프레드시트에서 가능해요)');
-  }catch(err){
-    setSubmitStatus('제출 중 오류가 발생했어요. 인터넷 연결을 확인하고 다시 시도해보세요.');
-    submitBtn.disabled=false;
-  }
-});
 </script>
 
 
