@@ -2823,8 +2823,17 @@ async function startPlayback(countIn,useMet,btn){
   if(countIn) for(let i=0;i<BEATS;i++) metro(t0+i*beat, i===0);   // count-in: one full measure of metronome
   const start=countIn ? t0+BEATS*beat : t0;
 
+  // 악보에 실제로 음표가 있는 마지막 지점(melodyEndBeats — scheduleChords가 화음 길이를 맞추는 데도
+  // 쓰는 바로 그 값) 다음 마디 끝까지만 재생함 — 기본 8마디 중 앞쪽 한두 마디만 채운 경우에도
+  // 뒤의 빈 마디들을 굳이 끝까지(수십 초간 무음으로) 재생/녹음하지 않게 하기 위함. 예전엔 항상
+  // SLOTS(악보 전체 마디 수) 끝까지 돌았는데, 그러면 짧은 곡도 "재생/녹음이 끝났다"는 신호(=stopAll)가
+  // 한참 뒤에야 오고, 그 사이엔 playing이 계속 true라서 ▶ 재생을 다시 눌러도 (이미 재생 중인 걸로
+  // 인식해) 그냥 정지만 될 뿐 새로 소리가 안 남 — "녹음하고 나면 재생이 안 된다"고 느껴지던 원인.
+  const melEndBeatsNow=melodyEndBeats();
+  const effSlots = melEndBeatsNow>0 ? Math.min(SLOTS, Math.ceil(melEndBeatsNow/BEATS)*BEATS) : SLOTS;
+
   // notes + optional running metronome + visual playhead
-  for(let s=0;s<SLOTS;s++){
+  for(let s=0;s<effSlots;s++){
     const bt=start+s*beat;
     if(useMet) metro(bt, s%BEATS===0);
     const id=slotData[s];
@@ -2859,7 +2868,7 @@ async function startPlayback(countIn,useMet,btn){
   // count-in highlight (pulse the status)
   if(countIn) for(let i=0;i<BEATS;i++) timers.push(setTimeout(()=>{ if(!playing)return; setStatus(`메트로놈… ${i+1}`); },(t0+i*beat-A.currentTime)*1000));
   timers.push(setTimeout(()=>{ if(playing) setStatus('연주 중 ♪'); },(start-A.currentTime)*1000));
-  const total=(start+SLOTS*beat - A.currentTime)*1000 + 120;
+  const total=(start+effSlots*beat - A.currentTime)*1000 + 120;
   timers.push(setTimeout(()=>{ stopAll(); setStatus('연주 끝! 다시 들어 보거나 음표를 바꿔 보세요.'); }, total));
 }
 document.getElementById('play').addEventListener('click',()=>{
