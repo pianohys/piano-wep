@@ -2543,6 +2543,11 @@ function blockIfUnfinished(actionLabel){
   const problems=reviewScore();
   if(problems.length===0) return false;
   renderReview();
+  // 녹음 결과 팝업(recordPopupOverlay) 안에서 「음성 파일로 저장」을 눌렀을 때는, 그 팝업이 검토
+  // 팝업과 같은 z-index라서 DOM에 나중에 나오는 녹음 팝업이 검토 팝업을 그대로 덮어버려 — 검토
+  // 결과(빨간 박스 안내)가 실제로는 뜨는데 화면엔 안 보이고 "눌러도 아무 반응 없다"처럼 보임.
+  // 검토 팝업을 띄우기 전에 녹음 팝업을 먼저 닫아서 항상 보이게 함(안 열려 있었으면 아무 효과 없음).
+  closeRecordPopup();
   const scoreEl=document.querySelector('.panel.score');
   if(scoreEl) scoreEl.scrollIntoView({behavior:'smooth', block:'center'});
   showReviewPopup();
