@@ -573,6 +573,9 @@
   </div>
 </div>
 
+<!-- 음성 파일 저장을 mp3로 만들기 위한 인코더(수노 등 mp3만 받는 서비스에 바로 올릴 수 있게). 외부
+     CDN에 의존하면 학교 와이파이에서 막힐 수 있어서, 파일을 저장소 안(lib/lame.min.js)에 그대로 담아둠. -->
+<script src="lib/lame.min.js"></script>
 <script>
 const INK="#232842", BY=60, TY=22, VW=96, VH=112;
 const H =cx=>`<ellipse cx="${cx}" cy="${BY}" rx="7.0" ry="5.3" transform="rotate(-18 ${cx} ${BY})" fill="${INK}"/>`;
@@ -3138,6 +3141,61 @@ function encodeWav(chunks, sampleRate){
   for(let i=0;i<data.length;i++){ const s=Math.max(-1,Math.min(1,data[i])); view.setInt16(idx, s<0? s*0x8000 : s*0x7FFF, true); idx+=2; }
   return new Blob([view], {type:'audio/wav'});
 }
+// 수노(Suno) 등 음원 서비스는 mp3만 편하게 받아서, 녹음 방식(MediaRecorder의 mp4/webm이든 PCM
+// 폴백의 wav든)에 상관없이 최종 파일은 항상 mp3로 만듦. lamejs(lib/lame.min.js)가 로드되지 않았거나
+// 인코딩 중 실패하면(아주 오래된 브라우저 등) 원래 만들어진 파일 그대로 저장되도록 조용히 넘어감.
+function floatTo16BitPCM(float32Array){
+  const out=new Int16Array(float32Array.length);
+  for(let i=0;i<float32Array.length;i++){ const s=Math.max(-1,Math.min(1,float32Array[i])); out[i]= s<0? s*0x8000 : s*0x7FFF; }
+  return out;
+}
+function encodeMp3FromPCM16(pcm16, sampleRate){
+  const encoder=new lamejs.Mp3Encoder(1, sampleRate, 128);
+  const blockSize=1152, parts=[];
+  for(let i=0;i<pcm16.length;i+=blockSize){
+    const buf=encoder.encodeBuffer(pcm16.subarray(i, i+blockSize));
+    if(buf.length>0) parts.push(buf);
+  }
+  const endBuf=encoder.flush();
+  if(endBuf.length>0) parts.push(endBuf);
+  return new Blob(parts, {type:'audio/mpeg'});
+}
+// PCM 폴백 경로는 이미 원본 Float32 샘플을 갖고 있으니, wav로 한번 감쌌다가 다시 디코딩할 필요 없이
+// 그 샘플을 곧바로 mp3로 인코딩함.
+function encodeMp3FromFloat32(chunks, sampleRate){
+  let length=0; chunks.forEach(c=>length+=c.length);
+  const data=new Float32Array(length);
+  let off=0; chunks.forEach(c=>{ data.set(c,off); off+=c.length; });
+  return encodeMp3FromPCM16(floatTo16BitPCM(data), sampleRate);
+}
+// MediaRecorder 경로는 이미 압축된 mp4/webm 파일이라, 오디오로 다시 디코딩해서 PCM 샘플을 얻은 뒤
+// mp3로 인코딩함(스테레오면 모노로 합침 — 노래 파일이라 모노로도 충분하고 용량도 더 작음).
+async function blobToMp3(blob){
+  const arrayBuffer=await blob.arrayBuffer();
+  const DecCtx=window.AudioContext||window.webkitAudioContext;
+  const decCtx=new DecCtx();
+  let audioBuffer;
+  try{ audioBuffer=await decCtx.decodeAudioData(arrayBuffer); }
+  finally{ try{ decCtx.close(); }catch(_){ } }
+  let samples;
+  if(audioBuffer.numberOfChannels>=2){
+    const ch0=audioBuffer.getChannelData(0), ch1=audioBuffer.getChannelData(1);
+    samples=new Float32Array(ch0.length);
+    for(let i=0;i<ch0.length;i++) samples[i]=(ch0[i]+ch1[i])/2;
+  } else {
+    samples=audioBuffer.getChannelData(0);
+  }
+  return encodeMp3FromPCM16(floatTo16BitPCM(samples), audioBuffer.sampleRate);
+}
+async function convertMrBlobsToMp3(){
+  if(typeof lamejs==='undefined') return;
+  if(recBlob){
+    try{ recBlob=await blobToMp3(recBlob); recExt='mp3'; }catch(_){ /* 실패하면 원래 형식(mp4/webm) 그대로 저장 */ }
+  }
+  if(recBlobWC){
+    try{ recBlobWC=await blobToMp3(recBlobWC); recExtWC='mp3'; }catch(_){ }
+  }
+}
 function safeFileToken(s, fallback){
   s=(s||'').trim().replace(/[\\/:*?"<>|]/g,'');
   return s || fallback;
@@ -3284,7 +3342,7 @@ function finishRecording(){
   if(recMode==='mr' && recMR){
     if(recMR.state==='recording'){
       let pending = 1 + ((recMR2 && recMR2.state==='recording') ? 1 : 0);
-      const finalize=()=>{
+      const finalize=async ()=>{
         stopMicCapture();
         if(recMRChunks.length===0){ recBlob=null; }
         else{
@@ -3300,6 +3358,8 @@ function finishRecording(){
           recExtWC=mimeToExt(baseMime2);
         }
         recMRChunks2=[];
+        if(recBlob || recBlobWC) setRecStatus('mp3로 변환하는 중…');
+        await convertMrBlobsToMp3();
         showRecResult();
       };
       const onStop=()=>{ pending--; if(pending<=0) finalize(); };
@@ -3319,10 +3379,16 @@ function finishRecording(){
   }
   stopMicCapture();
   if(recChunks.length===0){ recBlob=null; }
-  else{ recBlob=encodeWav(recChunks, recSampleRate); recExt='wav'; }
+  else{
+    try{ recBlob=encodeMp3FromFloat32(recChunks, recSampleRate); recExt='mp3'; }
+    catch(_){ recBlob=encodeWav(recChunks, recSampleRate); recExt='wav'; }
+  }
   recChunks=[];
   if(recChunks2.length===0){ recBlobWC=null; }
-  else{ recBlobWC=encodeWav(recChunks2, recSampleRate); recExtWC='wav'; }
+  else{
+    try{ recBlobWC=encodeMp3FromFloat32(recChunks2, recSampleRate); recExtWC='mp3'; }
+    catch(_){ recBlobWC=encodeWav(recChunks2, recSampleRate); recExtWC='wav'; }
+  }
   recChunks2=[];
   showRecResult();
 }
