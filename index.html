@@ -3170,7 +3170,12 @@ function beginRecordedPlayback(){
   startPlayback(false,false,{textContent:''});   // countIn=false, useMet=false — 녹음에는 메트로놈 소리가 섞이지 않음
 }
 function mimeToExt(baseMime){
-  return baseMime.indexOf('mp4')>-1 ? 'mp4' : (baseMime.indexOf('webm')>-1 ? 'webm' : 'dat');
+  // 'audio/mp4' 녹음을 확장자 .mp4로 저장하면, 실제로는 소리만 있는 파일인데도 아이폰/아이패드
+  // "파일" 앱과 다른 앱들이 이 확장자를 "동영상"으로 인식해(UTI가 public.movie 계열) 갤러리에
+  // 비디오 카메라 아이콘으로 뜨고, Suno 같은 "오디오 파일만" 받는 업로드 창에서는 아예 골라지지도
+  // 않음(눌러도 반응 없음) — 오디오 전용 확장자인 .m4a(UTI: public.mpeg-4-audio, public.audio를
+  // 만족함)로 저장해야 "오디오 파일"로 제대로 인식되고 그런 업로드 창에서도 선택할 수 있음.
+  return baseMime.indexOf('mp4')>-1 ? 'm4a' : (baseMime.indexOf('webm')>-1 ? 'webm' : 'dat');
 }
 function showRecResult(){
   showRecordPopup();   // 녹음이 끝났으니 결과(또는 실패 메시지)를 다시 팝업으로 보여줌
