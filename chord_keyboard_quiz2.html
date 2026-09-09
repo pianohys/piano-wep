@@ -495,6 +495,23 @@
     delete: (key) => storageRequest('delete', { key })
   };
 
+  // 학생이 다른 사람 이름으로 제출할 수도 있어서, 이 기기(브라우저)를 구분할 수 있는 랜덤 ID를 한 번만
+  // 만들어서 localStorage에 저장해두고 매 제출마다 같이 보냄 — 진짜 기기 정보(맥주소 등)는 브라우저가
+  // 애초에 내주지 않으니, "그 사람"이 아니라 "이 브라우저"를 구분하는 용도. 나중에 선생님 화면에서
+  // "같은 기기인데 이름이 다르게 제출됨"을 찾아낼 수 있음. 학생이 브라우저 데이터를 지우거나 기기를
+  // 초기화하면 ID가 새로 생기니 완벽한 증명 수단은 아니고, 의심스러운 경우를 발견하는 참고용임.
+  function getDeviceId(){
+    try{
+      let id = localStorage.getItem('chordQuizDeviceId');
+      if(!id){
+        id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('chordQuizDeviceId', id);
+      }
+      return id;
+    }catch(_){ return null; }   // 사파리 프라이빗 모드 등 localStorage가 막혀 있으면 그냥 안 보냄
+  }
+  const DEVICE_ID = getDeviceId();
+
   const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const BLACK_PCS = new Set([1,3,6,8,10]);
 
@@ -641,6 +658,7 @@
         grade: state.grade,
         klass: state.klass,
         name: state.name,
+        deviceId: DEVICE_ID,
         attemptNo: state.attemptNo,
         correct: state.correctCount,
         attempts: state.attemptCount,
@@ -878,14 +896,14 @@
     if (lastRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
     const isPractice = currentTab === 'practice';
     const header = isPractice
-      ? ['학년','반','이름','회차','맞힌 개수','시도','정답률(%)']
-      : ['학년','반','이름','회차','점수','총문항','진행','상태'];
+      ? ['학년','반','이름','회차','맞힌 개수','시도','정답률(%)','기기ID']
+      : ['학년','반','이름','회차','점수','총문항','진행','상태','기기ID'];
 
     const csvRows = lastRows.map(r => isPractice
       ? [r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.correct, r.attempts,
-         r.attempts ? Math.round((r.correct / r.attempts) * 100) : '']
+         r.attempts ? Math.round((r.correct / r.attempts) * 100) : '', r.deviceId || '']
       : [r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.correct, r.total || 16,
-         r.attempts, r.completed ? '완료' : '진행 중']
+         r.attempts, r.completed ? '완료' : '진행 중', r.deviceId || '']
     );
 
     const esc = v => {
@@ -963,11 +981,29 @@
     }
   }
 
+  // 같은 기기(deviceId)로 서로 다른 이름이 제출된 경우를 찾아냄 — 다른 사람 이름으로 제출했을 수
+  // 있다는 의심 신호라서, 그런 이름들 옆에 경고 표시를 붙여줌. deviceId가 없는 기록(localStorage가
+  // 막혀 있던 경우)은 비교 대상에서 제외함.
+  function findSuspiciousNames(rows){
+    const namesByDevice = {};
+    rows.forEach(r => {
+      if (!r.deviceId) return;
+      if (!namesByDevice[r.deviceId]) namesByDevice[r.deviceId] = new Set();
+      namesByDevice[r.deviceId].add(r.name || '이름없음');
+    });
+    const suspicious = new Set();
+    rows.forEach(r => {
+      if (r.deviceId && namesByDevice[r.deviceId].size > 1) suspicious.add(r);
+    });
+    return suspicious;
+  }
+
   function renderDashRows(rows){
     if (rows.length === 0){
       dashBody.innerHTML = '<tr class="empty-row"><td colspan="7">아직 제출한 학생이 없어요</td></tr>';
       return;
     }
+    const suspicious = findSuspiciousNames(rows);
     dashBody.innerHTML = '';
     rows.forEach(r => {
       const tr = document.createElement('tr');
@@ -983,6 +1019,14 @@
 
       const nameTd = document.createElement('td');
       nameTd.textContent = r.name || '이름없음';
+      if (suspicious.has(r)){
+        const warnEl = document.createElement('span');
+        warnEl.textContent = ' ⚠️ 같은 기기, 다른 이름';
+        warnEl.style.color = '#c0392b';
+        warnEl.style.fontSize = '12px';
+        warnEl.title = '이 기기(브라우저)로 다른 이름이 제출된 적이 있어요 — 클릭해서 자세히 확인해보세요.';
+        nameTd.appendChild(warnEl);
+      }
       tr.appendChild(nameTd);
 
       const attemptNoTd = document.createElement('td');
@@ -1030,7 +1074,8 @@
     const when = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '';
     document.getElementById('detailSub').textContent =
       (r.attemptNo || 1) + '차 · ' + (currentTab === 'practice' ? '연습' : '시험') +
-      ' · 맞힌 개수 ' + r.correct + (when ? ' · ' + when : '');
+      ' · 맞힌 개수 ' + r.correct + (when ? ' · ' + when : '') +
+      (r.deviceId ? ' · 기기ID ' + r.deviceId : '');
 
     const log = r.log || [];
     detailBody.innerHTML = '';
