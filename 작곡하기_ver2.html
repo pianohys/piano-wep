@@ -3010,6 +3010,12 @@ async function startMicCapture(){
   // speaker. None of those features are needed here (we're recording a single take, not a live
   // call), so turning them off avoids the whole problem.
   recStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  // 이 허가창이 떠 있는 동안 손가락이 화면에 닿은 채로 기다리고 있었다면, 그 터치의 pointerup이
+  // 안 오고 그냥 허가창 뒤로 묻혀버릴 수 있음 — activePointerIds에 그 pointerId가 영영 안 지워진
+  // 채로 남으면, 이후로는 손가락 하나만 닿아도 "이미 다른 손가락이 닿아있다"(핀치줌 중)로 착각해서
+  // 그때부턴 음표를 위에서 끌어오는 게 전혀 안 먹히게 됨. 허가가 됐든 안 됐든(허용/거부 모두) 이
+  // 시점엔 그 상호작용이 이미 끝난 뒤이므로 안전하게 전부 비움.
+  activePointerIds.clear();
   const A=ac();
   // mix the mic together with the accompaniment (musicBus=멜로디, chordBus=화음 반주 — see
   // tone()/noiseHit()/metro() above) into ONE stream, so the saved recording actually has the
@@ -3400,6 +3406,11 @@ function showMicHelp(errCode){
   if(typeof accPending!=='undefined') accPending=null;
   if(typeof drag!=='undefined' && drag){ try{drag.ghost.remove();}catch(_){ } drag=null; }
   if(typeof accDrag!=='undefined' && accDrag){ try{accDrag.ghost.remove();}catch(_){ } accDrag=null; }
+  // 그 인터럽트된 터치의 pointerId가 activePointerIds에 그대로 남아있으면(그 손가락의 pointerup이
+  // 끝내 안 왔으니), 그 뒤로는 손가락이 하나만 닿아도 "이미 다른 손가락이 닿아있다"(핀치줌 도중)로
+  // 착각해서 그때부턴 음표를 위에서 끌어오는 것 자체가 영영 안 먹히게 됨 — 이게 "갑자기 위에서
+  // 음표가 안 끌어와진다"는 문제의 실제 원인이었음. 마이크 안내창을 띄우는 시점에 통째로 비워서 복구함.
+  if(typeof activePointerIds!=='undefined') activePointerIds.clear();
   if(typeof clearOver==='function') clearOver();
   if(typeof hidePitchTag==='function') hidePitchTag();
   const info = MIC_HELP[errCode==='NO_MEDIADEVICES' ? 'no-mediadevices' : detectPlatform()];
