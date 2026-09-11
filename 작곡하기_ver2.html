@@ -1449,7 +1449,11 @@ function finalizeComposedLyric(c){
     const chars=[...c.value]; const first=chars.shift()||'';
     c.value=first; storeRaw(c);
     let last=c; if(chars.length) last=cascade(c,chars);
-    if(first){ const nx=nextLyrc(last); if(nx) setTimeout(()=>{ try{ nx.focus(); const v=nx.value; nx.setSelectionRange&&nx.setSelectionRange(v.length,v.length); }catch(_){} },0); }
+    // 아이패드 Safari 화면 키보드에서: compositionend가 뜬 바로 그 다음 틱에 포커스를 다음 칸으로
+    // 넘기면, 키보드가 방금 끝난 조합을 아직 내부적으로 마무리하는 중이라 그 끝 글자를 새로 포커스된
+    // 칸에 한 번 더(잘못) 밀어넣는 경우가 있음(실제로 보고된 "앞 글자가 자동으로 뒤 칸에 또 써짐"
+    // 증상과 일치) — 0ms 대신 살짝(60ms) 늦춰서 키보드 쪽 정리가 끝난 뒤에 포커스를 옮기게 함.
+    if(first){ const nx=nextLyrc(last); if(nx) setTimeout(()=>{ try{ nx.focus(); const v=nx.value; nx.setSelectionRange&&nx.setSelectionRange(v.length,v.length); }catch(_){} },60); }
   } else { storeRaw(c); }   // empty beat: keep the whole word in one box (lyrics-first)
 }
 board.addEventListener('compositionstart',e=>{
