@@ -1416,6 +1416,13 @@ board.addEventListener('keydown',e=>{
   if(e.key===' '||e.code==='Space'){          // space -> the very next box (debounced: IME may fire space twice)
     e.preventDefault();
     const t=Date.now(); if(t-lastSpace<250) return; lastSpace=t;
+    // 아이패드 화면 키보드에서 "나"처럼 짧은 음절 하나를 치자마자 바로 스페이스를 누르면, 그 음절의
+    // 조합(composition)이 실제로는 아직 안 끝나 있는(composing===true) 경우가 있음 — 이때 여기서 곧장
+    // c.value를 읽어 다음 칸으로 넘겨버리면, 뒤이어 스페이스 때문에 실제로 조합이 끝나면서 도착하는
+    // 진짜 compositionend가 같은 글자를 finalizeComposedLyric을 통해 한 번 더 다음 칸에 밀어넣어
+    // "나"가 옆에 중복으로 뜨는 문제가 생김. 아직 조합 중이면 여기서는 아무 것도 하지 않고, 이미
+    // 지연 처리가 돼 있는 compositionend → finalizeComposedLyric 쪽에 커밋과 다음 칸 이동을 맡김.
+    if(composing){ return; }
     cancelComposeSettle();
     if(hasNote(c)) commitCell(c,true);
     else { storeRaw(c); const n=nextLyrc(c); if(n)n.focus(); }
