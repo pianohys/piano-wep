@@ -3104,7 +3104,11 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.7, piano: 0.18, flute: 0.95, recorder: 0.4 };
+// 바이올린 샘플 자체를 다시 받아옴(기존 mp3는 pp 벨로시티 원본이라 피크가 -24~-30dB로 매우
+// 조용했음 — vol을 아무리 키워도 한계가 있었음). forte 벨로시티(v2) 원본으로 바꾸고 -1dB로
+// 정규화해서 다시 인코딩한 뒤, vol은 그만큼 다시 낮춰서(1.7→0.55) 예전보다 확실히 크지만
+// 클리핑은 안 나는 수준으로 맞춤.
+const MELODY_INSTR_VOL = { violin: 0.55, piano: 0.18, flute: 0.95, recorder: 0.4 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
