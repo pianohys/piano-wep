@@ -2148,6 +2148,23 @@ document.addEventListener('pointercancel',e=>{
   if(accDrag){accDrag.ghost.remove();accDrag=null;clearOver();}
   pending=null; accPending=null; stopAutoScroll();
 });
+// 마이크 허가창 말고도, 아이패드에서 화면을 손가락으로 누른 채로 컨트롤 센터/알림 센터를 당기거나
+// 앱 전환 제스처를 하는 등 이 화면이 통째로 백그라운드로 밀려나는 경우가 여러 가지 있는데, 그럴 때도
+// 그 손가락의 pointerup/pointercancel이 안 와서 activePointerIds에 그대로 남아버릴 수 있음(위
+// showMicHelp의 같은 문제 참고) — 그러면 그 뒤로 손가락을 하나만 대도 계속 "핀치줌 중"으로 착각해서
+// 음표를 위에서 끌어오는 게 영영 안 먹히고, 새로고침을 안 하는 한(또는 캐시 때문에 새로고침해도)
+// 안 풀림. 이 화면이 다시 보이거나(visibilitychange) 포커스를 다시 받을 때(focus)마다, 그 전에
+// 남아있던 터치 추적은 이제 다 의미 없어졌다고 보고 통째로 비워서 원인이 무엇이었든 복구되게 함.
+function resetStaleTouchTracking(){
+  activePointerIds.clear();
+  if(drag){ try{drag.ghost.remove();}catch(_){ } drag=null; }
+  if(accDrag){ try{accDrag.ghost.remove();}catch(_){ } accDrag=null; }
+  pending=null; accPending=null;
+  clearOver(); clearLivePreview(); hidePitchTag(); stopAutoScroll();
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) resetStaleTouchTracking(); });
+window.addEventListener('pageshow',resetStaleTouchTracking);
+window.addEventListener('focus',resetStaleTouchTracking);
 
 // controls
 const tempo=document.getElementById('tempo'), bpmLbl=document.getElementById('bpm');
