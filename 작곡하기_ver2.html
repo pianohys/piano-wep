@@ -2038,6 +2038,13 @@ function endDrag(x,y){
       if(drag.from!=null){ const fid=slotData[drag.from]; const fspan= fid?spanOf(fid):1; for(let k=0;k<fspan;k++) freeSet.add(drag.from+k); }
       const crossesBar = !((idx%BEATS)+span<=BEATS);
       let ok = (idx+span<=SLOTS) && heldFrom[idx]==null && !crossesBar;
+      // 이 칸에 이미 가사가 쓰여 있는데(가사 먼저 쓰기 방식) 그 글자 수와 지금 놓으려는 음표의 음 개수가
+      // 안 맞아서 막힌 경우를 따로 구분해둠 — 안 그러면 바로 아래에서 "다음 칸에 음표나 가사가 있어요"라는
+      // 엉뚱한(이 칸이 아니라 다음 칸 얘기인) 문구가 뜨는데, 실제로는 이 칸 자체의 가사 글자 수 때문에
+      // 막힌 것이라 학생이 원인을 전혀 알 수 없었음(실제로 이렇게 막혀서 "음표가 하나도 안 놓인다"는
+      // 문제로 보고됨).
+      const lyricLen = ok ? beatLen(idx) : 0;
+      const lyricMismatch = ok && lyricLen>0 && lyricLen!==XPOS[drag.type].length;
       if(ok) ok = canPlace(idx,drag.type);
       if(ok){
         for(let k=1;k<span;k++){
@@ -2047,7 +2054,13 @@ function endDrag(x,y){
         }
       }
       if(!ok){
-        setStatus(crossesBar ? `이 박자에는 <b>${TYPE[drag.type].label}</b>을(를) 놓을 수 없어요 — 마디를 넘어가요. 박자에 맞는 칸에 놓아 주세요.` : '여기엔 그만큼 긴 음표를 놓을 수 없어요. (다음 칸에 음표나 가사가 있어요)');
+        if(crossesBar){
+          setStatus(`이 박자에는 <b>${TYPE[drag.type].label}</b>을(를) 놓을 수 없어요 — 마디를 넘어가요. 박자에 맞는 칸에 놓아 주세요.`);
+        } else if(lyricMismatch){
+          setStatus(`이 칸엔 가사가 ${lyricLen}글자라, <b>${lyricLen}개로 이루어진 음표</b>만 놓을 수 있어요.`);
+        } else {
+          setStatus('여기엔 그만큼 긴 음표를 놓을 수 없어요. (다음 칸에 음표나 가사가 있어요)');
+        }
       }
       else {
         const n=TYPE[drag.type].on.length;
