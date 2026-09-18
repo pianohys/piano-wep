@@ -473,7 +473,6 @@
         <option value="synth">멜로디 악기: 신스(기본)</option>
         <option value="violin">멜로디 악기: 바이올린(오케스트라)</option>
         <option value="piano">멜로디 악기: 피아노</option>
-        <option value="marimba">멜로디 악기: 마림바</option>
         <option value="flute">멜로디 악기: 플루트</option>
         <option value="recorder">멜로디 악기: 리코더</option>
       </select>
@@ -576,7 +575,7 @@
 
 <p style="text-align:center;color:#999;font-size:11px;margin:6px 0 0;">
   악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린·플루트: VSCO2 Community Edition,
-  Versilian Studios(CC0) · 마림바·리코더: VCSL, Versilian Studios(CC0) ·
+  Versilian Studios(CC0) · 리코더: VCSL, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY)
 </p>
 
@@ -2433,7 +2432,7 @@ function applyStateObj(obj){
   guitarRhythm = ['calypso','gogo','16beat','arpeggio'].includes(obj.gr) ? obj.gr : 'calypso';
   if(guitarRhythmSel) guitarRhythmSel.value=guitarRhythm;
   // 'guitar'는 멜로디 악기에서 뺐음(기타 소리는 반주에서만 씀) — 옛 저장 링크에 남아있어도 안전하게 synth로.
-  melodyInstrument = ['synth','violin','piano','marimba','flute','recorder'].includes(obj.mi) ? obj.mi : 'synth';
+  melodyInstrument = ['synth','violin','piano','flute','recorder'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
   chordData.length=0;
@@ -2785,13 +2784,12 @@ const SAMPLE_MIDI_URLS = {
     50:'samples/violin/m50.mp3',54:'samples/violin/m54.mp3',57:'samples/violin/m57.mp3',
     60:'samples/violin/m60.mp3',64:'samples/violin/m64.mp3',67:'samples/violin/m67.mp3',
     71:'samples/violin/m71.mp3',74:'samples/violin/m74.mp3'},
-  marimba: {29:'samples/marimba/m29.mp3', 43:'samples/marimba/m43.mp3', 53:'samples/marimba/m53.mp3',
-    60:'samples/marimba/m60.mp3', 71:'samples/marimba/m71.mp3', 84:'samples/marimba/m84.mp3'},
   flute: {48:'samples/flute/m48.mp3', 52:'samples/flute/m52.mp3', 57:'samples/flute/m57.mp3',
     60:'samples/flute/m60.mp3', 64:'samples/flute/m64.mp3', 69:'samples/flute/m69.mp3',
     72:'samples/flute/m72.mp3', 76:'samples/flute/m76.mp3', 81:'samples/flute/m81.mp3',
     84:'samples/flute/m84.mp3'},
-  recorder: {72:'samples/recorder/m72.mp3', 74:'samples/recorder/m74.mp3', 76:'samples/recorder/m76.mp3',
+  recorder: {65:'samples/recorder/m65.mp3', 68:'samples/recorder/m68.mp3', 70:'samples/recorder/m70.mp3',
+    72:'samples/recorder/m72.mp3', 74:'samples/recorder/m74.mp3', 76:'samples/recorder/m76.mp3',
     78:'samples/recorder/m78.mp3', 80:'samples/recorder/m80.mp3', 82:'samples/recorder/m82.mp3',
     84:'samples/recorder/m84.mp3', 86:'samples/recorder/m86.mp3', 88:'samples/recorder/m88.mp3',
     90:'samples/recorder/m90.mp3', 91:'samples/recorder/m91.mp3', 94:'samples/recorder/m94.mp3',
@@ -2801,10 +2799,11 @@ const SAMPLE_MIDI_URLS = {
 // - guitar: Martin HD28 스틸스트링 통기타, Jeff Learman 녹음, CC0 (Discord-SFZ-GM-Bank)
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
 // - violin: VSCO2 Community Edition 바이올린 합주(susVib), Versilian Studios, CC0
-// - marimba: VCSL 마림바, Versilian Studios, CC0
 // - flute: VSCO2 Community Edition, Versilian Studios, CC0
-// - recorder: VCSL 소프라노 리코더(Baroque Soprano Recorder) — 알토보다 한 옥타브 가까이 높아 더
-//   산뜻하고 밝은 느낌(요청으로 알토에서 소프라노로 교체함), Versilian Studios, CC0
+// - recorder: VCSL 소프라노 리코더(밝고 산뜻한 음역대인 72~96) + 알토 리코더(그보다 낮은
+//   65~70만) 조합 — 소프라노만 쓰면 이 앱이 실제로 많이 쓰는 낮은 음역대에서 가장 가까운 샘플과
+//   너무 멀리 떨어져 피치시프트가 심해져 "리코더 같지 않게" 들리는 문제가 있어서, 그 구간만 알토
+//   리코더로 메워 넣음. Versilian Studios, CC0
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
@@ -2992,7 +2991,7 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, marimba: 0.75, flute: 0.95, recorder: 1.0 };
+const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, flute: 0.95, recorder: 1.0 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
@@ -3320,14 +3319,18 @@ function scheduleBandLayer(start,beat){
     for(let b=0;b<BEATS;b++){
       const beatPos=measStartBeat+b;
       if(beatPos>=drumEndBeat) break;
-      // 곡의 정말 마지막 타격(3번째 박)인지 — 맞으면 평소 킥보다 더 크고 낮은 "쿵"으로 확실하게
-      // 끝내고, 그 뒤에 원래 이어지던 하이햇 엇박("and of 3")도 생략해서 그 쿵 소리 뒤에 아무것도
-      // 안 이어지고 깔끔하게 끝나게 함(요청: "세번째 박에서 쿵 하고 끝내줘").
+      // 곡의 정말 마지막 타격(3번째 박)인지 — 맞으면 평소 킥보다 더 크고 낮은 "쿵" 하나만 단독으로
+      // 내고, 같이 치던 하이햇도(요청: 쿵 뒤에 하이햇 소리가 계속 남) 그 박 자체를 포함해서 아예
+      // 안 냄 — 그래야 쿵 소리 뒤에 아무 소리도 안 남고 깔끔하게 끝남(요청: "세번째 박에서 쿵 하고
+      // 끝내줘").
       const isLastDrumHit = (mi===lastMeas) && (beatPos+1>=drumEndBeat);
-      if(isLastDrumHit) drumKickFinal(start+beatPos*beat);
-      else if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
-      drumHat(start+beatPos*beat);
-      if(!isLastDrumHit && beatPos+0.5<drumEndBeat) drumHat(start+(beatPos+0.5)*beat);
+      if(isLastDrumHit){
+        drumKickFinal(start+beatPos*beat);
+      } else {
+        if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
+        drumHat(start+beatPos*beat);
+        if(beatPos+0.5<drumEndBeat) drumHat(start+(beatPos+0.5)*beat);
+      }
     }
     const c=chordData[mi];
     if(c){
