@@ -468,6 +468,12 @@
         <option value="band_hold">화음 스타일: 밴드(화음유지)</option>
         <option value="band_arp">화음 스타일: 밴드(피아노 펼침화음)</option>
       </select>
+      <select id="guitarRhythmSel" class="keymode-select" style="display:none">
+        <option value="calypso">기타 리듬: 칼립소</option>
+        <option value="gogo">기타 리듬: 고고</option>
+        <option value="16beat">기타 리듬: 16비트</option>
+        <option value="arpeggio">기타 리듬: 아르페지오</option>
+      </select>
       <select id="melodyInstSel" class="keymode-select">
         <option value="synth">멜로디 악기: 신스(기본)</option>
         <option value="violin">멜로디 악기: 바이올린(오케스트라)</option>
@@ -1643,7 +1649,7 @@ let undoStack=[]; const UNDO_MAX=60; let undoDepth=0;
 function snapshotForUndo(){
   return { b:+tempo.value, m:MEAS, n:slotData.slice(), l:JSON.parse(JSON.stringify(lyrChar)),
     p:pitchData.map(x=>Array.isArray(x)?x.slice():x), f:JSON.parse(JSON.stringify(fracData)), k:{t:currentKey.tonicPC, mo:currentKey.mode},
-    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle, mi:melodyInstrument };
+    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle, mi:melodyInstrument, gr:guitarRhythm };
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(b) b.disabled = undoStack.length===0; }
 function pushUndo(){
@@ -2400,7 +2406,18 @@ function preloadForChordStyle(style){
   if(style==='guitar') loadInstrumentSamples('guitar');
   else if(style==='band_hold' || style==='band_arp' || style==='arpeggio') loadInstrumentSamples('piano');
 }
-chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
+// '기타 소리'를 골랐을 때만 리듬 선택(칼립소/고고/16비트/아르페지오)이 의미가 있어서, 그때만
+// 드롭다운을 보여줌.
+const guitarRhythmSel=document.getElementById('guitarRhythmSel');
+function updateGuitarRhythmVisibility(style){ guitarRhythmSel.style.display = (style==='guitar') ? '' : 'none'; }
+chordStyleSel.addEventListener('change',()=>{
+  chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); updateGuitarRhythmVisibility(chordStyle);
+});
+// '기타 소리' 화음 스타일 전용 리듬 패턴 — 요청으로 예전의(마디마다 1박씩 스트럼) 단일 패턴 대신
+// 여러 리듬 중 고를 수 있게 함. 'arpeggio'는 스트럼이 아니라 한 음씩 순서대로 튕기는 핑거피킹
+// 방식이라 scheduleChords에서 별도 분기로 처리함.
+let guitarRhythm='calypso';   // 'calypso' | 'gogo' | '16beat' | 'arpeggio'
+guitarRhythmSel.addEventListener('change',()=>{ guitarRhythm=guitarRhythmSel.value; });
 // 멜로디를 실제로 어떤 악기 소리로 들려줄지 — 기본(synth)은 예전 그대로의 합성음, 나머지는 위
 // SAMPLE_MIDI_URLS의 실제 악기 녹음 샘플을 씀(hit() 참고).
 let melodyInstrument='synth';   // 'synth' | 'guitar' | 'violin' | 'piano'
@@ -2493,7 +2510,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument,
+    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, gr:guitarRhythm,
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
@@ -2540,6 +2557,9 @@ function applyStateObj(obj){
   chordStyle = ['simple','arpeggio','guitar','band_hold','band_arp'].includes(obj.st) ? obj.st : 'simple';
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
+  updateGuitarRhythmVisibility(chordStyle);
+  guitarRhythm = ['calypso','gogo','16beat','arpeggio'].includes(obj.gr) ? obj.gr : 'calypso';
+  if(guitarRhythmSel) guitarRhythmSel.value=guitarRhythm;
   // 'guitar'는 멜로디 악기에서 뺐음(기타 소리는 반주에서만 씀) — 옛 저장 링크에 남아있어도 안전하게 synth로.
   melodyInstrument = ['synth','violin','piano','marimba','flute','recorder'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
@@ -3002,13 +3022,14 @@ function tone(t,freq,dur,vol,type='triangle',opts){
 function chordTone(t,freq,dur,vol){
   const bus=getChordBus();
   if(chordStyle==='guitar'){
-    if(playSampleNote('guitar', t, freq, dur, vol*2.6, bus)) return;
+    // 기타 소리가 너무 크고 거칠다는 피드백을 받아 배율을 낮춤(2.6 → 1.5).
+    if(playSampleNote('guitar', t, freq, dur, vol*1.5, bus)) return;
     guitarPluck(t,freq,dur,vol);   // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음
     return;
   }
   if(chordStyle==='band_hold' || chordStyle==='band_arp' || chordStyle==='arpeggio'){
-    // 반주 피아노 음량이 너무 크다는 피드백을 두 번 받아서 배율을 계속 낮춤(2.6 → 1.3 → 0.75).
-    if(playSampleNote('piano', t, freq, dur, vol*0.75, bus)) return;
+    // 반주 피아노 음량이 너무 크다는 피드백을 세 번 받아서 배율을 계속 낮춤(2.6 → 1.3 → 0.75 → 0.5).
+    if(playSampleNote('piano', t, freq, dur, vol*0.5, bus)) return;
     // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음(예전 배음+타건 클릭 방식)
     tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
     tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus, filterMul:2.0});
@@ -3030,6 +3051,14 @@ function pianoAttackClick(t,freq,vol){
   src.connect(f).connect(g).connect(getChordBus());
   src.start(t); src.stop(t+0.04);
   sources.push(src);
+}
+// '펼침화음(피아노)' 스타일의 마디 첫 음(근음) 페달톤 전용 — 피아노 샘플(타건 후 자연 감쇠)을 그대로
+// 길게 늘이면 오르간보다는 그냥 "느리게 잦아드는 피아노"처럼 들려서, 대신 tone()의 평평한 지속
+// 구간(ADSR의 서스테인 플래토)을 그대로 활용해 진짜 오르간처럼 음량 변화 없이 쭉 이어지는 소리를
+// 합성함(사인 기본음 + 옥타브 위 사인을 살짝 얹어 파이프오르간 배음 느낌).
+function organPedalTone(t,freq,dur,vol){
+  tone(t,freq,dur,vol,'sine',{bus:getChordBus(), filterMul:2.5});
+  tone(t,freq*2,dur,vol*0.35,'sine',{bus:getChordBus(), filterMul:2.5});
 }
 // '기타 소리' 스타일 전용 — 심플/피아노처럼 dur 내내 평평하게 지속되는 소리가 아니라, 통기타 줄을
 // 뜯는 순간처럼 짧게 튕겼다가 자연스럽게 잦아드는 감쇠(decay) 포락선을 씀. 화음이 실제로 몇 박 동안
@@ -3103,7 +3132,7 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, marimba: 1.0, flute: 0.95, recorder: 1.0 };
+const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, marimba: 0.75, flute: 0.95, recorder: 1.0 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
@@ -3194,14 +3223,24 @@ function arpPattern(voiced){
 }
 // 이 마디의 화음이 실제로 화음유지(1)로 울릴지 펼침화음(2)으로 울릴지 결정함. 원래는 마디마다 고른
 // c.mode 그대로 썼는데, '펼침화음'/'밴드(화음유지)'/'밴드(피아노 펼침화음)' 스타일은 노래 전체를
-// 그 패턴 하나로 통일해 달라는 요청이라 그 세 스타일에서는 마디별 설정을 무시하고 강제함. '심플'/
-// '기타 소리'는 예전처럼 마디별로 고른 화음유지/펼침화음을 그대로 따름.
+// 그 패턴 하나로 통일해 달라는 요청이라 그 세 스타일에서는 마디별 설정을 무시하고 강제함. '심플'은
+// 예전처럼 마디별로 고른 화음유지/펼침화음을 그대로 따름. '기타 소리'는 이 함수를 아예 안 쓰고
+// guitarRhythm(칼립소/고고/16비트/아르페지오)으로 따로 결정함(scheduleChords 참고).
 function effectiveChordMode(c){
   if(chordStyle==='arpeggio') return 2;
   if(chordStyle==='band_hold') return 1;
   if(chordStyle==='band_arp') return 2;
   return c.mode;
 }
+// '기타 소리' 스타일의 리듬 패턴들 — 한 마디(4박) 안에서 스트럼(전체 화음을 한 번에 퉁김)이 일어나는
+// 박 위치를 8분/16분음표 단위 소수로 나열함. 칼립소는 당김음 위주, 고고는 또박또박한 8분음표,
+// 16비트는 16분음표 당김음이 섞인 좀 더 촘촘한 패턴. '아르페지오'는 스트럼이 아니라 화음 음을
+// 하나씩 순서대로 튕기는 핑거피킹이라 여기 목록에 안 넣고 scheduleChords에서 따로 처리함.
+const GUITAR_RHYTHMS = {
+  calypso: [0.5, 1.5, 2.0, 3.0],
+  gogo: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+  '16beat': [0, 0.75, 1, 1.75, 2, 2.75, 3, 3.75]
+};
 function scheduleChords(start,beat){
   // melEnd 대신 arrangementEndBeats()를 씀 — 멜로디가 끝난 뒤에도 화음만 붙어 있는 뒷마디(엔딩 진행)가
   // 있으면 그 마디까지 포함해서 반주가 끊기지 않게 하기 위함(위 arrangementEndBeats 주석 참고).
@@ -3228,16 +3267,31 @@ function scheduleChords(start,beat){
     const nl=chordNotesAndLabel(c); if(!nl || !nl.notes.length) continue;
     const voiced=voiceChordNotes(nl.notes, 3);   // 근음을 3옥타브대에 둬서 멜로디보다 낮은 반주 음역으로
     if(chordStyle==='guitar'){
-      // 요청: 기타 스타일은 마디별 화음유지/펼침화음 설정을 따르지 않고, 항상 매 박(1박마다) 한 번씩
-      // 가볍게 통기타로 퉁겨줌(스트럼 느낌) — 그리고 다른 스타일보다 작은 음량으로(요청: "기타소리는
-      // 작게"). 마지막 마디 자연스러운 마무리(measEndBeat 계산)는 다른 스타일과 동일하게 적용.
+      // 요청: 기타 스타일은 마디별 화음유지/펼침화음 설정을 따르지 않고, guitarRhythm으로 고른
+      // 리듬 패턴을 그대로 씀. 마지막 마디 자연스러운 마무리(measEndBeat 계산)는 다른 스타일과
+      // 동일하게 적용.
       const measEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
-      for(let b=0; measStartBeat+b<measEndBeat; b++){
-        const beatT=start+(measStartBeat+b)*beat;
-        voiced.forEach((v,i)=>{
-          let freq=v.freq;
-          if(voiced.length>=3){ if(i===0) freq=v.freq/2; else if(i===voiced.length-1) freq=v.freq*2; }
-          chordTone(beatT, freq, beat*0.9, 0.055);
+      if(guitarRhythm==='arpeggio'){
+        // 스트럼이 아니라 화음 음을 하나씩 순서대로(근음-5도-옥타브위근음-옥타브위3도) 튕기는
+        // 핑거피킹 — 다른 스타일의 8분음표 아르페지오와 같은 구조, 음색만 기타.
+        const pattern=arpPattern(voiced);
+        for(let k=0;k<8;k++){
+          const noteBeat=measStartBeat+k*0.5;
+          if(noteBeat>=measEndBeat) break;
+          const durBeats=Math.min(0.5, measEndBeat-noteBeat);
+          chordTone(start+noteBeat*beat, pattern[k%4], durBeats*beat*0.92, 0.045);
+        }
+      } else {
+        const offsets = GUITAR_RHYTHMS[guitarRhythm] || GUITAR_RHYTHMS.calypso;
+        offsets.forEach(off=>{
+          const noteBeat=measStartBeat+off;
+          if(noteBeat>=measEndBeat) return;
+          const beatT=start+noteBeat*beat;
+          voiced.forEach((v,i)=>{
+            let freq=v.freq;
+            if(voiced.length>=3){ if(i===0) freq=v.freq/2; else if(i===voiced.length-1) freq=v.freq*2; }
+            chordTone(beatT, freq, beat*0.42, 0.045);
+          });
         });
       }
       continue;
@@ -3254,13 +3308,15 @@ function scheduleChords(start,beat){
         const noteBeat=measStartBeat+k*0.5;
         if(noteBeat>=melEnd) break;
         // 요청: '펼침화음(피아노)' 스타일은 마디의 첫 음(근음)만 오르간처럼 마디 내내 길게 끌어줘서
-        // (너무 크지는 않게) 위에서 또박또박 움직이는 나머지 아르페지오 음들 아래 깔리는 페달톤
-        // 효과를 냄 — 밴드 쪽(band_arp)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
-        // 해당했음).
+        // 위에서 또박또박 움직이는 나머지 아르페지오 음들 아래 깔리는 페달톤 효과를 냄 — 피아노
+        // 샘플을 그대로 늘이면 오르간보다 그냥 "느리게 잦아드는 피아노"처럼 들려서, 대신 전용
+        // organPedalTone()(tone()의 평평한 지속 구간을 쓰는 합성음)으로 진짜 오르간처럼 음량
+        // 변화 없이 이어지게 함. 처음엔 너무 작다는 피드백을 받아 음량을 조금 더 키움(0.07→0.11).
+        // 밴드 쪽(band_arp)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만 해당했음).
         if(k===0 && chordStyle==='arpeggio'){
           const measEndBeatHere = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
           const sustainDurBeats = measEndBeatHere - measStartBeat;
-          if(sustainDurBeats>0.05) chordTone(start+noteBeat*beat, pattern[0], sustainDurBeats*beat, 0.07);
+          if(sustainDurBeats>0.05) organPedalTone(start+noteBeat*beat, pattern[0], sustainDurBeats*beat, 0.11);
           continue;
         }
         const durBeats=Math.min(0.5, melEnd-noteBeat);
