@@ -2896,10 +2896,11 @@ const SAMPLE_MIDI_URLS = {
     72:'samples/piano/m72.mp3',78:'samples/piano/m78.mp3',84:'samples/piano/m84.mp3',
     90:'samples/piano/m90.mp3',96:'samples/piano/m96.mp3',99:'samples/piano/m99.mp3',
     105:'samples/piano/m105.mp3'},
-  violin: {43:'samples/violin/m43.mp3',45:'samples/violin/m45.mp3',47:'samples/violin/m47.mp3',
-    50:'samples/violin/m50.mp3',54:'samples/violin/m54.mp3',57:'samples/violin/m57.mp3',
-    60:'samples/violin/m60.mp3',64:'samples/violin/m64.mp3',67:'samples/violin/m67.mp3',
-    71:'samples/violin/m71.mp3',74:'samples/violin/m74.mp3'},
+  violin: {55:'samples/violin/m55.mp3',57:'samples/violin/m57.mp3',60:'samples/violin/m60.mp3',
+    64:'samples/violin/m64.mp3',67:'samples/violin/m67.mp3',69:'samples/violin/m69.mp3',
+    72:'samples/violin/m72.mp3',76:'samples/violin/m76.mp3',79:'samples/violin/m79.mp3',
+    81:'samples/violin/m81.mp3',84:'samples/violin/m84.mp3',88:'samples/violin/m88.mp3',
+    91:'samples/violin/m91.mp3',93:'samples/violin/m93.mp3',96:'samples/violin/m96.mp3'},
   flute: {48:'samples/flute/m48.mp3', 52:'samples/flute/m52.mp3', 57:'samples/flute/m57.mp3',
     60:'samples/flute/m60.mp3', 64:'samples/flute/m64.mp3', 69:'samples/flute/m69.mp3',
     72:'samples/flute/m72.mp3', 76:'samples/flute/m76.mp3', 81:'samples/flute/m81.mp3',
@@ -2919,7 +2920,11 @@ const SAMPLE_MIDI_URLS = {
 };
 // 출처(전부 자유 이용 라이선스):
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
-// - violin: VSCO2 Community Edition 바이올린 합주(susVib), Versilian Studios, CC0
+// - violin: VSCO2 Community Edition 솔로 바이올린(Arco Vib), Versilian Studios(Sam Gossner
+//   녹음), 자유 이용(출처 표시 요청) — "소리가 안 이쁘다"는 피드백을 받고 원래 쓰던 바이올린
+//   "합주(section)" 녹음 대신, 이 악기가 실제로 쓰는 음역(G3~E6, MIDI 55~88)을 정확히 커버하는
+//   솔로 바이올린 녹음으로 교체함(예전 합주 녹음은 43~74만 있어서 위쪽 음역은 피치가 많이
+//   틀어졌었음).
 // - flute: VSCO2 Community Edition, Versilian Studios, CC0
 // - recorder: VCSL 소프라노 리코더(밝고 산뜻한 음역대인 72~96) + 알토 리코더(그보다 낮은
 //   65~70만) 조합 — 소프라노만 쓰면 이 앱이 실제로 많이 쓰는 낮은 음역대에서 가장 가까운 샘플과
@@ -3104,10 +3109,10 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-// 바이올린 샘플 자체를 다시 받아옴(기존 mp3는 pp 벨로시티 원본이라 피크가 -24~-30dB로 매우
-// 조용했음 — vol을 아무리 키워도 한계가 있었음). forte 벨로시티(v2) 원본으로 바꾸고 -1dB로
-// 정규화해서 다시 인코딩한 뒤, vol은 그만큼 다시 낮춰서(1.7→0.55) 예전보다 확실히 크지만
-// 클리핑은 안 나는 수준으로 맞춤.
+// 바이올린 음원은 "소리가 안 이쁘다"는 피드백을 받고 합주(section) 녹음에서 솔로 바이올린
+// 녹음으로 완전히 교체함(SAMPLE_MIDI_URLS 주석 참고) — 이 값(0.55)은 이전 합주 녹음 때 정한
+// 것과 같지만, 새 샘플도 비슷한 수준(-2dB)으로 정규화해서 받아왔기 때문에 음량 자체는 이전과
+// 비슷하게 유지됨.
 const MELODY_INSTR_VOL = { violin: 0.55, piano: 0.18, flute: 0.95, recorder: 0.4 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
