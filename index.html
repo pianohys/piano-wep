@@ -2817,7 +2817,11 @@ function loadInstrumentSamples(name){
 // 바꿔 재생함 — 다른 곳(hit/chordTone)의 dur·vol 타이밍/음량 체계는 그대로 두고 소리만 실제 악기
 // 녹음으로 바꿔치기하는 구조라, 기존 화음유지/펼침화음 타이밍이나 맥놀이 방지 설계는 안 건드림.
 // 아직 해당 악기 샘플이 로딩 중/실패면 null을 돌려주니, 호출한 쪽이 합성음으로 대체 재생함.
-function playSampleNote(instrName, t, freq, dur, vol, bus){
+// shiftFilter(선택): 녹음된 음보다 "위로" 피치시프트할 때만(rate>1) 배음이 위로 눌려 압축되면서
+// 날카/거칠게 들리는 걸 완화하는 저역통과 필터. 요청("B4/C5 정도는 예쁜데 나머지는 날카롭다")을
+// 실제로 측정해보니 정확히 이 패턴과 일치함(그 두 음은 시프트가 0/-1인 반면, 가장 날카로운 '레'는
+// +2였음) — 아래로 시프트(rate<=1)할 때는 오히려 더 둔하게 들려서 이미 괜찮으므로 필터를 안 걸음.
+function playSampleNote(instrName, t, freq, dur, vol, bus, shiftFilter){
   const lib=sampleLibCache[instrName];
   if(!lib || !lib.length) return false;
   let best=lib[0], bestDist=Infinity;
@@ -2840,7 +2844,15 @@ function playSampleNote(instrName, t, freq, dur, vol, bus){
   } else {
     g.gain.exponentialRampToValueAtTime(0.0001,t+playDur);
   }
-  src.connect(g).connect(bus||getMusicBus());
+  if(shiftFilter && rate>1){
+    const shiftSemis=Math.log2(rate)*12;
+    const f=ctx.createBiquadFilter();
+    f.type='lowpass'; f.Q.value=0.7;
+    f.frequency.value=Math.max(shiftFilter.minHz, shiftFilter.baseHz-shiftSemis*shiftFilter.hzPerSemitone);
+    src.connect(f).connect(g).connect(bus||getMusicBus());
+  } else {
+    src.connect(g).connect(bus||getMusicBus());
+  }
   src.start(t); src.stop(t+playDur+0.05);
   sources.push(src);
   return true;
@@ -2974,6 +2986,9 @@ function metro(t,accent){
 // 것과 같지만, 새 샘플도 비슷한 수준(-2dB)으로 정규화해서 받아왔기 때문에 음량 자체는 이전과
 // 비슷하게 유지됨.
 const MELODY_INSTR_VOL = { violin: 0.55, piano: 0.18, flute: 0.95, recorder: 0.4 };
+// 바이올린 샘플은 도미솔라(A/C/E/G)에만 있어서 레·파는 항상 위로 피치시프트됨(레는 최대 +2반음) —
+// 위 playSampleNote의 shiftFilter로 그 위로-시프트된 음만 살짝 어둡게 걸러서 "날카롭다"는 느낌을 줄임.
+const MELODY_SHIFT_FILTER = { violin: {baseHz:9000, hzPerSemitone:1500, minHz:5000} };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
@@ -2983,7 +2998,7 @@ function hit(t,freq,dur){
   // 안 타고 바로 실제 악기 소리가 남.
   if(melodyInstrument!=='synth'){
     const mvol=MELODY_INSTR_VOL[melodyInstrument]!=null ? MELODY_INSTR_VOL[melodyInstrument] : 0.9;
-    if(playSampleNote(melodyInstrument, t, freq, sus, mvol, getMusicBus())) return;
+    if(playSampleNote(melodyInstrument, t, freq, sus, mvol, getMusicBus(), MELODY_SHIFT_FILTER[melodyInstrument])) return;
   }
   // 기본(신스): a softer, more sustained composite tone (like a recorder/flute) instead of the old
   // quick-decay pluck.
