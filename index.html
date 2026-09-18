@@ -2852,8 +2852,9 @@ function tone(t,freq,dur,vol,type='triangle',opts){
 function chordTone(t,freq,dur,vol){
   const bus=getChordBus();
   if(chordStyle==='band_hold' || chordStyle==='band_arp' || chordStyle==='arpeggio'){
-    // 반주 피아노 음량이 너무 크다는 피드백을 세 번 받아서 배율을 계속 낮춤(2.6 → 1.3 → 0.75 → 0.5).
-    if(playSampleNote('piano', t, freq, dur, vol*0.5, bus)) return;
+    // 반주 피아노 음량 — 너무 크다는 피드백에 계속 낮추다가(2.6→1.3→0.75→0.5) 이번엔 너무 작아서
+    // 잘 안 들린다는 반대 피드백을 받아 다시 살짝 키움(0.5→0.85).
+    if(playSampleNote('piano', t, freq, dur, vol*0.85, bus)) return;
     // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음(예전 배음+타건 클릭 방식)
     tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
     tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus, filterMul:2.0});
@@ -2929,7 +2930,7 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.7, piano: 0.18, flute: 0.95, recorder: 0.55 };
+const MELODY_INSTR_VOL = { violin: 1.7, piano: 0.18, flute: 0.95, recorder: 0.4 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
