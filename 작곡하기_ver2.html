@@ -451,6 +451,7 @@
       <span class="topActions" id="topActions">
         <button class="btn-undo" id="undoBtn" disabled="">↩️ 되돌리기</button>
         <button class="btn-review" id="reviewBtn">🔍 검토하기</button>
+        <button class="btn-review" id="autoChordBtn">🎹 화음 자동 추천</button>
         <button class="btn-record" id="recBtn">🎵 음원 녹음하기</button>
         <!-- 저장 버튼은 이제 녹음 결과 팝업 안(화음없이/화음포함)으로 옮겨서 여기 상단 줄에는 안 보여줌 —
              다만 실제 저장 로직은 이 버튼에 그대로 붙어 있고 팝업 안 saveAudioNC가 클릭을 그대로
@@ -1085,6 +1086,97 @@ function chordTagHTML(mi){
   const modeLabel = c.mode===2 ? '펼침화음' : '화음유지';
   const customCls = nl.isCustom ? ' chordTag--custom' : '';
   return `<span class="chordTag chordTag--set ${modeCls}${customCls}" data-m="${mi}" title="${nl.label} · ${modeLabel} — 눌러서 바꾸기">${nl.label}</span>`;
+}
+function refreshChordTags(){
+  board.querySelectorAll('.chordTag').forEach(el=>{ el.outerHTML=chordTagHTML(+el.dataset.m); });
+}
+// ---------- 화음 자동 추천 ----------
+// 마디마다 실제로 울리는 멜로디 음(조표·임시표까지 반영한 실제 소리 기준)과 가장 많이 겹치는 화음을,
+// 지금 조성의 7화음(다이어토닉 3화음) 중에서 골라 자동으로 채워 넣음 — 이 화면의 화음은 절대음(항상
+// C 기준)으로 저장되므로, 후보 화음도 절대음으로 미리 계산해둠. 이 화음판엔 감화음(dim)·증화음(aug)
+// 옵션이 없어서 그런 자리는 마이너/메이저로 가까운 것을 대신 씀. 이미 화음이 있는 마디는 손대지 않고,
+// 음표가 하나도 없는 빈 마디는 추천할 화음이 없으니 건너뜀.
+// 중요: 이 프로그램의 계이름(도레미파솔라시)은 "이동도"가 아니라 실제 악보처럼 "고정도"임 — 도=항상
+// C, 레=항상 D, ... 이고, currentKey(조성)는 그 중 몇 개 음이름에 자동으로 #/b을 붙일지만 정함(진짜
+// 조표와 똑같은 방식, keySignatureLetters 참고). 그래서 화음 후보도 조성의 tonicPC를 더하는 게 아니라,
+// "고정 음이름 7개 + 그 조표가 자동으로 붙이는 #/b"으로 실제 조성의 온음계 7음을 절대음으로 구해야 함.
+const FIXED_LETTER_PC={'도':0,'레':2,'미':4,'파':5,'솔':7,'라':9,'시':11};
+const SOLFEGE_ORDER=['도','레','미','파','솔','라','시'];
+function stepAbsolutePC(step,accCode){
+  const name=STEP_NAME[String(step)]; if(!name) return null;
+  let sem=FIXED_LETTER_PC[name];
+  if(accCode==='#') sem+=1; else if(accCode==='b') sem-=1;
+  return ((sem%12)+12)%12;
+}
+// 지금 조표가 실제로 소리 나게 하는 7개 온음계 음(절대음, 순서는 도레미파솔라시 순 — 으뜸음이 어느
+// 것인지는 몰라도 됨: 이 7개 중에서 3도씩 쌓아 만든 화음 7개는 으뜸음을 어디로 보든 항상 똑같은
+// 집합이라서, "가장 잘 맞는 화음 찾기"용으로는 이 순서 그대로 써도 결과가 같음).
+function diatonicScalePCs(){
+  const {letters, flat}=keySignatureLetters(currentKey);
+  return SOLFEGE_ORDER.map(name=>{
+    let pc=FIXED_LETTER_PC[name];
+    if(letters.includes(name)) pc += flat ? -1 : 1;
+    return ((pc%12)+12)%12;
+  });
+}
+function diatonicChordCandidates(){
+  const scale=diatonicScalePCs();
+  const cands=[];
+  for(let i=0;i<7;i++){
+    const root=scale[i], third=scale[(i+2)%7], fifth=scale[(i+4)%7];
+    const i3=((third-root)%12+12)%12, i5=((fifth-root)%12+12)%12;
+    let quality='major';
+    if(i3===3 && i5===7) quality='minor';
+    else if(i3===3 && i5===6) quality='minor';   // 감화음 어림
+    else if(i3===4 && i5===8) quality='major';   // 증화음 어림
+    const pcs=new Set(CHORD_QUALITIES[quality].intervals.map(iv=>(root+iv)%12));
+    cands.push({root, quality, pcs});
+  }
+  return cands;
+}
+function autoSuggestChords(){
+  const candidates=diatonicChordCandidates();
+  let filled=0, consideredButSkipped=0;
+  for(let mi=0; mi<MEAS; mi++){
+    if(chordData[mi]) continue;
+    const base=mi*BEATS;
+    const weights=new Map();
+    let hasAnyNote=false;
+    const add=(pc,dur)=>{ if(pc==null) return; weights.set(pc,(weights.get(pc)||0)+dur); };
+    for(let b=0;b<BEATS;b++){
+      const idx=base+b;
+      if(heldFrom[idx]!=null) continue;
+      const id=slotData[idx];
+      if(id==='_frac'){
+        const atoms=fracData[idx]||[];
+        atoms.forEach((a,k)=>{
+          if(!FRAC_HASPITCH[a.id]) return;
+          hasAnyNote=true;
+          const step=a.pitch!=null?a.pitch:DEFAULT_STEP;
+          const pc=stepAbsolutePC(step, effectiveAccForNote(idx+'_'+k,step));
+          add(pc, FRAC_DUR[a.id]);
+        });
+      } else if(id && TYPE[id].on.length>0){
+        hasAnyNote=true;
+        const steps=stepsFor(idx), durs=onsetDurations(id);
+        steps.forEach((step,oi)=>{
+          const pc=stepAbsolutePC(step, effectiveAccForNote(accKeyForOnset(id,idx,oi),step));
+          add(pc, durs[oi]||1);
+        });
+      }
+    }
+    if(!hasAnyNote) continue;
+    let best=null, bestScore=-1;
+    candidates.forEach(c=>{
+      let score=0;
+      weights.forEach((w,pc)=>{ if(c.pcs.has(pc)) score+=w; });
+      if(score>bestScore){ bestScore=score; best=c; }
+    });
+    if(!best || bestScore<=0){ consideredButSkipped++; continue; }
+    chordData[mi]={root:best.root, quality:best.quality, mode:1};
+    filled++;
+  }
+  return {filled, consideredButSkipped};
 }
 function buildBoard(){
   cursorIdx=null;   // board.innerHTML is about to be replaced, so any stale cursor-slot reference must go too
@@ -2625,6 +2717,17 @@ function closeReviewPopup(){ document.getElementById('reviewPopupOverlay').class
 function showRecordPopup(){ document.getElementById('recordPopupOverlay').classList.add('show'); }
 function closeRecordPopup(){ document.getElementById('recordPopupOverlay').classList.remove('show'); }
 document.getElementById('reviewBtn').addEventListener('click', ()=>{ renderReview(); showReviewPopup(); });
+document.getElementById('autoChordBtn').addEventListener('click',()=>{
+  const {filled, consideredButSkipped}=autoSuggestChords();
+  refreshChordTags();
+  if(filled>0){
+    setStatus(`${filled}개 마디에 어울리는 화음을 자동으로 넣었어요. (이미 화음이 있던 마디는 그대로 뒀어요) 마음에 안 들면 마디 위 화음표를 눌러서 언제든 바꿀 수 있어요.`);
+  } else if(consideredButSkipped>0){
+    setStatus('어울리는 화음을 찾지 못한 마디가 있어요 — 반음(임시표) 음이 많은 마디는 직접 화음을 골라 주세요.');
+  } else {
+    setStatus('추천할 마디가 없어요 — 이미 다 화음이 있거나, 아직 음표가 없어요.');
+  }
+});
 document.getElementById('reviewPopupClose').addEventListener('click', closeReviewPopup);
 document.getElementById('recordPopupClose').addEventListener('click', closeRecordPopup);
 

@@ -443,6 +443,7 @@
       <span class="topActions" id="topActions">
         <button class="btn-undo" id="undoBtn" disabled="">↩️ 되돌리기</button>
         <button class="btn-review" id="reviewBtn">🔍 검토하기</button>
+        <button class="btn-review" id="autoChordBtn">🎹 화음 자동 추천</button>
         <button class="btn-record" id="recBtn">🎵 음원 녹음하기</button>
         <!-- 저장 버튼은 이제 녹음 결과 팝업 안(화음없이/화음포함)으로 옮겨서 여기 상단 줄에는 안 보여줌 —
              다만 실제 저장 로직은 이 버튼에 그대로 붙어 있고 팝업 안 saveAudioNC가 클릭을 그대로
@@ -1055,6 +1056,64 @@ function buildBoard(){
 function refreshChordTags(){
   board.querySelectorAll('.chordTag').forEach(el=>{ el.outerHTML=chordTagHTML(+el.dataset.m); });
 }
+// ---------- 화음 자동 추천 ----------
+// 마디마다 실제로 울리는 멜로디 음들을 보고, 그 음들과 가장 많이 겹치는(구성음이 많이 포함된) 화음을
+// 현재 조성의 7화음(CHORD_TABLE) 중에서 골라 자동으로 채워 넣음 — 선생님이 매 마디 일일이 화음을
+// 고르지 않아도 되게, 흔히 쓰는 "멜로디 음에 맞는 화음 찾기" 방식(각 후보 화음의 구성음과 실제로 그
+// 마디에서 들리는 음이 얼마나 겹치는지, 음 길이만큼 가중치를 둬서 점수를 매김)의 간단한 버전. 이미
+// 화음이 있는 마디는(선생님이 손으로 골라놓은 것일 수 있으니) 건드리지 않고, 음표가 하나도 없는
+// 빈 마디도 추천할 화음이 없으니 건너뜀.
+function autoSuggestChords(){
+  const table=CHORD_TABLE[keyMode]||CHORD_TABLE.major;
+  const candidates=table.map(c=>new Set(c.notes.map(noteSemitone)));
+  let filled=0, consideredButSkipped=0;
+  for(let mi=0; mi<MEAS; mi++){
+    if(chordData[mi]) continue;   // 이미 화음이 있으면 그대로 둠
+    const base=mi*BEATS;
+    const weights=new Map();   // 반음 계급(0~11) -> 누적 길이(박)
+    let hasAnyNote=false;
+    const add=(step,dur)=>{
+      const name=STEP_NAME[String(step)]; if(!name) return;
+      const sem=noteSemitone(name);
+      weights.set(sem,(weights.get(sem)||0)+dur);
+    };
+    for(let b=0;b<BEATS;b++){
+      const idx=base+b;
+      if(heldFrom[idx]!=null) continue;   // 앞 음표가 이어지는 칸은 그 시작 칸에서 이미 계산됨
+      const id=slotData[idx];
+      if(id==='_frac'){
+        const atoms=fracData[idx]||[];
+        atoms.forEach(a=>{ if(!FRAC_HASPITCH[a.id]) return; hasAnyNote=true; add(a.pitch!=null?a.pitch:DEFAULT_STEP, FRAC_DUR[a.id]); });
+      } else if(id && TYPE[id].on.length>0){
+        hasAnyNote=true;
+        const steps=stepsFor(idx), durs=onsetDurations(id);
+        steps.forEach((step,i)=>add(step, durs[i]||1));
+      }
+    }
+    if(!hasAnyNote){ continue; }
+    let bestDeg=1, bestScore=-1;
+    candidates.forEach((set,i)=>{
+      let score=0;
+      weights.forEach((w,sem)=>{ if(set.has(sem)) score+=w; });
+      if(score>bestScore){ bestScore=score; bestDeg=i+1; }
+    });
+    if(bestScore<=0){ consideredButSkipped++; continue; }   // 어떤 화음과도 안 겹치면(반음계 음 등) 억지로 채우지 않음
+    chordData[mi]={deg:bestDeg, mode:1};
+    filled++;
+  }
+  return {filled, consideredButSkipped};
+}
+document.getElementById('autoChordBtn').addEventListener('click',()=>{
+  const {filled, consideredButSkipped}=autoSuggestChords();
+  refreshChordTags();
+  if(filled>0){
+    setStatus(`${filled}개 마디에 어울리는 화음을 자동으로 넣었어요. (이미 화음이 있던 마디는 그대로 뒀어요) 마음에 안 들면 마디 위 화음표를 눌러서 언제든 바꿀 수 있어요.`);
+  } else if(consideredButSkipped>0){
+    setStatus('어울리는 화음을 찾지 못한 마디가 있어요 — 반음(임시표) 음이 많은 마디는 직접 화음을 골라 주세요.');
+  } else {
+    setStatus('추천할 마디가 없어요 — 이미 다 화음이 있거나, 아직 음표가 없어요.');
+  }
+});
 // ---------- 화음 고르기 팝업 ----------
 // 마디 위 배지(.chordTag)를 누르면 그 마디 안, 마디 번호와 비슷한 높이에 이 팝업이 바로 뜸(끌어다
 // 놓지 않고, 여기서 누르는 즉시 그 마디에 들어감). 기본은 7화음(1도~7도) 고르기 화면이고, 「🎹 화음
