@@ -2974,6 +2974,18 @@ function melodyEndBeats(){
   }
   return end;
 }
+// 반주(화음/드럼/베이스)가 실제로 소리 내야 하는 끝 지점 — 멜로디의 마지막 음(melodyEndBeats)뿐 아니라,
+// 멜로디가 이미 끝난 뒤에도 화음이 붙어 있는 마디가 있으면(엔딩 진행처럼 멜로디 없이 화음만 있는
+// 마디) 그 마디 끝까지 포함함. "마디가 쉼표로 끝나더라도 반주는 뚝 끊기지 않아야 한다"는 요청이
+// 마지막 마디 하나만이 아니라 화음이 붙은 마지막 마디 전체에 적용되도록 하기 위함 — 이걸 안 하면
+// 멜로디 없이 화음만 넣어둔 뒷마디가 통째로 재생/녹음에서 빠져 버림.
+function arrangementEndBeats(){
+  const melEnd=melodyEndBeats();
+  let lastChordMeas=-1;
+  for(let mi=MEAS-1; mi>=0; mi--){ if(chordData[mi]){ lastChordMeas=mi; break; } }
+  const chordEnd = lastChordMeas>=0 ? (lastChordMeas+1)*BEATS : 0;
+  return Math.max(melEnd, chordEnd);
+}
 // 마디마다 붙은 화음(chordData)을 실제로 재생 예약함. start/beat는 startPlayback()이 멜로디를 예약할
 // 때 쓴 것과 같은 기준(마디 s의 첫 박 시각 = start+s*beat)이라 멜로디와 정확히 같은 타이밍으로 맞음.
 // - 화음유지(mode 1): 그 마디 동안(또는 멜로디가 그 안에서 먼저 끝나면 거기까지) 3화음을 한 번에 지속.
@@ -2994,8 +3006,10 @@ function arpPattern(voiced){
   return out;
 }
 function scheduleChords(start,beat){
-  const melEnd=melodyEndBeats();
-  // 멜로디가 실제로 끝나는 지점(melEnd)이 들어있는 마디 — 이 마디만은 멜로디가 쉼표로 일찍 끝나더라도
+  // melEnd 대신 arrangementEndBeats()를 씀 — 멜로디가 끝난 뒤에도 화음만 붙어 있는 뒷마디(엔딩 진행)가
+  // 있으면 그 마디까지 포함해서 반주가 끊기지 않게 하기 위함(위 arrangementEndBeats 주석 참고).
+  const melEnd=arrangementEndBeats();
+  // 반주가 실제로 끝나는 지점(melEnd)이 들어있는 마디 — 이 마디만은 멜로디가 쉼표로 일찍 끝나더라도
   // 반주(화음/드럼)가 마디 끝(4박)까지 자연스럽게 이어지게 함(아래 mode1/mode2 각각 참고). 그보다
   // 앞의 마디들은 원래부터 melEnd에 안 걸려서(measStartBeat+BEATS<=melEnd) 영향 없음.
   const lastMeas = melEnd>0 ? Math.floor((melEnd-1e-9)/BEATS) : -1;
@@ -3129,9 +3143,12 @@ function drumHat(t){
 // 스타일일 때만 호출됨. 멜로디가 끝난 뒤(빈 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd 기준).
 function scheduleBandLayer(start,beat){
   if(chordStyle!=='band') return;
-  const melEnd=melodyEndBeats();
-  // scheduleChords와 같은 이유: 멜로디의 마지막 음이 들어있는 마디만은 쉼표로 일찍 끝나더라도
-  // 드럼·베이스가 마디 끝(4박)까지 자연스럽게 이어지게 해서, 리듬이 중간에 뚝 끊기는 느낌이 없게 함.
+  // scheduleChords와 같은 이유로 melEnd 대신 arrangementEndBeats() 사용 — 멜로디 없이 화음만 있는
+  // 뒷마디에서도 드럼/베이스가 함께 이어지게 함.
+  const melEnd=arrangementEndBeats();
+  // scheduleChords와 같은 이유: 반주가 실제로 끝나는 지점이 들어있는 마디만은 멜로디가 쉼표로 일찍
+  // 끝나더라도 드럼·베이스가 마디 끝(4박)까지 자연스럽게 이어지게 해서, 리듬이 중간에 뚝 끊기는
+  // 느낌이 없게 함.
   const lastMeas = melEnd>0 ? Math.floor((melEnd-1e-9)/BEATS) : -1;
   for(let mi=0; mi<MEAS; mi++){
     const measStartBeat=mi*BEATS;
@@ -3186,7 +3203,7 @@ async function startPlayback(countIn,useMet,btn){
   // SLOTS(악보 전체 마디 수) 끝까지 돌았는데, 그러면 짧은 곡도 "재생/녹음이 끝났다"는 신호(=stopAll)가
   // 한참 뒤에야 오고, 그 사이엔 playing이 계속 true라서 ▶ 재생을 다시 눌러도 (이미 재생 중인 걸로
   // 인식해) 그냥 정지만 될 뿐 새로 소리가 안 남 — "녹음하고 나면 재생이 안 된다"고 느껴지던 원인.
-  const melEndBeatsNow=melodyEndBeats();
+  const melEndBeatsNow=arrangementEndBeats();
   const effSlots = melEndBeatsNow>0 ? Math.min(SLOTS, Math.ceil(melEndBeatsNow/BEATS)*BEATS) : SLOTS;
 
   // notes + optional running metronome + visual playhead
