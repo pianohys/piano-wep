@@ -572,7 +572,8 @@
   악기 음원 출처 — 바이올린·플루트: VSCO2 Community Edition, Versilian Studios(CC0) ·
   리코더: VCSL, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY) ·
-  기타: Shinyguitar by D. Smolken, Karoryfer Samples(CC0)
+  기타: Shinyguitar by D. Smolken, Karoryfer Samples(CC0) ·
+  베이스기타: Black And Blue Basses, Karoryfer Samples(CC0)
 </p>
 
 <!-- 마이크 권한이 막혀 있을 때: "브라우저에서 허용해주세요" 한 줄로는 그 설정을 어디서 찾는지 알기
@@ -2282,6 +2283,7 @@ const chordStyleSel=document.getElementById('chordStyleSel');
 function preloadForChordStyle(style){
   if(style==='band_hold' || style==='band_arp' || style==='arpeggio') loadInstrumentSamples('piano');
   if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
+  if(style==='band_guitar_arp') loadInstrumentSamples('bassguitar');
 }
 chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
 // 멜로디를 실제로 어떤 악기 소리로 들려줄지 — 기본(synth)은 예전 그대로의 합성음, 나머지는 위
@@ -2778,7 +2780,13 @@ const SAMPLE_MIDI_URLS = {
     54:'samples/guitar/m54.mp3', 57:'samples/guitar/m57.mp3', 60:'samples/guitar/m60.mp3',
     63:'samples/guitar/m63.mp3', 66:'samples/guitar/m66.mp3', 69:'samples/guitar/m69.mp3',
     72:'samples/guitar/m72.mp3', 75:'samples/guitar/m75.mp3', 78:'samples/guitar/m78.mp3',
-    81:'samples/guitar/m81.mp3', 84:'samples/guitar/m84.mp3'}
+    81:'samples/guitar/m81.mp3', 84:'samples/guitar/m84.mp3'},
+  bassguitar: {35:'samples/bassguitar/m35.mp3', 36:'samples/bassguitar/m36.mp3',
+    37:'samples/bassguitar/m37.mp3', 38:'samples/bassguitar/m38.mp3', 39:'samples/bassguitar/m39.mp3',
+    40:'samples/bassguitar/m40.mp3', 41:'samples/bassguitar/m41.mp3', 42:'samples/bassguitar/m42.mp3',
+    43:'samples/bassguitar/m43.mp3', 44:'samples/bassguitar/m44.mp3', 45:'samples/bassguitar/m45.mp3',
+    46:'samples/bassguitar/m46.mp3', 47:'samples/bassguitar/m47.mp3', 48:'samples/bassguitar/m48.mp3',
+    49:'samples/bassguitar/m49.mp3'}
 };
 // 출처(전부 자유 이용 라이선스):
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
@@ -2797,6 +2805,11 @@ const SAMPLE_MIDI_URLS = {
 // - guitar: Shinyguitar(어쿠스틱/아치탑) by D. Smolken(Karoryfer Samples), CC0 — 예전에 쓰다가
 //   "소리가 듣기싫다"고 빼버린 Martin HD28 스틸스트링과는 다른 녹음(벨로시티 레이어까지 있는
 //   더 꼼꼼한 멀티샘플)이라, 이번엔 '기타 아르페지오' 전용 화음 스타일로 다시 넣어봄.
+// - bassguitar: Black And Blue Basses "darkblack" 일반 핑거 피킹(reg/pluck), Karoryfer Samples,
+//   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). '밴드(기타 아르페지오)'
+//   전용 베이스로 씀(scheduleBandLayer 참고) — 기존 신스 베이스(bassGuitarPluck)가 쓰던 음역
+//   (root/4, 낮으면 MIDI 24까지)은 이 음원 범위 밖이라 최대 11반음이나 아래로 피치시프트해야
+//   해서 먹먹해지므로, 이 스타일만 한 옥타브 위(root/2)로 옮겨 거의 시프트 없이 재생함.
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
@@ -3318,12 +3331,31 @@ function scheduleBandLayer(start,beat){
       const nl=chordNotesAndLabel(c);
       if(nl && nl.notes.length){
         const voiced=voiceChordNotes(nl.notes,3);
-        const rootFreq=voiced[0].freq/4;
-        if(chordStyle==='band_arp' || chordStyle==='band_guitar_arp'){
+        if(chordStyle==='band_guitar_arp'){
+          // 요청: '밴드(기타 아르페지오)'에 실제 베이스기타 음원(샘플)을 점4분음표+2분음표(=3.5박)
+          // 한 세트로 반복하는 리듬으로 넣음. 위 bassguitar 출처 주석대로 이 음원 음역에 맞춰
+          // root/4 대신 한 옥타브 위인 root/2를 씀. 샘플이 아직 로딩 중일 때만 기존 신스 pluck으로
+          // 대체.
+          const rootFreq=voiced[0].freq/2;
+          const pat=[1.5,2.0];
+          let off=0;
+          for(const d of pat){
+            const noteBeat=measStartBeat+off;
+            if(noteBeat>=measEndBeat) break;
+            const dur=Math.min(d, measEndBeat-noteBeat);
+            if(dur>0.05){
+              const t=start+noteBeat*beat, noteDur=dur*beat;
+              if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45, getDrumBus())){
+                bassGuitarPluck(t, rootFreq, noteDur, 0.20);
+              }
+            }
+            off+=d;
+          }
+        } else if(chordStyle==='band_arp'){
           // 요청: '밴드(피아노 펼침화음)'일 때 베이스를 점4분음표+8분음표(=2박) 한 세트로 반복하는
           // 리듬으로, 통기타 아닌 "베이스기타" 느낌의 감쇠 음색(bassGuitarPluck)으로 넣음 —
-          // band_hold는 그대로 마디 내내 끄는 기존 방식 유지. '밴드(기타 아르페지오)'도 같은
-          // 베이스 리듬/음색을 그대로 씀(기타 아르페지오 위에 밴드 베이스+드럼만 얹는 요청).
+          // band_hold는 그대로 마디 내내 끄는 기존 방식 유지.
+          const rootFreq=voiced[0].freq/4;
           const pat=[1.5,0.5,1.5,0.5];
           let off=0;
           for(const d of pat){
@@ -3334,6 +3366,7 @@ function scheduleBandLayer(start,beat){
             off+=d;
           }
         } else {
+          const rootFreq=voiced[0].freq/4;
           const durBeats=measEndBeat-measStartBeat;
           if(durBeats>0.05) bassNote(start+measStartBeat*beat, rootFreq, durBeats*beat, 0.20);
         }
@@ -3367,6 +3400,7 @@ async function startPlayback(countIn,useMet,btn){
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
   if(chordStyle==='band_hold' || chordStyle==='band_arp' || chordStyle==='arpeggio') neededLibs.add('piano');
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
+  if(chordStyle==='band_guitar_arp') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
   if(stillLoading.length){
     setStatus('악기 음원을 불러오는 중…');
