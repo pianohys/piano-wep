@@ -473,7 +473,6 @@
         <option value="violin">멜로디 악기: 바이올린(오케스트라)</option>
         <option value="piano">멜로디 악기: 피아노</option>
         <option value="recorder">멜로디 악기: 리코더</option>
-        <option value="cello">멜로디 악기: 첼로</option>
         <option value="marimba">멜로디 악기: 마림바</option>
         <option value="flute">멜로디 악기: 플루트</option>
         <option value="clarinet">멜로디 악기: 클라리넷</option>
@@ -577,7 +576,7 @@
 </div>
 
 <p style="text-align:center;color:#999;font-size:11px;margin:6px 0 0;">
-  악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린·첼로·플루트·클라리넷·트럼펫: VSCO2 Community Edition,
+  악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린·플루트·클라리넷·트럼펫: VSCO2 Community Edition,
   Versilian Studios(CC0) · 리코더·마림바: VCSL, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY)
 </p>
@@ -2544,7 +2543,7 @@ function applyStateObj(obj){
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   // 'guitar'는 멜로디 악기에서 뺐음(기타 소리는 반주에서만 씀) — 옛 저장 링크에 남아있어도 안전하게 synth로.
-  melodyInstrument = ['synth','violin','piano','recorder','cello','marimba','flute','clarinet','trumpet'].includes(obj.mi) ? obj.mi : 'synth';
+  melodyInstrument = ['synth','violin','piano','recorder','marimba','flute','clarinet','trumpet'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
   chordData.length=0;
@@ -2912,11 +2911,6 @@ const SAMPLE_MIDI_URLS = {
     72:'samples/recorder/m72.mp3', 74:'samples/recorder/m74.mp3', 76:'samples/recorder/m76.mp3',
     78:'samples/recorder/m78.mp3', 80:'samples/recorder/m80.mp3', 82:'samples/recorder/m82.mp3',
     84:'samples/recorder/m84.mp3', 86:'samples/recorder/m86.mp3', 88:'samples/recorder/m88.mp3'},
-  cello: {24:'samples/cello/m24.mp3', 28:'samples/cello/m28.mp3', 31:'samples/cello/m31.mp3',
-    35:'samples/cello/m35.mp3', 38:'samples/cello/m38.mp3', 41:'samples/cello/m41.mp3',
-    45:'samples/cello/m45.mp3', 48:'samples/cello/m48.mp3', 52:'samples/cello/m52.mp3',
-    55:'samples/cello/m55.mp3', 59:'samples/cello/m59.mp3', 62:'samples/cello/m62.mp3',
-    65:'samples/cello/m65.mp3'},
   marimba: {29:'samples/marimba/m29.mp3', 43:'samples/marimba/m43.mp3', 53:'samples/marimba/m53.mp3',
     60:'samples/marimba/m60.mp3', 71:'samples/marimba/m71.mp3', 84:'samples/marimba/m84.mp3'},
   flute: {48:'samples/flute/m48.mp3', 52:'samples/flute/m52.mp3', 57:'samples/flute/m57.mp3',
@@ -2935,7 +2929,7 @@ const SAMPLE_MIDI_URLS = {
 // 출처(전부 자유 이용 라이선스):
 // - guitar: Martin HD28 스틸스트링 통기타, Jeff Learman 녹음, CC0 (Discord-SFZ-GM-Bank)
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
-// - violin/cello/trumpet: VSCO2 Community Edition 합주/솔로(susVib/sus), Versilian Studios, CC0
+// - violin/trumpet: VSCO2 Community Edition 합주/솔로(susVib/sus), Versilian Studios, CC0
 // - recorder: VCSL 알토 리코더(Baroque Alto Recorder), Versilian Studios, CC0
 // - marimba: VCSL 마림바, Versilian Studios, CC0
 // - flute/clarinet: VSCO2 Community Edition, Versilian Studios, CC0
@@ -3117,7 +3111,7 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, recorder: 0.8, cello: 1.1, marimba: 1.15, flute: 0.95, clarinet: 0.95, trumpet: 0.75 };
+const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, recorder: 0.8, marimba: 1.4, flute: 0.95, clarinet: 0.95, trumpet: 0.75 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
