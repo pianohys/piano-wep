@@ -461,6 +461,11 @@
     </p>
     <div class="keymode-row">
       <select id="keymode" class="keymode-select"></select>
+      <select id="chordStyleSel" class="keymode-select">
+        <option value="simple">화음 스타일: 심플</option>
+        <option value="piano">화음 스타일: 피아노</option>
+        <option value="band">화음 스타일: 밴드(드럼+베이스)</option>
+      </select>
     </div>
     <div class="accBoxRow">
       <span class="accBox" id="accBox">
@@ -1622,7 +1627,7 @@ let undoStack=[]; const UNDO_MAX=60; let undoDepth=0;
 function snapshotForUndo(){
   return { b:+tempo.value, m:MEAS, n:slotData.slice(), l:JSON.parse(JSON.stringify(lyrChar)),
     p:pitchData.map(x=>Array.isArray(x)?x.slice():x), f:JSON.parse(JSON.stringify(fracData)), k:{t:currentKey.tonicPC, mo:currentKey.mode},
-    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice() };
+    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle };
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(b) b.disabled = undoStack.length===0; }
 function pushUndo(){
@@ -2363,6 +2368,13 @@ keymodeSel.addEventListener('change',()=>{
   const sigMsg = letters.length ? `조표: ${letters.join(', ')}에 ${flat?'♭':'♯'}` : '조표 없음';
   setStatus(`조성을 <b>${k.label}</b>(으)로 바꿨어요. (${sigMsg})`);
 });
+// 화음 반주를 어떤 소리로 들려줄지 — 심플(원래 화음 소리 그대로) / 피아노(화음에 배음을 살짝 더해
+// 화사하게) / 밴드(피아노 화성 + 베이스 + 드럼까지 더해서 반주처럼 들리게). 셋 다 화음 자체의 음높이·
+// 박자·지속시간(화음유지/펼침화음)은 전혀 안 바꿔서, 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지
+// 않음 — 순전히 음색만 더하는 방식.
+let chordStyle='simple';   // 'simple' | 'piano' | 'band'
+const chordStyleSel=document.getElementById('chordStyleSel');
+chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; });
 document.getElementById('clear').addEventListener('click',()=>{
   deleteMode=!deleteMode;
   document.getElementById('clear').classList.toggle('active',deleteMode);
@@ -2447,7 +2459,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''),
+    c:chordData.map(x=>x||''), st:chordStyle,
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
@@ -2490,6 +2502,8 @@ function applyStateObj(obj){
     const kidx=KEY_LIST.findIndex(k=>k.tonicPC===currentKey.tonicPC && k.mode===currentKey.mode);
     keymodeSel.value = kidx>=0 ? String(kidx) : '0';
   }
+  chordStyle = ['simple','piano','band'].includes(obj.st) ? obj.st : 'simple';
+  if(chordStyleSel) chordStyleSel.value=chordStyle;
   chordData.length=0;
   for(let i=0;i<MEAS;i++){
     const cv=obj.c&&obj.c[i];
@@ -2796,7 +2810,7 @@ async function ensureAudio(){
       ]);
     }catch(_){
       try{ await A.close(); }catch(_){ }
-      actx=null; musicBus=null; chordBus=null;
+      actx=null; musicBus=null; chordBus=null; drumBus=null;
       A=ac();
       if(A.state==='suspended'){ try{ await A.resume(); }catch(_){ } }
     }
@@ -2842,9 +2856,15 @@ function tone(t,freq,dur,vol,type='triangle',opts){
   sources.push(o);
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
-// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함.
+// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '피아노'/'밴드' 스타일에서는 hit()이 멜로디에 쓰는
+// 것과 같은 안전한 기법(한 옥타브 위에 아주 작은 소리를 겹치기 — 옥타브 차이라 맥놀이 걱정 없음)으로
+// 배음만 살짝 얹어 더 화사하게 만듦. 화음 자체의 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은
+// 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
   tone(t,freq,dur,vol,'triangle',{bus:getChordBus(), filterMul:2.0});
+  if(chordStyle!=='simple'){
+    tone(t,freq*2,dur*0.85,vol*0.22,'sine',{bus:getChordBus(), filterMul:2.0});
+  }
 }
 let _noiseBuf=null;
 function noiseBuffer(){
@@ -2915,7 +2935,7 @@ function stopAll(){
     // 나다가 안 나다가 한다"는 문제와 일치해서, 재생이 끝날 때마다(녹음 중이 아니면) 오디오 엔진을
     // 통째로 새로 만들어 다음 재생은 항상 갓 만들어진 컨텍스트로 시작하게 함.
     try{ actx.close(); }catch(_){ }
-    actx=null; musicBus=null; chordBus=null;
+    actx=null; musicBus=null; chordBus=null; drumBus=null;
   }
 }
 document.getElementById('stop').addEventListener('click',stopAll);
@@ -3026,6 +3046,91 @@ function scheduleChords(start,beat){
   }
 }
 
+// ---------- '밴드' 화음 스타일 전용: 베이스 + 드럼 ----------
+// 화음/멜로디용 musicBus·chordBus와는 별도의 버스로 둬서, 녹음할 때도 독립적으로 섞을 수 있게 함.
+let drumBus=null;
+function getDrumBus(){
+  const A=ac();
+  if(!drumBus){ drumBus=A.createGain(); drumBus.gain.value=1; drumBus.connect(A.destination); }
+  return drumBus;
+}
+function bassNote(t,freq,dur,vol){
+  tone(t,freq,dur,vol,'sine',{bus:getDrumBus(), filterMul:2.0});
+}
+function drumKick(t){
+  const ctx=ac();
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type='sine';
+  o.frequency.setValueAtTime(150,t);
+  o.frequency.exponentialRampToValueAtTime(48,t+0.11);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.5,t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+  o.connect(g).connect(getDrumBus());
+  o.start(t); o.stop(t+0.24);
+  sources.push(o);
+}
+function drumSnare(t){
+  const ctx=ac();
+  const src=ctx.createBufferSource(); src.buffer=noiseBuffer();
+  const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1000; f.Q.value=0.7;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.35,t+0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+  src.connect(f).connect(g).connect(getDrumBus());
+  src.start(t); src.stop(t+0.18);
+  sources.push(src);
+  const o=ctx.createOscillator(), g2=ctx.createGain();
+  o.type='triangle'; o.frequency.value=190;
+  g2.gain.setValueAtTime(0.0001,t);
+  g2.gain.exponentialRampToValueAtTime(0.18,t+0.004);
+  g2.gain.exponentialRampToValueAtTime(0.0001,t+0.11);
+  o.connect(g2).connect(getDrumBus());
+  o.start(t); o.stop(t+0.13);
+  sources.push(o);
+}
+function drumHat(t){
+  const ctx=ac();
+  const src=ctx.createBufferSource(); src.buffer=noiseBuffer();
+  const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=7500; f.Q.value=1.0;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.15,t+0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.045);
+  src.connect(f).connect(g).connect(getDrumBus());
+  src.start(t); src.stop(t+0.06);
+  sources.push(src);
+}
+// 화음유지/펼침화음 스케줄링(scheduleChords)은 절대 안 건드리고, 그 위에 베이스(마디마다 화음 근음을
+// 낮은 옥타브로 한 번)와 드럼(킥-스네어 번갈아 + 매 8분음표 하이햇)을 additive하게 얹기만 함 — '밴드'
+// 스타일일 때만 호출됨. 멜로디가 끝난 뒤(빈 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd 기준).
+function scheduleBandLayer(start,beat){
+  if(chordStyle!=='band') return;
+  const melEnd=melodyEndBeats();
+  for(let mi=0; mi<MEAS; mi++){
+    const measStartBeat=mi*BEATS;
+    if(measStartBeat>=melEnd) continue;
+    const measEndBeat=Math.min(measStartBeat+BEATS, melEnd);
+    for(let b=0;b<BEATS;b++){
+      const beatPos=measStartBeat+b;
+      if(beatPos>=measEndBeat) break;
+      if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
+      drumHat(start+beatPos*beat);
+      if(beatPos+0.5<measEndBeat) drumHat(start+(beatPos+0.5)*beat);
+    }
+    const c=chordData[mi];
+    if(c){
+      const nl=chordNotesAndLabel(c);
+      if(nl && nl.notes.length){
+        const voiced=voiceChordNotes(nl.notes,3);
+        const durBeats=measEndBeat-measStartBeat;
+        if(durBeats>0.05) bassNote(start+measStartBeat*beat, voiced[0].freq/4, durBeats*beat, 0.20);
+      }
+    }
+  }
+}
+
 // countIn: whether to click a lead-in measure before the music starts. useMet: whether the metronome
 // keeps clicking WHILE the music plays. The "메트로놈 없이 재생" button sets both false — pure playback.
 async function startPlayback(countIn,useMet,btn){
@@ -3092,6 +3197,7 @@ async function startPlayback(countIn,useMet,btn){
     }, (bt-A.currentTime)*1000));
   }
   scheduleChords(start,beat);
+  scheduleBandLayer(start,beat);
   // count-in highlight (pulse the status)
   if(countIn) for(let i=0;i<BEATS;i++) timers.push(setTimeout(()=>{ if(!playing)return; setStatus(`메트로놈… ${i+1}`); },(t0+i*beat-A.currentTime)*1000));
   timers.push(setTimeout(()=>{ if(playing) setStatus('연주 중 ♪'); },(start-A.currentTime)*1000));
@@ -3192,6 +3298,7 @@ async function startMicCapture(){
     recMusicDuck=A.createGain(); recMusicDuck.gain.value=REC_MUSIC_DUCK;
     getMusicBus().connect(recMusicDuck);
     getChordBus().connect(recMusicDuck);
+    getDrumBus().connect(recMusicDuck);   // '밴드' 스타일일 때 베이스·드럼도 녹음에 같이 담기게 함(스타일이 아니면 이 버스엔 소리가 없어 영향 없음)
     recSyncDelay=A.createDelay(1.0); recSyncDelay.delayTime.value=recSyncDelaySeconds(A);
     recMusicDuck.connect(recSyncDelay);
     recSyncDelay.connect(recDest);
@@ -3267,6 +3374,7 @@ function stopMicCapture(){
                                                                               // musicBus's normal connection to the
                                                                               // speakers alone, so playback still works
   if(chordBus && recMusicDuck){ try{chordBus.disconnect(recMusicDuck);}catch(_){ } }
+  if(drumBus && recMusicDuck){ try{drumBus.disconnect(recMusicDuck);}catch(_){ } }
   recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMicComp=null; recSyncDelay=null;
   if(recStream){ recStream.getTracks().forEach(t=>t.stop()); }
   // 아이폰/아이패드 사파리는 마이크를 한 번 쓰고 나면(getUserMedia/MediaRecorder), 같은
@@ -3276,7 +3384,7 @@ function stopMicCapture(){
   // 우회하는 방법은 녹음이 끝날 때마다 오디오 엔진을 통째로 새로 만드는 것뿐임. 녹음이 이미 다
   // 끝난 뒤라(MediaRecorder의 stop 이벤트 이후) 파일에는 전혀 영향 없음.
   if(actx){ try{ actx.close(); }catch(_){ } }
-  actx=null; musicBus=null; chordBus=null;
+  actx=null; musicBus=null; chordBus=null; drumBus=null;
 }
 function encodeWav(chunks, sampleRate){
   let length=0; chunks.forEach(c=>length+=c.length);
