@@ -468,6 +468,12 @@
         <option value="band_hold">화음 스타일: 밴드(화음유지)</option>
         <option value="band_arp">화음 스타일: 밴드(피아노 펼침화음)</option>
       </select>
+      <select id="melodyInstSel" class="keymode-select">
+        <option value="synth">멜로디 악기: 신스(기본)</option>
+        <option value="guitar">멜로디 악기: 기타</option>
+        <option value="violin">멜로디 악기: 바이올린(오케스트라)</option>
+        <option value="piano">멜로디 악기: 피아노</option>
+      </select>
     </div>
     <div class="accBoxRow">
       <span class="accBox" id="accBox">
@@ -564,6 +570,11 @@
     </div>
   </div>
 </div>
+
+<p style="text-align:center;color:#999;font-size:11px;margin:6px 0 0;">
+  악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린: VSCO2 Community Edition, Versilian Studios(CC0) ·
+  피아노: Salamander Grand Piano by Alexander Holm(CC BY)
+</p>
 
 <!-- 마이크 권한이 막혀 있을 때: "브라우저에서 허용해주세요" 한 줄로는 그 설정을 어디서 찾는지 알기
      어려우므로, 기기/브라우저를 자동으로 구분해 정확히 어디를 눌러야 하는지 번호 순서로 보여줌. -->
@@ -1629,7 +1640,7 @@ let undoStack=[]; const UNDO_MAX=60; let undoDepth=0;
 function snapshotForUndo(){
   return { b:+tempo.value, m:MEAS, n:slotData.slice(), l:JSON.parse(JSON.stringify(lyrChar)),
     p:pitchData.map(x=>Array.isArray(x)?x.slice():x), f:JSON.parse(JSON.stringify(fracData)), k:{t:currentKey.tonicPC, mo:currentKey.mode},
-    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle };
+    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle, mi:melodyInstrument };
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(b) b.disabled = undoStack.length===0; }
 function pushUndo(){
@@ -2379,7 +2390,22 @@ keymodeSel.addEventListener('change',()=>{
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
 let chordStyle='simple';   // 'simple' | 'arpeggio' | 'guitar' | 'band_hold' | 'band_arp'
 const chordStyleSel=document.getElementById('chordStyleSel');
-chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; });
+// 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면(기타/밴드 두 종류) 미리 그 악기 음원을 내려받기
+// 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
+// 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
+function preloadForChordStyle(style){
+  if(style==='guitar') loadInstrumentSamples('guitar');
+  else if(style==='band_hold' || style==='band_arp') loadInstrumentSamples('piano');
+}
+chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
+// 멜로디를 실제로 어떤 악기 소리로 들려줄지 — 기본(synth)은 예전 그대로의 합성음, 나머지는 위
+// SAMPLE_MIDI_URLS의 실제 악기 녹음 샘플을 씀(hit() 참고).
+let melodyInstrument='synth';   // 'synth' | 'guitar' | 'violin' | 'piano'
+const melodyInstSel=document.getElementById('melodyInstSel');
+melodyInstSel.addEventListener('change',()=>{
+  melodyInstrument=melodyInstSel.value;
+  if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
+});
 document.getElementById('clear').addEventListener('click',()=>{
   deleteMode=!deleteMode;
   document.getElementById('clear').classList.toggle('active',deleteMode);
@@ -2464,7 +2490,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''), st:chordStyle,
+    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument,
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
@@ -2510,6 +2536,10 @@ function applyStateObj(obj){
   // 'piano'/'band'는 이번 세션에서 잠깐 썼던 예전 3단계 체계의 값 — 혹시 남아있어도 안전하게 simple로.
   chordStyle = ['simple','arpeggio','guitar','band_hold','band_arp'].includes(obj.st) ? obj.st : 'simple';
   if(chordStyleSel) chordStyleSel.value=chordStyle;
+  preloadForChordStyle(chordStyle);
+  melodyInstrument = ['synth','guitar','violin','piano'].includes(obj.mi) ? obj.mi : 'synth';
+  if(melodyInstSel) melodyInstSel.value=melodyInstrument;
+  if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
   chordData.length=0;
   for(let i=0;i<MEAS;i++){
     const cv=obj.c&&obj.c[i];
@@ -2845,6 +2875,89 @@ function getChordBus(){
   if(!chordBus){ chordBus=A.createGain(); chordBus.gain.value=1; chordBus.connect(A.destination); }
   return chordBus;
 }
+// ---------- 실제 악기 음원(샘플) 재생 ----------
+// 지금까지는 전부 오실레이터로 그때그때 파형을 합성해서 소리를 냈는데, 실제 악기(기타/피아노/
+// 바이올린 합주)를 CC0(피아노는 CC-BY, 아래 ATTRIBUTIONS 참고) 라이선스로 녹음해 둔 짧은 샘플
+// 음원 파일(samples/ 폴더)을 가져와서, 필요한 음높이에 맞게 재생속도(playbackRate)로 피치를
+// 살짝만 옮겨 재생함. 악기마다 몇 개 음만 실제로 녹음돼 있고 나머지는 그 중 가장 가까운 음을
+// 살짝 피치시프트해서 쓰는 방식(흔히 쓰는 멀티샘플링 기법)이라, 녹음된 음과 몇 반음 이상 차이
+// 안 나게 충분히 촘촘한 음들을 미리 골라둠 — 그래서 피치가 많이 틀어져 들리는 일이 거의 없음.
+// 페이지를 열 때 바로 안 받아오고, 사용자가 실제로 그 악기를 골랐을 때만(멜로디 악기 선택 또는
+// 화음 스타일에서 기타/피아노 계열을 골랐을 때만) 필요한 파일만 내려받음 — 다 안 쓰면 다운로드가
+// 전혀 없어서 평소 페이지 용량에는 영향 없음.
+const SAMPLE_MIDI_URLS = {
+  guitar: {40:'samples/guitar/m40.mp3',43:'samples/guitar/m43.mp3',46:'samples/guitar/m46.mp3',
+    49:'samples/guitar/m49.mp3',52:'samples/guitar/m52.mp3',55:'samples/guitar/m55.mp3',
+    58:'samples/guitar/m58.mp3',61:'samples/guitar/m61.mp3',64:'samples/guitar/m64.mp3',
+    68:'samples/guitar/m68.mp3',71:'samples/guitar/m71.mp3',74:'samples/guitar/m74.mp3',
+    77:'samples/guitar/m77.mp3',80:'samples/guitar/m80.mp3',83:'samples/guitar/m83.mp3'},
+  piano: {24:'samples/piano/m24.mp3',30:'samples/piano/m30.mp3',36:'samples/piano/m36.mp3',
+    42:'samples/piano/m42.mp3',45:'samples/piano/m45.mp3',51:'samples/piano/m51.mp3',
+    57:'samples/piano/m57.mp3',60:'samples/piano/m60.mp3',66:'samples/piano/m66.mp3',
+    72:'samples/piano/m72.mp3',78:'samples/piano/m78.mp3',84:'samples/piano/m84.mp3',
+    90:'samples/piano/m90.mp3',96:'samples/piano/m96.mp3',99:'samples/piano/m99.mp3',
+    105:'samples/piano/m105.mp3'},
+  violin: {43:'samples/violin/m43.mp3',45:'samples/violin/m45.mp3',47:'samples/violin/m47.mp3',
+    50:'samples/violin/m50.mp3',54:'samples/violin/m54.mp3',57:'samples/violin/m57.mp3',
+    60:'samples/violin/m60.mp3',64:'samples/violin/m64.mp3',67:'samples/violin/m67.mp3',
+    71:'samples/violin/m71.mp3',74:'samples/violin/m74.mp3'}
+};
+// 출처(전부 자유 이용 라이선스):
+// - guitar: Martin HD28 스틸스트링 통기타, Jeff Learman 녹음, CC0 (Discord-SFZ-GM-Bank)
+// - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
+// - violin: VSCO2 Community Edition 바이올린 합주(susVib), Versilian Studios, CC0
+function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
+const sampleLibCache={}, sampleLibLoading={};
+function loadInstrumentSamples(name){
+  if(!SAMPLE_MIDI_URLS[name]) return Promise.resolve(null);
+  if(sampleLibCache[name]) return Promise.resolve(sampleLibCache[name]);
+  if(sampleLibLoading[name]) return sampleLibLoading[name];
+  const A=ac();
+  const entries=Object.entries(SAMPLE_MIDI_URLS[name]);
+  sampleLibLoading[name]=Promise.all(entries.map(([midi,url])=>
+    fetch(url).then(r=>r.arrayBuffer()).then(buf=>A.decodeAudioData(buf)).then(buffer=>(
+      {midi:+midi, freq:midiToFreq(+midi), buffer}
+    )).catch(()=>null)
+  )).then(list=>{
+    const lib=list.filter(Boolean);
+    sampleLibCache[name]=lib;
+    delete sampleLibLoading[name];
+    return lib;
+  });
+  return sampleLibLoading[name];
+}
+// 요청한 음높이(freq)에 로그(반음) 거리로 가장 가까운 녹음 샘플을 찾아 그 비율만큼만 재생속도를
+// 바꿔 재생함 — 다른 곳(hit/chordTone)의 dur·vol 타이밍/음량 체계는 그대로 두고 소리만 실제 악기
+// 녹음으로 바꿔치기하는 구조라, 기존 화음유지/펼침화음 타이밍이나 맥놀이 방지 설계는 안 건드림.
+// 아직 해당 악기 샘플이 로딩 중/실패면 null을 돌려주니, 호출한 쪽이 합성음으로 대체 재생함.
+function playSampleNote(instrName, t, freq, dur, vol, bus){
+  const lib=sampleLibCache[instrName];
+  if(!lib || !lib.length) return false;
+  let best=lib[0], bestDist=Infinity;
+  for(const s of lib){ const d=Math.abs(Math.log2(freq/s.freq)); if(d<bestDist){ bestDist=d; best=s; } }
+  const ctx=ac();
+  const rate=freq/best.freq;
+  const src=ctx.createBufferSource();
+  src.buffer=best.buffer; src.playbackRate.value=rate;
+  const g=ctx.createGain();
+  const availDur=best.buffer.duration/rate;
+  const noteDur=Math.max(0.05,dur);
+  const playDur=Math.min(availDur, noteDur+0.4);   // 음을 짧게 요청해도 자연스러운 여운을 살짝 더 줌
+  const release=Math.min(0.25, Math.max(0.03,playDur*0.3));
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.001,vol),t+0.008);
+  if(playDur>noteDur+0.02){
+    const fadeStart=t+noteDur;
+    g.gain.setValueAtTime(Math.max(0.001,vol),fadeStart);
+    g.gain.exponentialRampToValueAtTime(0.0001,fadeStart+release);
+  } else {
+    g.gain.exponentialRampToValueAtTime(0.0001,t+playDur);
+  }
+  src.connect(g).connect(bus||getMusicBus());
+  src.start(t); src.stop(t+playDur+0.05);
+  sources.push(src);
+  return true;
+}
 function tone(t,freq,dur,vol,type='triangle',opts){
   // ADSR-ish envelope: quick attack, a genuine FLAT sustain plateau for most of the note's length,
   // then a short release — so a long note actually sounds held, not just quietly decaying the whole time.
@@ -2862,20 +2975,27 @@ function tone(t,freq,dur,vol,type='triangle',opts){
   sources.push(o);
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
-// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '기타' 스타일은 아예 다른(뜯는) 음색이라 guitarPluck로
-// 완전히 따로 처리. '밴드' 두 스타일에서는 hit()이 멜로디에 쓰는 것과 같은 안전한 기법(한 옥타브 위에
-// 소리를 겹치기 — 옥타브 차이라 맥놀이 걱정 없음)으로 배음을 더 확실히 들리게 얹고, 여기에 실제
-// 피아노를 칠 때 나는 "타건 소리"를 흉내낸 아주 짧은 클릭을 더해서 '심플'과 뚜렷이 구별되는 통통
-// 튀는 캐릭터를 냄(처음엔 배음이 너무 작아 거의 안 들린다는 피드백을 받고 키움). 화음 자체의 음높이·
-// 박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가
+// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '기타' 스타일은 실제 기타 음원(guitar 샘플)을 쓰고,
+// 아직 로딩 중이면만 guitarPluck 합성음으로 대체함. '밴드' 두 스타일은 실제 피아노 음원(piano 샘플)을
+// 쓰고, 역시 로딩 중일 때만 예전 배음+타건 클릭 합성 방식으로 대체함. 화음 자체의 음높이·박자·
+// 지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가
 // 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
-  if(chordStyle==='guitar'){ guitarPluck(t,freq,dur,vol); return; }
-  tone(t,freq,dur,vol,'triangle',{bus:getChordBus(), filterMul:2.0});
-  if(chordStyle==='band_hold' || chordStyle==='band_arp'){
-    tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus:getChordBus(), filterMul:2.0});
-    pianoAttackClick(t,freq,vol);
+  const bus=getChordBus();
+  if(chordStyle==='guitar'){
+    if(playSampleNote('guitar', t, freq, dur, vol*2.6, bus)) return;
+    guitarPluck(t,freq,dur,vol);   // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음
+    return;
   }
+  if(chordStyle==='band_hold' || chordStyle==='band_arp'){
+    if(playSampleNote('piano', t, freq, dur, vol*2.6, bus)) return;
+    // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음(예전 배음+타건 클릭 방식)
+    tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
+    tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus, filterMul:2.0});
+    pianoAttackClick(t,freq,vol);
+    return;
+  }
+  tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
 }
 // 피아노 해머가 현을 때리는 순간의 짧고 밝은 타건음 — 아주 짧게(30ms) 필터링된 노이즈 한 번으로
 // 흉내냄. 화음의 지속음(위 tone 호출들)에는 전혀 영향 없이 시작 지점에만 살짝 더해짐.
@@ -2963,8 +3083,16 @@ function metro(t,accent){
 }
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
-  // a softer, more sustained composite tone (like a recorder/flute) instead of the old quick-decay pluck.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
+  // '멜로디 악기'로 실제 악기(기타/바이올린/피아노)를 골랐으면 그 음원으로 대체 — 아직 샘플이 로딩
+  // 중이면 playSampleNote가 false를 돌려주니 그때만 원래 합성음으로 대체 재생함(소리가 아예 안
+  // 나는 것보단 나음). startPlayback()이 재생 직전에 미리 로딩을 기다려주므로 실제로는 거의 항상
+  // 이 대체 경로를 안 타고 바로 실제 악기 소리가 남.
+  if(melodyInstrument!=='synth'){
+    if(playSampleNote(melodyInstrument, t, freq, sus, 0.9, getMusicBus())) return;
+  }
+  // 기본(신스): a softer, more sustained composite tone (like a recorder/flute) instead of the old
+  // quick-decay pluck.
   tone(t,freq,sus,0.40,'sine');           // warm sustained fundamental
   tone(t,freq,sus,0.16,'triangle');       // soft body/character layered on top
   tone(t,freq*2,sus*0.85,0.05,'sine');    // faint upper shimmer
@@ -3243,6 +3371,19 @@ async function startPlayback(countIn,useMet,btn){
   // 고치고 다시 재생하면 그 뒤로 계속 재생이 안 된다"는 문제의 진짜 원인이었음). 그런 교체가 있었는지
   // 확인해서, 있었다면 지금 진짜로 쓰이고 있는 컨텍스트로 한 번 더 확실하게 다시 잡아줌.
   if(A!==actx){ A=await ensureAudio(); if(!playing) return; }
+  // 멜로디 악기나 화음 스타일이 실제 악기 샘플을 쓰는 값인데 아직 한 번도 안 불러왔으면(첫 선택 직후
+  // 바로 재생을 누른 경우 등) 여기서 미리 기다려 줌 — 그래야 로딩 중이라 잠깐 합성음으로 대체되는
+  // 일 없이 재생 시작부터 바로 진짜 악기 소리가 남. 이미 불러온 상태면(흔한 경우) 거의 즉시 끝남.
+  const neededLibs=new Set();
+  if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
+  if(chordStyle==='guitar') neededLibs.add('guitar');
+  if(chordStyle==='band_hold' || chordStyle==='band_arp') neededLibs.add('piano');
+  const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
+  if(stillLoading.length){
+    setStatus('악기 음원을 불러오는 중…');
+    await Promise.all(stillLoading.map(loadInstrumentSamples));
+    if(!playing) return;
+  }
   const bpm=+tempo.value, beat=60/bpm;
   const t0=A.currentTime+0.18;
 
