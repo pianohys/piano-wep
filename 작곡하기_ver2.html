@@ -472,11 +472,8 @@
         <option value="synth">멜로디 악기: 신스(기본)</option>
         <option value="violin">멜로디 악기: 바이올린(오케스트라)</option>
         <option value="piano">멜로디 악기: 피아노</option>
-        <option value="recorder">멜로디 악기: 리코더</option>
         <option value="marimba">멜로디 악기: 마림바</option>
         <option value="flute">멜로디 악기: 플루트</option>
-        <option value="clarinet">멜로디 악기: 클라리넷</option>
-        <option value="trumpet">멜로디 악기: 트럼펫</option>
       </select>
     </div>
     <div class="accBoxRow">
@@ -576,8 +573,8 @@
 </div>
 
 <p style="text-align:center;color:#999;font-size:11px;margin:6px 0 0;">
-  악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린·플루트·클라리넷·트럼펫: VSCO2 Community Edition,
-  Versilian Studios(CC0) · 리코더·마림바: VCSL, Versilian Studios(CC0) ·
+  악기 음원 출처 — 기타: Discord SFZ GM Bank(CC0) · 바이올린·플루트: VSCO2 Community Edition,
+  Versilian Studios(CC0) · 마림바: VCSL, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY)
 </p>
 
@@ -2543,7 +2540,7 @@ function applyStateObj(obj){
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   // 'guitar'는 멜로디 악기에서 뺐음(기타 소리는 반주에서만 씀) — 옛 저장 링크에 남아있어도 안전하게 synth로.
-  melodyInstrument = ['synth','violin','piano','recorder','marimba','flute','clarinet','trumpet'].includes(obj.mi) ? obj.mi : 'synth';
+  melodyInstrument = ['synth','violin','piano','marimba','flute'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
   chordData.length=0;
@@ -2907,32 +2904,19 @@ const SAMPLE_MIDI_URLS = {
     50:'samples/violin/m50.mp3',54:'samples/violin/m54.mp3',57:'samples/violin/m57.mp3',
     60:'samples/violin/m60.mp3',64:'samples/violin/m64.mp3',67:'samples/violin/m67.mp3',
     71:'samples/violin/m71.mp3',74:'samples/violin/m74.mp3'},
-  recorder: {65:'samples/recorder/m65.mp3', 68:'samples/recorder/m68.mp3', 70:'samples/recorder/m70.mp3',
-    72:'samples/recorder/m72.mp3', 74:'samples/recorder/m74.mp3', 76:'samples/recorder/m76.mp3',
-    78:'samples/recorder/m78.mp3', 80:'samples/recorder/m80.mp3', 82:'samples/recorder/m82.mp3',
-    84:'samples/recorder/m84.mp3', 86:'samples/recorder/m86.mp3', 88:'samples/recorder/m88.mp3'},
   marimba: {29:'samples/marimba/m29.mp3', 43:'samples/marimba/m43.mp3', 53:'samples/marimba/m53.mp3',
     60:'samples/marimba/m60.mp3', 71:'samples/marimba/m71.mp3', 84:'samples/marimba/m84.mp3'},
   flute: {48:'samples/flute/m48.mp3', 52:'samples/flute/m52.mp3', 57:'samples/flute/m57.mp3',
     60:'samples/flute/m60.mp3', 64:'samples/flute/m64.mp3', 69:'samples/flute/m69.mp3',
     72:'samples/flute/m72.mp3', 76:'samples/flute/m76.mp3', 81:'samples/flute/m81.mp3',
-    84:'samples/flute/m84.mp3'},
-  clarinet: {38:'samples/clarinet/m38.mp3', 41:'samples/clarinet/m41.mp3', 46:'samples/clarinet/m46.mp3',
-    50:'samples/clarinet/m50.mp3', 53:'samples/clarinet/m53.mp3', 58:'samples/clarinet/m58.mp3',
-    62:'samples/clarinet/m62.mp3', 65:'samples/clarinet/m65.mp3', 70:'samples/clarinet/m70.mp3',
-    74:'samples/clarinet/m74.mp3', 78:'samples/clarinet/m78.mp3'},
-  trumpet: {41:'samples/trumpet/m41.mp3', 45:'samples/trumpet/m45.mp3', 48:'samples/trumpet/m48.mp3',
-    51:'samples/trumpet/m51.mp3', 55:'samples/trumpet/m55.mp3', 58:'samples/trumpet/m58.mp3',
-    62:'samples/trumpet/m62.mp3', 65:'samples/trumpet/m65.mp3', 69:'samples/trumpet/m69.mp3',
-    72:'samples/trumpet/m72.mp3'}
+    84:'samples/flute/m84.mp3'}
 };
 // 출처(전부 자유 이용 라이선스):
 // - guitar: Martin HD28 스틸스트링 통기타, Jeff Learman 녹음, CC0 (Discord-SFZ-GM-Bank)
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
-// - violin/trumpet: VSCO2 Community Edition 합주/솔로(susVib/sus), Versilian Studios, CC0
-// - recorder: VCSL 알토 리코더(Baroque Alto Recorder), Versilian Studios, CC0
+// - violin: VSCO2 Community Edition 바이올린 합주(susVib), Versilian Studios, CC0
 // - marimba: VCSL 마림바, Versilian Studios, CC0
-// - flute/clarinet: VSCO2 Community Edition, Versilian Studios, CC0
+// - flute: VSCO2 Community Edition, Versilian Studios, CC0
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
@@ -3015,8 +2999,8 @@ function chordTone(t,freq,dur,vol){
     return;
   }
   if(chordStyle==='band_hold' || chordStyle==='band_arp' || chordStyle==='arpeggio'){
-    // 반주 피아노 음량이 너무 크다는 피드백을 받아 배율을 낮춤(2.6 → 1.3).
-    if(playSampleNote('piano', t, freq, dur, vol*1.3, bus)) return;
+    // 반주 피아노 음량이 너무 크다는 피드백을 두 번 받아서 배율을 계속 낮춤(2.6 → 1.3 → 0.75).
+    if(playSampleNote('piano', t, freq, dur, vol*0.75, bus)) return;
     // 샘플이 아직 로딩 중일 때만 쓰는 대체 합성음(예전 배음+타건 클릭 방식)
     tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
     tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus, filterMul:2.0});
@@ -3111,7 +3095,7 @@ function metro(t,accent){
 }
 // 멜로디 악기별 기본 음량 — 바이올린은 녹음 자체가 상대적으로 조용해서 키우고, 피아노는 배음이
 // 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤(둘 다 신스 기본값 0.9 기준으로 손으로 맞춘 값).
-const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, recorder: 0.8, marimba: 1.4, flute: 0.95, clarinet: 0.95, trumpet: 0.75 };
+const MELODY_INSTR_VOL = { violin: 1.35, piano: 0.5, marimba: 1.0, flute: 0.95 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
@@ -3261,10 +3245,23 @@ function scheduleChords(start,beat){
       for(let k=0;k<noteCount;k++){
         const noteBeat=measStartBeat+k*0.5;
         if(noteBeat>=melEnd) break;
+        // 요청: '펼침화음(피아노)' 스타일은 마디의 첫 음(근음)만 오르간처럼 마디 내내 길게 끌어줘서
+        // (너무 크지는 않게) 위에서 또박또박 움직이는 나머지 아르페지오 음들 아래 깔리는 페달톤
+        // 효과를 냄 — 밴드 쪽(band_arp)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
+        // 해당했음).
+        if(k===0 && chordStyle==='arpeggio'){
+          const measEndBeatHere = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
+          const sustainDurBeats = measEndBeatHere - measStartBeat;
+          if(sustainDurBeats>0.05) chordTone(start+noteBeat*beat, pattern[0], sustainDurBeats*beat, 0.07);
+          continue;
+        }
         const durBeats=Math.min(0.5, melEnd-noteBeat);
         chordTone(start+noteBeat*beat, pattern[k%4], durBeats*beat*0.92, 0.14);
       }
-      if(mi===lastChordMeasure){
+      if(mi===lastChordMeasure && chordStyle!=='arpeggio'){
+        // 'arpeggio' 스타일은 위 k===0에서 이미 마디 전체(뒤 2박 포함)를 근음으로 길게 끌어주고
+        // 있어서, 여기서 또 근음을 겹쳐 켜면 그 구간만 소리가 두 배로 커짐 — 그래서 이 보정은
+        // arpeggio가 아닐 때만(예: band_arp) 적용함.
         // 요청: 멜로디가 쉼표로 일찍 끝나더라도 마지막 마디의 뒤 2박(3~4박)은 항상 근음으로 끌어줌 —
         // 그래서 더 이상 melEnd로 자르지 않고, 이 마디의 실제 끝(4박)까지 무조건 지속함.
         const rootBeat=measStartBeat+2;
