@@ -2857,14 +2857,31 @@ function tone(t,freq,dur,vol,type='triangle',opts){
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
 // 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '피아노'/'밴드' 스타일에서는 hit()이 멜로디에 쓰는
-// 것과 같은 안전한 기법(한 옥타브 위에 아주 작은 소리를 겹치기 — 옥타브 차이라 맥놀이 걱정 없음)으로
-// 배음만 살짝 얹어 더 화사하게 만듦. 화음 자체의 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은
-// 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지 않게 함.
+// 것과 같은 안전한 기법(한 옥타브 위에 소리를 겹치기 — 옥타브 차이라 맥놀이 걱정 없음)으로 배음을
+// 더 확실히 들리게 얹고, 여기에 실제 피아노를 칠 때 나는 "타건 소리"를 흉내낸 아주 짧은 클릭을 더해서
+// '심플'과 뚜렷이 구별되는 통통 튀는 캐릭터를 냄(처음엔 배음이 너무 작아 거의 안 들린다는 피드백을
+// 받고 키움). 화음 자체의 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서
+// 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
   tone(t,freq,dur,vol,'triangle',{bus:getChordBus(), filterMul:2.0});
   if(chordStyle!=='simple'){
-    tone(t,freq*2,dur*0.85,vol*0.22,'sine',{bus:getChordBus(), filterMul:2.0});
+    tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus:getChordBus(), filterMul:2.0});
+    pianoAttackClick(t,freq,vol);
   }
+}
+// 피아노 해머가 현을 때리는 순간의 짧고 밝은 타건음 — 아주 짧게(30ms) 필터링된 노이즈 한 번으로
+// 흉내냄. 화음의 지속음(위 tone 호출들)에는 전혀 영향 없이 시작 지점에만 살짝 더해짐.
+function pianoAttackClick(t,freq,vol){
+  const ctx=ac();
+  const src=ctx.createBufferSource(); src.buffer=noiseBuffer();
+  const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=Math.min(6000,freq*3); f.Q.value=2.5;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol*0.35,t+0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.03);
+  src.connect(f).connect(g).connect(getChordBus());
+  src.start(t); src.stop(t+0.04);
+  sources.push(src);
 }
 let _noiseBuf=null;
 function noiseBuffer(){
@@ -2978,6 +2995,10 @@ function arpPattern(voiced){
 }
 function scheduleChords(start,beat){
   const melEnd=melodyEndBeats();
+  // 멜로디가 실제로 끝나는 지점(melEnd)이 들어있는 마디 — 이 마디만은 멜로디가 쉼표로 일찍 끝나더라도
+  // 반주(화음/드럼)가 마디 끝(4박)까지 자연스럽게 이어지게 함(아래 mode1/mode2 각각 참고). 그보다
+  // 앞의 마디들은 원래부터 melEnd에 안 걸려서(measStartBeat+BEATS<=melEnd) 영향 없음.
+  const lastMeas = melEnd>0 ? Math.floor((melEnd-1e-9)/BEATS) : -1;
   // 펼침화음이 실제로 울리는 맨 끝 마디를 미리 찾아둠 — 딱 그 마디에서만 "도솔도미도" 하고 마지막
   // 도로 돌아와 끌어주는 걸 적용함(요청: 맨 끝마디에서만). 신호 분석으로 확인해보니, 8분음표 패턴의
   // 진짜 마지막 음(3음을 옥타브 올린 음, pattern[3])을 그대로 길게 끌면 멜로디 음역과 가까워서
@@ -3010,19 +3031,20 @@ function scheduleChords(start,beat){
         chordTone(start+noteBeat*beat, pattern[k%4], durBeats*beat*0.92, 0.14);
       }
       if(mi===lastChordMeasure){
+        // 요청: 멜로디가 쉼표로 일찍 끝나더라도 마지막 마디의 뒤 2박(3~4박)은 항상 근음으로 끌어줌 —
+        // 그래서 더 이상 melEnd로 자르지 않고, 이 마디의 실제 끝(4박)까지 무조건 지속함.
         const rootBeat=measStartBeat+2;
-        if(rootBeat<melEnd){
-          const rootEndBeat=Math.min(measStartBeat+BEATS, melEnd);
-          const rootDurBeats=rootEndBeat-rootBeat;
-          if(rootDurBeats>0.05){
-            chordTone(start+rootBeat*beat, pattern[0], rootDurBeats*beat, 0.14);
-          }
+        const rootEndBeat=measStartBeat+BEATS;
+        const rootDurBeats=rootEndBeat-rootBeat;
+        if(rootDurBeats>0.05){
+          chordTone(start+rootBeat*beat, pattern[0], rootDurBeats*beat, 0.14);
         }
       }
     } else {
-      // 화음유지(mode1)도 소리가 지저분하다는 얘기가 계속돼서 원래(처음) 상태로 완전히 되돌림 —
-      // 이 마디의 멜로디가 실제로 끝나는 지점(melEnd)에서 함께 끊기던 예전 동작 그대로.
-      const measEndBeat=Math.min(measStartBeat+BEATS, melEnd);
+      // 화음유지(mode1): 평소엔 이 마디의 멜로디가 실제로 끝나는 지점(melEnd)에서 함께 끊기지만,
+      // 멜로디의 마지막 음이 들어있는 바로 그 마디만은(쉼표로 일찍 끝나더라도) 마디 끝(4박)까지
+      // 항상 화음을 끌어줌 — 갑자기 뚝 끊기지 않고 자연스럽게 마무리되게.
+      const measEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
       const durBeats=measEndBeat-measStartBeat;
       if(durBeats>0.05){
         // 지저분함의 실제 원인을 신호 분석으로 찾음: voiceChordNotes가 3음을 한 옥타브 안에 촘촘히
@@ -3108,10 +3130,13 @@ function drumHat(t){
 function scheduleBandLayer(start,beat){
   if(chordStyle!=='band') return;
   const melEnd=melodyEndBeats();
+  // scheduleChords와 같은 이유: 멜로디의 마지막 음이 들어있는 마디만은 쉼표로 일찍 끝나더라도
+  // 드럼·베이스가 마디 끝(4박)까지 자연스럽게 이어지게 해서, 리듬이 중간에 뚝 끊기는 느낌이 없게 함.
+  const lastMeas = melEnd>0 ? Math.floor((melEnd-1e-9)/BEATS) : -1;
   for(let mi=0; mi<MEAS; mi++){
     const measStartBeat=mi*BEATS;
     if(measStartBeat>=melEnd) continue;
-    const measEndBeat=Math.min(measStartBeat+BEATS, melEnd);
+    const measEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
     for(let b=0;b<BEATS;b++){
       const beatPos=measStartBeat+b;
       if(beatPos>=measEndBeat) break;
