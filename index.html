@@ -469,7 +469,6 @@
         <option value="synth">멜로디 악기: 신스(기본)</option>
         <option value="piano">멜로디 악기: 피아노</option>
         <option value="flute">멜로디 악기: 플루트</option>
-        <option value="elecguitar">멜로디 악기: 일렉기타</option>
       </select>
     </div>
     <div class="controls" id="instrVolRow">
@@ -578,7 +577,6 @@
   악기 음원 출처 — 플루트: VSCO2 Community Edition, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY) ·
   기타: Shinyguitar by D. Smolken, Karoryfer Samples(CC0) ·
-  일렉기타: Black And Green Guitars, Karoryfer Samples(CC0) ·
   베이스기타: Black And Blue Basses, Karoryfer Samples(CC0)
 </p>
 
@@ -2337,7 +2335,7 @@ wireVolSlider('volBass','volBassLbl', setBassVol);
 wireVolSlider('volDrum','volDrumLbl', setDrumVol);
 // 멜로디를 실제로 어떤 악기 소리로 들려줄지 — 기본(synth)은 예전 그대로의 합성음, 나머지는 위
 // SAMPLE_MIDI_URLS의 실제 악기 녹음 샘플을 씀(hit() 참고).
-let melodyInstrument='synth';   // 'synth' | 'piano' | 'flute' | 'elecguitar'
+let melodyInstrument='synth';   // 'synth' | 'piano' | 'flute'
 const melodyInstSel=document.getElementById('melodyInstSel');
 melodyInstSel.addEventListener('change',()=>{
   melodyInstrument=melodyInstSel.value;
@@ -2468,9 +2466,9 @@ function applyStateObj(obj){
   chordStyle = ['arpeggio','band_hold','band_hold_bass','band_arp','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st) ? obj.st : 'arpeggio';
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
-  // 'violin'/'recorder'는 예전에 잠깐 썼던 값(멜로디 악기에서 뺌) — 옛 저장 링크에 남아있어도
-  // 안전하게 synth로.
-  melodyInstrument = ['synth','piano','flute','elecguitar'].includes(obj.mi) ? obj.mi : 'synth';
+  // 'violin'/'recorder'/'elecguitar'는 예전에 잠깐 썼던 값(멜로디 악기에서 뺌) — 옛 저장 링크에
+  // 남아있어도 안전하게 synth로.
+  melodyInstrument = ['synth','piano','flute'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
   // 악기별 음량 슬라이더 — 옛 저장 링크엔 없을 수 있으니(vm 등이 undefined) 그럴 땐 100%(배수 1)로.
@@ -2832,16 +2830,6 @@ const SAMPLE_MIDI_URLS = {
     63:'samples/guitar/m63.mp3', 66:'samples/guitar/m66.mp3', 69:'samples/guitar/m69.mp3',
     72:'samples/guitar/m72.mp3', 75:'samples/guitar/m75.mp3', 78:'samples/guitar/m78.mp3',
     81:'samples/guitar/m81.mp3', 84:'samples/guitar/m84.mp3'},
-  elecguitar: {40:'samples/elecguitar/m40.mp3', 41:'samples/elecguitar/m41.mp3', 42:'samples/elecguitar/m42.mp3', 43:'samples/elecguitar/m43.mp3', 44:'samples/elecguitar/m44.mp3',
-    45:'samples/elecguitar/m45.mp3', 46:'samples/elecguitar/m46.mp3', 47:'samples/elecguitar/m47.mp3', 48:'samples/elecguitar/m48.mp3', 49:'samples/elecguitar/m49.mp3',
-    50:'samples/elecguitar/m50.mp3', 51:'samples/elecguitar/m51.mp3', 52:'samples/elecguitar/m52.mp3', 53:'samples/elecguitar/m53.mp3', 54:'samples/elecguitar/m54.mp3',
-    55:'samples/elecguitar/m55.mp3', 56:'samples/elecguitar/m56.mp3', 57:'samples/elecguitar/m57.mp3', 58:'samples/elecguitar/m58.mp3', 59:'samples/elecguitar/m59.mp3',
-    60:'samples/elecguitar/m60.mp3', 61:'samples/elecguitar/m61.mp3', 62:'samples/elecguitar/m62.mp3', 63:'samples/elecguitar/m63.mp3', 64:'samples/elecguitar/m64.mp3',
-    65:'samples/elecguitar/m65.mp3', 66:'samples/elecguitar/m66.mp3', 67:'samples/elecguitar/m67.mp3', 68:'samples/elecguitar/m68.mp3', 69:'samples/elecguitar/m69.mp3',
-    70:'samples/elecguitar/m70.mp3', 71:'samples/elecguitar/m71.mp3', 72:'samples/elecguitar/m72.mp3', 73:'samples/elecguitar/m73.mp3', 74:'samples/elecguitar/m74.mp3',
-    75:'samples/elecguitar/m75.mp3', 76:'samples/elecguitar/m76.mp3', 77:'samples/elecguitar/m77.mp3', 78:'samples/elecguitar/m78.mp3', 79:'samples/elecguitar/m79.mp3',
-    80:'samples/elecguitar/m80.mp3', 81:'samples/elecguitar/m81.mp3', 82:'samples/elecguitar/m82.mp3', 83:'samples/elecguitar/m83.mp3', 84:'samples/elecguitar/m84.mp3',
-    85:'samples/elecguitar/m85.mp3', 86:'samples/elecguitar/m86.mp3'},
   bassguitar: {35:'samples/bassguitar/m35.mp3', 36:'samples/bassguitar/m36.mp3',
     37:'samples/bassguitar/m37.mp3', 38:'samples/bassguitar/m38.mp3', 39:'samples/bassguitar/m39.mp3',
     40:'samples/bassguitar/m40.mp3', 41:'samples/bassguitar/m41.mp3', 42:'samples/bassguitar/m42.mp3',
@@ -2857,13 +2845,6 @@ const SAMPLE_MIDI_URLS = {
 //   직접 녹음한 acoustic 채널로 교체함 — 같은 연주를 픽업/마이크로 동시에 녹음해둔 라이브러리라
 //   음마다 실제 마이크 녹음(통기타에 더 가까운 따뜻한 톤)을 그대로 쓸 수 있었음. 음마다 최대
 //   6.7dB 들쭉날쭉하던 피크는 -1dB로 정규화.
-// - elecguitar: "부활 네버엔딩스토리 간주 같은 일렉기타 소리로" 요청을 받음. CC0로 공개된 샘플
-//   라이브러리 중엔 멜로디 연주에 필요한(반음마다 촘촘하고 길게 지속되는) 오버드라이브/디스토션
-//   기타 음원을 찾지 못해서(찾은 라이브러리는 라이선스 미표기거나 뮤트/파워코드 위주라 부적합),
-//   대신 위에서 쓰던 깨끗한 Black And Green Guitars(그레치 애니버서리 "twang") 녹음에 ffmpeg로
-//   미니 앰프 시뮬레이션(중역 부스트 EQ + 오버드라이브 소프트클리핑 + 서스테인용 컴프레서)을
-//   입혀 록 리드 톤을 새로 만듦 — 실제로 클린 녹음을 오버드라이브 페달/앰프에 다시 태우는
-//   "리앰핑"과 같은 원리. 47개 음 전체에 동일한 체인을 적용하고 -1dB로 재정규화.
 // - bassguitar: Black And Blue Basses "darkblack" 일반 핑거 피킹(reg/pluck), Karoryfer Samples,
 //   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). '밴드(화음유지/피아노
 //   펼침화음)의 베이스기타 추가 버전'(band_hold_bass/band_arp_bass) 전용 베이스로 씀
@@ -3065,7 +3046,7 @@ function metro(t,accent){
 // 멜로디 악기별 기본 음량 — 피아노는 배음이 많아 상대적으로 크게 들린다는 피드백을 받아 낮춤
 // (신스 기본값 0.9 기준으로 손으로 맞춘 값). 바이올린은 여러 번 음원을 바꿔봐도 계속 소리가
 // 마음에 안 든다고 하셔서 멜로디 악기 목록에서 아예 뺌(SAMPLE_MIDI_URLS에도 더 이상 없음).
-const MELODY_INSTR_VOL = { piano: 0.18, flute: 0.95, elecguitar: 0.5 };
+const MELODY_INSTR_VOL = { piano: 0.18, flute: 0.95 };
 // 아래 두 설정(shiftFilter/octaveUp)은 예전에 바이올린(멜로디 악기에서 뺌, 위 주석 참고) 전용으로
 // 썼던 것들 — 지금은 어느 악기도 안 써서 비어 있음(playSampleNote 쪽 옵션 자체는 다른 악기에
 // 나중에 다시 쓸 수 있어서 남겨둠).
