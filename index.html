@@ -463,6 +463,7 @@
         <option value="band_arp">화음 스타일: 밴드(피아노 펼침화음)</option>
         <option value="guitar_arp">화음 스타일: 기타 아르페지오</option>
         <option value="band_guitar_arp">화음 스타일: 밴드(기타 아르페지오)</option>
+        <option value="band_guitar_arp_bass">화음 스타일: 밴드(기타 아르페지오+베이스기타)</option>
       </select>
       <select id="melodyInstSel" class="keymode-select">
         <option value="synth">멜로디 악기: 신스(기본)</option>
@@ -471,6 +472,12 @@
         <option value="flute">멜로디 악기: 플루트</option>
         <option value="recorder">멜로디 악기: 리코더</option>
       </select>
+    </div>
+    <div class="controls" id="instrVolRow">
+      <span class="tempo">멜로디 음량 <input type="range" id="volMelody" min="0" max="200" step="5" value="100"><b id="volMelodyLbl">100</b>%</span>
+      <span class="tempo">화음 음량 <input type="range" id="volChord" min="0" max="200" step="5" value="100"><b id="volChordLbl">100</b>%</span>
+      <span class="tempo">베이스 음량 <input type="range" id="volBass" min="0" max="200" step="5" value="100"><b id="volBassLbl">100</b>%</span>
+      <span class="tempo">드럼 음량 <input type="range" id="volDrum" min="0" max="200" step="5" value="100"><b id="volDrumLbl">100</b>%</span>
     </div>
     <div class="accBoxRow">
       <span class="accBox" id="accBox">
@@ -2272,20 +2279,38 @@ keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordP
 // - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴으로 고정.
 // - band_arp: 드럼+베이스를 더하고, 화음은 항상 펼침화음 패턴 + 피아노 배음 음색으로 고정.
 // - guitar_arp: 항상 펼침화음 패턴 + 진짜 기타(Shinyguitar) 샘플 음색으로 고정(드럼/베이스 없음).
-// - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp와 같은 베이스기타 리듬)를 더한 버전.
-// (밴드 스타일의 베이스는 '베이스기타' 느낌으로 합성함, scheduleBandLayer 참고.)
+// - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp와 같은 신스 베이스기타 리듬)를 더한
+//   원래 버전.
+// - band_guitar_arp_bass: band_guitar_arp와 같지만 베이스만 실제 베이스기타 음원(bassguitar 샘플)
+//   으로 바꾸고 리듬도 점4분음표+2분음표로 다르게 침(요청: "원래버전이랑 베이스기타 추가탭을
+//   넣어서" — 둘 다 고를 수 있게 별도 옵션으로 남겨둠).
+// (밴드 스타일의 신스 베이스는 '베이스기타' 느낌으로 합성함, scheduleBandLayer 참고.)
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
-let chordStyle='simple';   // 'simple' | 'arpeggio' | 'band_hold' | 'band_arp' | 'guitar_arp' | 'band_guitar_arp'
+let chordStyle='simple';   // 'simple' | 'arpeggio' | 'band_hold' | 'band_arp' | 'guitar_arp' | 'band_guitar_arp' | 'band_guitar_arp_bass'
 const chordStyleSel=document.getElementById('chordStyleSel');
 // 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면(밴드/펼침화음) 미리 그 악기 음원을 내려받기
 // 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
 // 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
 function preloadForChordStyle(style){
   if(style==='band_hold' || style==='band_arp' || style==='arpeggio') loadInstrumentSamples('piano');
-  if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
-  if(style==='band_guitar_arp') loadInstrumentSamples('bassguitar');
+  if(style==='guitar_arp' || style==='band_guitar_arp' || style==='band_guitar_arp_bass') loadInstrumentSamples('guitar');
+  if(style==='band_guitar_arp_bass') loadInstrumentSamples('bassguitar');
 }
 chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
+// 학생들이 직접 악기별(멜로디/화음/베이스/드럼) 음량 밸런스를 맞출 수 있게 한 슬라이더 4개(요청:
+// "각 악기음량 조절을 학생들이 할수있게") — 100%가 지금까지의 기본값(기존 코드에 손으로 맞춰둔
+// 음량)과 정확히 같고, 슬라이더는 그 위에 곱해지는 배수만 담당함. 각 함수(hit/chordTone/
+// organPedalTone 호출부/bassNote/bassGuitarPluck/scheduleBandLayer의 베이스기타 샘플 호출/
+// drumKick·drumKickFinal·drumSnare·drumHat)에서 이 값을 곱함.
+let melodyVolMul=1, chordVolMul=1, bassVolMul=1, drumVolMul=1;
+function wireVolSlider(id, lblId, setter){
+  const el=document.getElementById(id), lbl=document.getElementById(lblId);
+  el.addEventListener('input', ()=>{ lbl.textContent=el.value; setter(+el.value/100); });
+}
+wireVolSlider('volMelody','volMelodyLbl', v=>melodyVolMul=v);
+wireVolSlider('volChord','volChordLbl', v=>chordVolMul=v);
+wireVolSlider('volBass','volBassLbl', v=>bassVolMul=v);
+wireVolSlider('volDrum','volDrumLbl', v=>drumVolMul=v);
 // 멜로디를 실제로 어떤 악기 소리로 들려줄지 — 기본(synth)은 예전 그대로의 합성음, 나머지는 위
 // SAMPLE_MIDI_URLS의 실제 악기 녹음 샘플을 씀(hit() 참고).
 let melodyInstrument='synth';   // 'synth' | 'violin' | 'piano' | 'flute' | 'recorder'
@@ -2379,6 +2404,7 @@ function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:keyMode, a:accData,
     c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument,
+    vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100),
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
@@ -2414,12 +2440,19 @@ function applyStateObj(obj){
   keyMode = (obj.k==='minor') ? 'minor' : 'major';
   if(keymodeSel) keymodeSel.value=keyMode;
   // 'piano'/'band'/'guitar'는 예전에 잠깐 썼던 값 — 혹시 옛 저장 링크에 남아있어도 안전하게 simple로.
-  chordStyle = ['simple','arpeggio','band_hold','band_arp','guitar_arp','band_guitar_arp'].includes(obj.st) ? obj.st : 'simple';
+  chordStyle = ['simple','arpeggio','band_hold','band_arp','guitar_arp','band_guitar_arp','band_guitar_arp_bass'].includes(obj.st) ? obj.st : 'simple';
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   melodyInstrument = ['synth','violin','piano','flute','recorder'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
+  // 악기별 음량 슬라이더 — 옛 저장 링크엔 없을 수 있으니(vm 등이 undefined) 그럴 땐 100%(배수 1)로.
+  const clampVolPct=v=>{ const n=+v; return (Number.isFinite(n) && n>=0 && n<=200) ? n : 100; };
+  melodyVolMul=clampVolPct(obj.vm)/100; chordVolMul=clampVolPct(obj.vc)/100;
+  bassVolMul=clampVolPct(obj.vb)/100; drumVolMul=clampVolPct(obj.vd)/100;
+  const volEl=(id,mul,lblId)=>{ const el=document.getElementById(id); if(el){ el.value=Math.round(mul*100); document.getElementById(lblId).textContent=el.value; } };
+  volEl('volMelody',melodyVolMul,'volMelodyLbl'); volEl('volChord',chordVolMul,'volChordLbl');
+  volEl('volBass',bassVolMul,'volBassLbl'); volEl('volDrum',drumVolMul,'volDrumLbl');
   chordData.length=0;
   for(let i=0;i<MEAS;i++){
     const cv=obj.c&&obj.c[i];
@@ -2838,17 +2871,22 @@ function loadInstrumentSamples(name){
 // 날카/거칠게 들리는 걸 완화하는 저역통과 필터. 요청("B4/C5 정도는 예쁜데 나머지는 날카롭다")을
 // 실제로 측정해보니 정확히 이 패턴과 일치함(그 두 음은 시프트가 0/-1인 반면, 가장 날카로운 '레'는
 // +2였음) — 아래로 시프트(rate<=1)할 때는 오히려 더 둔하게 들려서 이미 괜찮으므로 필터를 안 걸음.
-function playSampleNote(instrName, t, freq, dur, vol, bus, shiftFilter){
+// octaveUp(선택): 몇 옥타브를 더 올려서 재생할지("바이올린 한 옥타브 높게 나면 어떨지" 실험용,
+// hit() 참고) — 어떤 샘플을 쓸지 고르는 것(위 best 탐색)과 shiftFilter 판단 기준(아래 rate)은
+// 원래 요청한 freq 그대로 계산하고, 이 옵션은 그 결과에 최종적으로만 곱해서 "고른 샘플/필터
+// 판단은 그대로, 최종 소리 높이만 옮기는" 효과를 냄.
+function playSampleNote(instrName, t, freq, dur, vol, bus, shiftFilter, octaveUp){
   const lib=sampleLibCache[instrName];
   if(!lib || !lib.length) return false;
   let best=lib[0], bestDist=Infinity;
   for(const s of lib){ const d=Math.abs(Math.log2(freq/s.freq)); if(d<bestDist){ bestDist=d; best=s; } }
   const ctx=ac();
   const rate=freq/best.freq;
+  const playRate=octaveUp ? rate*Math.pow(2,octaveUp) : rate;
   const src=ctx.createBufferSource();
-  src.buffer=best.buffer; src.playbackRate.value=rate;
+  src.buffer=best.buffer; src.playbackRate.value=playRate;
   const g=ctx.createGain();
-  const availDur=best.buffer.duration/rate;
+  const availDur=best.buffer.duration/playRate;
   const noteDur=Math.max(0.05,dur);
   const playDur=Math.min(availDur, noteDur+0.4);   // 음을 짧게 요청해도 자연스러운 여운을 살짝 더 줌
   const release=Math.min(0.25, Math.max(0.03,playDur*0.3));
@@ -2896,8 +2934,10 @@ function tone(t,freq,dur,vol,type='triangle',opts){
 // 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/
 // 지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
+  vol=vol*chordVolMul;   // 학생용 '화음 음량' 슬라이더 — 아래 모든 화음 재생 경로(기타/피아노 샘플,
+                          // 대체 합성음)에 공통으로 적용됨.
   const bus=getChordBus();
-  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp'){
+  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp' || chordStyle==='band_guitar_arp_bass'){
     // 진짜 기타(Shinyguitar 어쿠스틱) 샘플로 뜯는 소리를 냄. 아직 샘플이 로딩 중일 때만
     // guitarPluckFallback(짧게 튕겼다 잦아드는 합성 pluck)으로 임시 대체.
     if(playSampleNote('guitar', t, freq, dur, vol*0.8, bus)) return;
@@ -3006,6 +3046,10 @@ const MELODY_INSTR_VOL = { violin: 0.55, piano: 0.18, flute: 0.95, recorder: 0.4
 // 바이올린 샘플은 도미솔라(A/C/E/G)에만 있어서 레·파는 항상 위로 피치시프트됨(레는 최대 +2반음) —
 // 위 playSampleNote의 shiftFilter로 그 위로-시프트된 음만 살짝 어둡게 걸러서 "날카롭다"는 느낌을 줄임.
 const MELODY_SHIFT_FILTER = { violin: {baseHz:9000, hzPerSemitone:1500, minHz:5000} };
+// "바이올린 소리가 여전히 별로인데 한 옥타브 높게 나면 어떨지" 실험 — 노트 선택/필터 판단은 그대로
+// 두고(위 playSampleNote의 octaveUp 참고) 최종 소리만 한 옥타브 위로 옮겨봄. 마음에 안 들면
+// 이 값을 지우면 바로 원래대로 돌아감.
+const MELODY_OCTAVE_UP = { violin: 1 };
 function hit(t,freq,dur){
   // dur = how many seconds this note should actually sustain (its real beat-length), not a fixed blip.
   freq=freq||660; const sus=Math.max(0.14,(dur||0.35)*0.92);
@@ -3014,14 +3058,14 @@ function hit(t,freq,dur){
   // 나음). startPlayback()이 재생 직전에 미리 로딩을 기다려주므로 실제로는 거의 항상 이 대체 경로를
   // 안 타고 바로 실제 악기 소리가 남.
   if(melodyInstrument!=='synth'){
-    const mvol=MELODY_INSTR_VOL[melodyInstrument]!=null ? MELODY_INSTR_VOL[melodyInstrument] : 0.9;
-    if(playSampleNote(melodyInstrument, t, freq, sus, mvol, getMusicBus(), MELODY_SHIFT_FILTER[melodyInstrument])) return;
+    const mvol=(MELODY_INSTR_VOL[melodyInstrument]!=null ? MELODY_INSTR_VOL[melodyInstrument] : 0.9)*melodyVolMul;
+    if(playSampleNote(melodyInstrument, t, freq, sus, mvol, getMusicBus(), MELODY_SHIFT_FILTER[melodyInstrument], MELODY_OCTAVE_UP[melodyInstrument])) return;
   }
   // 기본(신스): a softer, more sustained composite tone (like a recorder/flute) instead of the old
   // quick-decay pluck.
-  tone(t,freq,sus,0.40,'sine');           // warm sustained fundamental
-  tone(t,freq,sus,0.16,'triangle');       // soft body/character layered on top
-  tone(t,freq*2,sus*0.85,0.05,'sine');    // faint upper shimmer
+  tone(t,freq,sus,0.40*melodyVolMul,'sine');           // warm sustained fundamental
+  tone(t,freq,sus,0.16*melodyVolMul,'triangle');       // soft body/character layered on top
+  tone(t,freq*2,sus*0.85,0.05*melodyVolMul,'sine');    // faint upper shimmer
 }
 
 function stopAll(){
@@ -3104,6 +3148,7 @@ function effectiveChordMode(c){
   if(chordStyle==='band_arp') return 2;
   if(chordStyle==='guitar_arp') return 2;
   if(chordStyle==='band_guitar_arp') return 2;
+  if(chordStyle==='band_guitar_arp_bass') return 2;
   return c.mode;
 }
 function scheduleChords(start,beat){
@@ -3152,7 +3197,7 @@ function scheduleChords(start,beat){
         if(k===0 && chordStyle==='arpeggio'){
           const measEndBeatHere = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
           const sustainDurBeats = measEndBeatHere - measStartBeat;
-          if(sustainDurBeats>0.05) organPedalTone(start+noteBeat*beat, pattern[0], sustainDurBeats*beat, 0.09);
+          if(sustainDurBeats>0.05) organPedalTone(start+noteBeat*beat, pattern[0], sustainDurBeats*beat, 0.09*chordVolMul);
           continue;
         }
         const durBeats=Math.min(0.5, melEnd-noteBeat);
@@ -3208,13 +3253,14 @@ function getDrumBus(){
   return drumBus;
 }
 function bassNote(t,freq,dur,vol){
-  tone(t,freq,dur,vol,'sine',{bus:getDrumBus(), filterMul:2.0});
+  tone(t,freq,dur,vol*bassVolMul,'sine',{bus:getDrumBus(), filterMul:2.0});
 }
 // '밴드(피아노 펼침화음)' 전용 베이스 — 마디 내내 한 음을 쭉 끄는 bassNote 대신, 통기타처럼 줄을
 // 뜯는 순간 튕겼다가 자연스럽게 잦아드는 "베이스기타" 느낌의 감쇠(decay) 포락선을 씀(요청: "베이스
 // 기타소리"). 점4분음표+8분음표를 한 세트로 반복하는 리듬(scheduleBandLayer 참고)에 맞게 각 음이
 // 그 박자 동안만 튕기고 죽게 함.
 function bassGuitarPluck(t,freq,dur,vol){
+  vol=vol*bassVolMul;
   const ctx=ac();
   const o=ctx.createOscillator(), g=ctx.createGain(), f=ctx.createBiquadFilter();
   o.type='triangle'; o.frequency.value=freq;
@@ -3234,7 +3280,7 @@ function drumKick(t){
   o.frequency.setValueAtTime(150,t);
   o.frequency.exponentialRampToValueAtTime(48,t+0.11);
   g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.5,t+0.005);
+  g.gain.exponentialRampToValueAtTime(0.5*drumVolMul,t+0.005);
   g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
   o.connect(g).connect(getDrumBus());
   o.start(t); o.stop(t+0.24);
@@ -3249,7 +3295,7 @@ function drumKickFinal(t){
   o.frequency.setValueAtTime(140,t);
   o.frequency.exponentialRampToValueAtTime(40,t+0.16);
   g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.75,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.75*drumVolMul,t+0.006);
   g.gain.exponentialRampToValueAtTime(0.0001,t+0.42);
   o.connect(g).connect(getDrumBus());
   o.start(t); o.stop(t+0.45);
@@ -3261,7 +3307,7 @@ function drumSnare(t){
   const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1000; f.Q.value=0.7;
   const g=ctx.createGain();
   g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.35,t+0.003);
+  g.gain.exponentialRampToValueAtTime(0.35*drumVolMul,t+0.003);
   g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
   src.connect(f).connect(g).connect(getDrumBus());
   src.start(t); src.stop(t+0.18);
@@ -3269,7 +3315,7 @@ function drumSnare(t){
   const o=ctx.createOscillator(), g2=ctx.createGain();
   o.type='triangle'; o.frequency.value=190;
   g2.gain.setValueAtTime(0.0001,t);
-  g2.gain.exponentialRampToValueAtTime(0.18,t+0.004);
+  g2.gain.exponentialRampToValueAtTime(0.18*drumVolMul,t+0.004);
   g2.gain.exponentialRampToValueAtTime(0.0001,t+0.11);
   o.connect(g2).connect(getDrumBus());
   o.start(t); o.stop(t+0.13);
@@ -3281,7 +3327,7 @@ function drumHat(t){
   const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=7500; f.Q.value=1.0;
   const g=ctx.createGain();
   g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.15,t+0.001);
+  g.gain.exponentialRampToValueAtTime(0.15*drumVolMul,t+0.001);
   g.gain.exponentialRampToValueAtTime(0.0001,t+0.045);
   src.connect(f).connect(g).connect(getDrumBus());
   src.start(t); src.stop(t+0.06);
@@ -3292,7 +3338,7 @@ function drumHat(t){
 // 계열 스타일일 때만 호출됨. 멜로디가 끝난 뒤(빈 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd
 // 기준).
 function scheduleBandLayer(start,beat){
-  if(chordStyle!=='band_hold' && chordStyle!=='band_arp' && chordStyle!=='band_guitar_arp') return;
+  if(chordStyle!=='band_hold' && chordStyle!=='band_arp' && chordStyle!=='band_guitar_arp' && chordStyle!=='band_guitar_arp_bass') return;
   // scheduleChords와 같은 이유로 melEnd 대신 arrangementEndBeats() 사용 — 멜로디 없이 화음만 있는
   // 뒷마디에서도 드럼/베이스가 함께 이어지게 함.
   const melEnd=arrangementEndBeats();
@@ -3331,11 +3377,12 @@ function scheduleBandLayer(start,beat){
       const nl=chordNotesAndLabel(c);
       if(nl && nl.notes.length){
         const voiced=voiceChordNotes(nl.notes,3);
-        if(chordStyle==='band_guitar_arp'){
-          // 요청: '밴드(기타 아르페지오)'에 실제 베이스기타 음원(샘플)을 점4분음표+2분음표(=3.5박)
-          // 한 세트로 반복하는 리듬으로 넣음. 위 bassguitar 출처 주석대로 이 음원 음역에 맞춰
-          // root/4 대신 한 옥타브 위인 root/2를 씀. 샘플이 아직 로딩 중일 때만 기존 신스 pluck으로
-          // 대체.
+        if(chordStyle==='band_guitar_arp_bass'){
+          // 요청: '밴드(기타 아르페지오)'의 "베이스기타 추가" 버전 — 원래 버전(band_guitar_arp,
+          // 신스 베이스 그대로 유지)과 별도 탭으로 남겨두고, 이 버전만 실제 베이스기타 음원(샘플)을
+          // 점4분음표+2분음표(=3.5박) 한 세트로 반복하는 리듬으로 넣음. 위 bassguitar 출처
+          // 주석대로 이 음원 음역에 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀. 샘플이 아직 로딩
+          // 중일 때만 기존 신스 pluck으로 대체.
           const rootFreq=voiced[0].freq/2;
           const pat=[1.5,2.0];
           let off=0;
@@ -3345,16 +3392,17 @@ function scheduleBandLayer(start,beat){
             const dur=Math.min(d, measEndBeat-noteBeat);
             if(dur>0.05){
               const t=start+noteBeat*beat, noteDur=dur*beat;
-              if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45, getDrumBus())){
+              if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45*bassVolMul, getDrumBus())){
                 bassGuitarPluck(t, rootFreq, noteDur, 0.20);
               }
             }
             off+=d;
           }
-        } else if(chordStyle==='band_arp'){
-          // 요청: '밴드(피아노 펼침화음)'일 때 베이스를 점4분음표+8분음표(=2박) 한 세트로 반복하는
-          // 리듬으로, 통기타 아닌 "베이스기타" 느낌의 감쇠 음색(bassGuitarPluck)으로 넣음 —
-          // band_hold는 그대로 마디 내내 끄는 기존 방식 유지.
+        } else if(chordStyle==='band_arp' || chordStyle==='band_guitar_arp'){
+          // 요청: '밴드(피아노 펼침화음)'와 '밴드(기타 아르페지오)' 원래 버전일 때 베이스를
+          // 점4분음표+8분음표(=2박) 한 세트로 반복하는 리듬으로, 통기타 아닌 "베이스기타" 느낌의
+          // 감쇠 음색(bassGuitarPluck, 신스)으로 넣음 — band_hold는 그대로 마디 내내 끄는 기존
+          // 방식 유지.
           const rootFreq=voiced[0].freq/4;
           const pat=[1.5,0.5,1.5,0.5];
           let off=0;
@@ -3399,8 +3447,8 @@ async function startPlayback(countIn,useMet,btn){
   const neededLibs=new Set();
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
   if(chordStyle==='band_hold' || chordStyle==='band_arp' || chordStyle==='arpeggio') neededLibs.add('piano');
-  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
-  if(chordStyle==='band_guitar_arp') neededLibs.add('bassguitar');
+  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp' || chordStyle==='band_guitar_arp_bass') neededLibs.add('guitar');
+  if(chordStyle==='band_guitar_arp_bass') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
   if(stillLoading.length){
     setStatus('악기 음원을 불러오는 중…');
