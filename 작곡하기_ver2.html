@@ -583,7 +583,8 @@
 <p style="text-align:center;color:#999;font-size:11px;margin:6px 0 0;">
   악기 음원 출처 — 플루트: VSCO2 Community Edition, Versilian Studios(CC0) ·
   피아노: Salamander Grand Piano by Alexander Holm(CC BY) ·
-  기타·일렉기타: Shinyguitar by D. Smolken, Karoryfer Samples(CC0) ·
+  기타: Shinyguitar by D. Smolken, Karoryfer Samples(CC0) ·
+  일렉기타: Black And Green Guitars, Karoryfer Samples(CC0) ·
   베이스기타: Black And Blue Basses, Karoryfer Samples(CC0)
 </p>
 
@@ -2956,12 +2957,16 @@ const SAMPLE_MIDI_URLS = {
     63:'samples/guitar/m63.mp3', 66:'samples/guitar/m66.mp3', 69:'samples/guitar/m69.mp3',
     72:'samples/guitar/m72.mp3', 75:'samples/guitar/m75.mp3', 78:'samples/guitar/m78.mp3',
     81:'samples/guitar/m81.mp3', 84:'samples/guitar/m84.mp3'},
-  elecguitar: {37:'samples/elecguitar/m37.mp3', 40:'samples/elecguitar/m40.mp3', 42:'samples/elecguitar/m42.mp3',
-    45:'samples/elecguitar/m45.mp3', 48:'samples/elecguitar/m48.mp3', 51:'samples/elecguitar/m51.mp3',
-    54:'samples/elecguitar/m54.mp3', 57:'samples/elecguitar/m57.mp3', 60:'samples/elecguitar/m60.mp3',
-    63:'samples/elecguitar/m63.mp3', 66:'samples/elecguitar/m66.mp3', 69:'samples/elecguitar/m69.mp3',
-    72:'samples/elecguitar/m72.mp3', 75:'samples/elecguitar/m75.mp3', 78:'samples/elecguitar/m78.mp3',
-    81:'samples/elecguitar/m81.mp3', 84:'samples/elecguitar/m84.mp3'},
+  elecguitar: {40:'samples/elecguitar/m40.mp3', 41:'samples/elecguitar/m41.mp3', 42:'samples/elecguitar/m42.mp3', 43:'samples/elecguitar/m43.mp3', 44:'samples/elecguitar/m44.mp3',
+    45:'samples/elecguitar/m45.mp3', 46:'samples/elecguitar/m46.mp3', 47:'samples/elecguitar/m47.mp3', 48:'samples/elecguitar/m48.mp3', 49:'samples/elecguitar/m49.mp3',
+    50:'samples/elecguitar/m50.mp3', 51:'samples/elecguitar/m51.mp3', 52:'samples/elecguitar/m52.mp3', 53:'samples/elecguitar/m53.mp3', 54:'samples/elecguitar/m54.mp3',
+    55:'samples/elecguitar/m55.mp3', 56:'samples/elecguitar/m56.mp3', 57:'samples/elecguitar/m57.mp3', 58:'samples/elecguitar/m58.mp3', 59:'samples/elecguitar/m59.mp3',
+    60:'samples/elecguitar/m60.mp3', 61:'samples/elecguitar/m61.mp3', 62:'samples/elecguitar/m62.mp3', 63:'samples/elecguitar/m63.mp3', 64:'samples/elecguitar/m64.mp3',
+    65:'samples/elecguitar/m65.mp3', 66:'samples/elecguitar/m66.mp3', 67:'samples/elecguitar/m67.mp3', 68:'samples/elecguitar/m68.mp3', 69:'samples/elecguitar/m69.mp3',
+    70:'samples/elecguitar/m70.mp3', 71:'samples/elecguitar/m71.mp3', 72:'samples/elecguitar/m72.mp3', 73:'samples/elecguitar/m73.mp3', 74:'samples/elecguitar/m74.mp3',
+    75:'samples/elecguitar/m75.mp3', 76:'samples/elecguitar/m76.mp3', 77:'samples/elecguitar/m77.mp3', 78:'samples/elecguitar/m78.mp3', 79:'samples/elecguitar/m79.mp3',
+    80:'samples/elecguitar/m80.mp3', 81:'samples/elecguitar/m81.mp3', 82:'samples/elecguitar/m82.mp3', 83:'samples/elecguitar/m83.mp3', 84:'samples/elecguitar/m84.mp3',
+    85:'samples/elecguitar/m85.mp3', 86:'samples/elecguitar/m86.mp3'},
   bassguitar: {35:'samples/bassguitar/m35.mp3', 36:'samples/bassguitar/m36.mp3',
     37:'samples/bassguitar/m37.mp3', 38:'samples/bassguitar/m38.mp3', 39:'samples/bassguitar/m39.mp3',
     40:'samples/bassguitar/m40.mp3', 41:'samples/bassguitar/m41.mp3', 42:'samples/bassguitar/m42.mp3',
@@ -2975,9 +2980,12 @@ const SAMPLE_MIDI_URLS = {
 // - guitar: Shinyguitar(어쿠스틱/아치탑) by D. Smolken(Karoryfer Samples), CC0 — 예전에 쓰다가
 //   "소리가 듣기싫다"고 빼버린 Martin HD28 스틸스트링과는 다른 녹음(벨로시티 레이어까지 있는
 //   더 꼼꼼한 멀티샘플)이라, 이번엔 '기타 아르페지오' 전용 화음 스타일로 다시 넣어봄.
-// - elecguitar: 같은 Shinyguitar 라이브러리의 일렉트릭(픽업) 녹음 — 어쿠스틱 쪽과 정확히 같은
-//   음역/멀티샘플 구조(MIDI 37~84, 3반음 간격)라 매핑만 그대로 재사용함. "멜로디에 일렉기타
-//   소리" 요청으로 멜로디 악기에 추가함.
+// - elecguitar: "최대한 진짜 음원으로" 요청을 받고 처음 재사용했던 Shinyguitar 일렉트릭(음역이
+//   3반음 간격이라 성긴 편) 대신, Black And Green Guitars(Karoryfer Samples, CC0)의 그레치
+//   애니버서리(green, "twang") 녹음으로 교체함 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플
+//   (MIDI 40~86)이라 이 앱의 멜로디 음역(G3~E6, MIDI 55~88)이 거의 다 피치시프트 없이 재생됨.
+//   원본 17개 음의 피크가 -15~-33dB로 음마다 최대 18dB까지 들쭉날쭉해서(바이올린 때와 같은
+//   문제) 음마다 -2dB로 정규화해서 받아옴.
 // - bassguitar: Black And Blue Basses "darkblack" 일반 핑거 피킹(reg/pluck), Karoryfer Samples,
 //   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). '밴드(화음유지/피아노
 //   펼침화음)의 베이스기타 추가 버전'(band_hold_bass/band_arp_bass) 전용 베이스로 씀
