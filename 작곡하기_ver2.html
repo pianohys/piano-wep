@@ -474,6 +474,10 @@
         <option value="piano">멜로디 악기: 피아노</option>
         <option value="flute">멜로디 악기: 플루트</option>
       </select>
+      <select id="drumStyleSel" class="keymode-select">
+        <option value="8beat">드럼 비트: 8비트</option>
+        <option value="16beat">드럼 비트: 16비트</option>
+      </select>
     </div>
     <div class="controls" id="instrVolRow">
       <span class="tempo">멜로디 음량 <input type="range" id="volMelody" min="0" max="200" step="5" value="100"><b id="volMelodyLbl">100</b>%</span>
@@ -2447,6 +2451,12 @@ melodyInstSel.addEventListener('change',()=>{
   melodyInstrument=melodyInstSel.value;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
 });
+// '밴드' 계열 화음 스타일(scheduleBandLayer)의 하이햇 세분을 8분음표(한 박에 2번)와 16분음표(한 박에
+// 4번) 중 고르게 함(요청: "드럼 16비트 버전 하나 더"). 킥/스네어 자리는 그대로 두고 하이햇 촘촘함만
+// 바뀜 — 드럼이 없는 화음 스타일(펼침화음/어쿠스틱 기타)을 골랐을 땐 그냥 아무 효과 없음.
+let drumStyle='8beat';   // '8beat' | '16beat'
+const drumStyleSel=document.getElementById('drumStyleSel');
+drumStyleSel.addEventListener('change',()=>{ drumStyle=drumStyleSel.value; });
 document.getElementById('clear').addEventListener('click',()=>{
   deleteMode=!deleteMode;
   document.getElementById('clear').classList.toggle('active',deleteMode);
@@ -2531,7 +2541,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument,
+    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, ds:drumStyle,
     vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100),
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -2586,6 +2596,9 @@ function applyStateObj(obj){
   melodyInstrument = ['synth','piano','flute'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
+  // 드럼 비트 — 옛 저장 링크엔 없을 수 있으니(ds가 undefined) 그럴 땐 기본값(8beat)으로.
+  drumStyle = (obj.ds==='16beat') ? '16beat' : '8beat';
+  if(drumStyleSel) drumStyleSel.value=drumStyle;
   // 악기별 음량 슬라이더 — 옛 저장 링크엔 없을 수 있으니(vm 등이 undefined) 그럴 땐 100%(배수 1)로.
   const clampVolPct=v=>{ const n=+v; return (Number.isFinite(n) && n>=0 && n<=200) ? n : 100; };
   setMelodyVol(clampVolPct(obj.vm)/100); setChordVol(clampVolPct(obj.vc)/100);
@@ -3523,8 +3536,8 @@ function scheduleBandLayer(start,beat){
         drumKickFinal(start+beatPos*beat);
       } else {
         if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
-        drumHat(start+beatPos*beat);
-        if(beatPos+0.5<drumEndBeat) drumHat(start+(beatPos+0.5)*beat);
+        const hatOffsets = drumStyle==='16beat' ? [0,0.25,0.5,0.75] : [0,0.5];
+        hatOffsets.forEach(off=>{ if(beatPos+off<drumEndBeat) drumHat(start+(beatPos+off)*beat); });
       }
     }
     const c=chordData[mi];
