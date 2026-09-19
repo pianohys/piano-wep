@@ -463,11 +463,9 @@
       <select id="keymode" class="keymode-select"></select>
       <select id="chordStyleSel" class="keymode-select">
         <option value="arpeggio">화음 스타일: 펼침화음(피아노)</option>
-        <option value="band_hold">화음 스타일: 밴드(화음유지)</option>
-        <option value="band_hold_bass">화음 스타일: 밴드(화음유지+베이스기타)</option>
-        <option value="band_arp_bass">화음 스타일: 밴드(피아노 펼침화음+베이스기타)</option>
+        <option value="hold_piano">화음 스타일: 화음유지(피아노)</option>
         <option value="guitar_arp">화음 스타일: 어쿠스틱 기타</option>
-        <option value="band_guitar_arp">화음 스타일: 밴드(기타 아르페지오)</option>
+        <option value="guitar_arpeggio">화음 스타일: 기타 아르페지오</option>
       </select>
       <select id="melodyInstSel" class="keymode-select">
         <option value="synth">멜로디 악기: 신스(기본)</option>
@@ -475,8 +473,14 @@
         <option value="flute">멜로디 악기: 플루트</option>
       </select>
       <select id="drumStyleSel" class="keymode-select">
-        <option value="8beat">드럼 비트: 8비트</option>
-        <option value="16beat">드럼 비트: 16비트</option>
+        <option value="off">드럼: 없음</option>
+        <option value="8beat">드럼: 8비트</option>
+        <option value="16beat">드럼: 16비트</option>
+      </select>
+      <select id="bassStyleSel" class="keymode-select">
+        <option value="off">베이스: 없음</option>
+        <option value="synth">베이스: 신스</option>
+        <option value="sample">베이스: 베이스기타</option>
       </select>
     </div>
     <div class="controls" id="instrVolRow">
@@ -2393,32 +2397,27 @@ keymodeSel.addEventListener('change',()=>{
   const sigMsg = letters.length ? `조표: ${letters.join(', ')}에 ${flat?'♭':'♯'}` : '조표 없음';
   setStatus(`조성을 <b>${k.label}</b>(으)로 바꿨어요. (${sigMsg})`);
 });
-// 화음 반주를 어떤 소리·패턴으로 들려줄지 (예전엔 마디마다 골라둔 화음유지/펼침화음을 그대로 신스
-// 음색으로 내는 'simple' 스타일도 있었는데, 요청으로 아예 없앰. 첫 옵션은 arpeggio):
+// 화음 반주를 어떤 소리·패턴으로 들려줄지. 예전엔 '밴드' 계열 스타일을 고르면 드럼·베이스가 화음
+// 처리에 통째로 딸려왔는데(예: band_hold_bass), 요청으로 화음(chordStyle)과 드럼(drumStyle)·베이스
+// (bassStyle)를 완전히 독립된 3개의 선택으로 나눔 — "밴드처럼" 하고 싶으면 화음 스타일은 취향대로
+// 고르고 드럼·베이스를 각각 따로 켜면 됨. 화음 스타일은 이제 이 4개뿐:
 // - arpeggio: 마디별 설정과 상관없이 항상 펼침화음 패턴 + 피아노 음색으로 고정.
-// - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴 + 피아노 음색으로 고정.
-// - band_hold_bass: band_hold와 같지만 베이스만 실제 베이스기타 음원(bassguitar 샘플)으로 바꿈
-//   (마디 내내 한 음을 끄는 리듬은 그대로 — 실제 베이스도 한 번 뜯고 자연스럽게 울려 퍼지게 둠).
-// - band_arp_bass: 드럼+베이스(실제 베이스기타 음원)를 더하고, 화음은 항상 펼침화음 패턴 + 피아노
-//   배음 음색으로 고정(점4분음표+8분음표 리듬). 원래 신스 베이스를 쓰는 'band_arp'도 있었는데
-//   요청으로 뺌 — 옛 저장 링크는 이 스타일로 안전하게 대체됨.
-// - guitar_arp(표시 이름 '어쿠스틱 기타'): 진짜 기타(Shinyguitar 어쿠스틱) 샘플 음색 고정(드럼/베이스
-//   없음), 화음 패턴도 다른 펼침화음 스타일과 다른 전용 핑거스타일 패턴을 씀(scheduleChords의
-//   guitar_arp 분기 — 아이유 밤편지 반주 느낌 요청. 근음(1) 치고 3·5도 화음 반복).
-// - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp_bass와 같은 신스 베이스기타 리듬)를
-//   더함.(요청으로 기타 아르페지오 쪽의 베이스기타 버전은 빼고, 대신 band_hold/band_arp_bass 쪽에
-//   각각 베이스기타 버전을 새로 만듦.)
-// (밴드 스타일의 신스 베이스는 '베이스기타' 느낌으로 합성함, scheduleBandLayer 참고.)
+// - hold_piano(표시 이름 '화음유지(피아노)'): 화음은 항상 화음유지(블록 코드) 패턴 + 피아노 음색으로
+//   고정.
+// - guitar_arp(표시 이름 '어쿠스틱 기타'): 진짜 기타(Shinyguitar 어쿠스틱) 샘플 음색 고정, 화음
+//   패턴도 다른 펼침화음 스타일과 다른 전용 핑거스타일 패턴을 씀(scheduleChords의 guitar_arp 분기 —
+//   아이유 밤편지 반주 느낌 요청. 근음(1) 치고 5·10도 화음 반복).
+// - guitar_arpeggio(표시 이름 '기타 아르페지오'): arpeggio와 같은 펼침화음 패턴이지만 피아노 대신
+//   기타 음색.
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
-let chordStyle='arpeggio';   // 'arpeggio' | 'band_hold' | 'band_hold_bass' | 'band_arp_bass' | 'guitar_arp' | 'band_guitar_arp'
+let chordStyle='arpeggio';   // 'arpeggio' | 'hold_piano' | 'guitar_arp' | 'guitar_arpeggio'
 const chordStyleSel=document.getElementById('chordStyleSel');
-// 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면(밴드/펼침화음) 미리 그 악기 음원을 내려받기
-// 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
-// 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
+// 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면 미리 그 악기 음원을 내려받기 시작함 —
+// startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생 버튼을
+// 눌렀을 때 로딩 없이 바로 소리가 남.
 function preloadForChordStyle(style){
-  if(style==='band_hold' || style==='band_hold_bass' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
-  if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
-  if(style==='band_hold_bass' || style==='band_arp_bass') loadInstrumentSamples('bassguitar');
+  if(style==='hold_piano' || style==='arpeggio') loadInstrumentSamples('piano');
+  if(style==='guitar_arp' || style==='guitar_arpeggio') loadInstrumentSamples('guitar');
 }
 chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
 // 학생들이 직접 악기별(멜로디/화음/베이스/드럼) 음량 밸런스를 맞출 수 있게 한 슬라이더 4개(요청:
@@ -2451,12 +2450,21 @@ melodyInstSel.addEventListener('change',()=>{
   melodyInstrument=melodyInstSel.value;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
 });
-// '밴드' 계열 화음 스타일(scheduleBandLayer)의 하이햇 세분을 8분음표(한 박에 2번)와 16분음표(한 박에
-// 4번) 중 고르게 함(요청: "드럼 16비트 버전 하나 더"). 킥/스네어 자리는 그대로 두고 하이햇 촘촘함만
-// 바뀜 — 드럼이 없는 화음 스타일(펼침화음/어쿠스틱 기타)을 골랐을 땐 그냥 아무 효과 없음.
-let drumStyle='8beat';   // '8beat' | '16beat'
+// 드럼·베이스를 화음 스타일과 완전히 독립된 선택으로 둠(요청: "밴드스타일을 하고싶으면 드럼을
+// 넣고 베이스도 스스로 넣을수있게") — scheduleBandLayer가 chordStyle과 무관하게 이 두 값만 보고
+// 드럼/베이스를 각각 켜고 끔. 드럼은 '없음'/8분음표(한 박에 2번)/16분음표(한 박에 4번, 강약+
+// 싱코페이션 킥 추가) 중 고름.
+let drumStyle='off';   // 'off' | '8beat' | '16beat'
 const drumStyleSel=document.getElementById('drumStyleSel');
 drumStyleSel.addEventListener('change',()=>{ drumStyle=drumStyleSel.value; });
+// 베이스도 드럼과 마찬가지로 화음 스타일과 무관하게 독립적으로 켜고 끔. 'synth'는 신스 pluck
+// (bassGuitarPluck), 'sample'은 실제 베이스기타 음원(bassguitar 샘플, 로딩 전엔 신스로 대체).
+let bassStyle='off';   // 'off' | 'synth' | 'sample'
+const bassStyleSel=document.getElementById('bassStyleSel');
+bassStyleSel.addEventListener('change',()=>{
+  bassStyle=bassStyleSel.value;
+  if(bassStyle==='sample') loadInstrumentSamples('bassguitar');
+});
 document.getElementById('clear').addEventListener('click',()=>{
   deleteMode=!deleteMode;
   document.getElementById('clear').classList.toggle('active',deleteMode);
@@ -2541,7 +2549,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, ds:drumStyle,
+    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, ds:drumStyle, bs:bassStyle,
     vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100),
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -2585,10 +2593,19 @@ function applyStateObj(obj){
     const kidx=KEY_LIST.findIndex(k=>k.tonicPC===currentKey.tonicPC && k.mode===currentKey.mode);
     keymodeSel.value = kidx>=0 ? String(kidx) : '0';
   }
-  // 'piano'/'band'/'guitar'/'simple'/'band_arp'는 예전에 잠깐 썼던 값(화음 스타일에서 뺌) — 옛
-  // 저장 링크의 'band_arp'는 같은 계열인 band_arp_bass로, 그 외는 arpeggio로 안전하게 대체.
-  chordStyle = ['arpeggio','band_hold','band_hold_bass','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st)
-    ? obj.st : (obj.st==='band_arp' ? 'band_arp_bass' : 'arpeggio');
+  // 화음 스타일에서 드럼·베이스를 떼어내기 전(옛 '밴드' 계열) 저장 링크와의 호환 — 그 스타일들이
+  // 강제하던 화음 처리·드럼·베이스를 최대한 그대로 재현하도록 매핑함. 'piano'/'band'/'guitar'/
+  // 'simple'처럼 그 이전에 잠깐 썼던 값들은 이 매핑에도 없으니 그냥 arpeggio(드럼/베이스 없음)로.
+  const OLD_CHORD_STYLE_MAP={
+    band_hold:      {st:'hold_piano',      ds:'8beat', bs:'synth'},
+    band_hold_bass: {st:'hold_piano',      ds:'8beat', bs:'sample'},
+    band_arp:       {st:'arpeggio',        ds:'8beat', bs:'synth'},
+    band_arp_bass:  {st:'arpeggio',        ds:'8beat', bs:'sample'},
+    band_guitar_arp:{st:'guitar_arpeggio', ds:'8beat', bs:'synth'},
+  };
+  const oldMapped=OLD_CHORD_STYLE_MAP[obj.st];
+  chordStyle = ['arpeggio','hold_piano','guitar_arp','guitar_arpeggio'].includes(obj.st)
+    ? obj.st : (oldMapped ? oldMapped.st : 'arpeggio');
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   // 'violin'/'recorder'/'elecguitar'는 예전에 잠깐 썼던 값(멜로디 악기에서 뺌) — 옛 저장 링크에
@@ -2596,9 +2613,14 @@ function applyStateObj(obj){
   melodyInstrument = ['synth','piano','flute'].includes(obj.mi) ? obj.mi : 'synth';
   if(melodyInstSel) melodyInstSel.value=melodyInstrument;
   if(melodyInstrument!=='synth') loadInstrumentSamples(melodyInstrument);
-  // 드럼 비트 — 옛 저장 링크엔 없을 수 있으니(ds가 undefined) 그럴 땐 기본값(8beat)으로.
-  drumStyle = (obj.ds==='16beat') ? '16beat' : '8beat';
+  // 드럼/베이스 — 옛 '밴드' 스타일 링크는 위 oldMapped의 값을 기본으로 쓰고(그 스타일이 실제로
+  // 켜뒀던 드럼/베이스를 그대로 재현), 그 외(옛 링크에 아예 없거나 되돌리기 스냅샷처럼 원래
+  // 없는 필드)는 꺼진 상태(off)로.
+  drumStyle = ['off','8beat','16beat'].includes(obj.ds) ? obj.ds : (oldMapped ? oldMapped.ds : 'off');
   if(drumStyleSel) drumStyleSel.value=drumStyle;
+  bassStyle = ['off','synth','sample'].includes(obj.bs) ? obj.bs : (oldMapped ? oldMapped.bs : 'off');
+  if(bassStyleSel) bassStyleSel.value=bassStyle;
+  if(bassStyle==='sample') loadInstrumentSamples('bassguitar');
   // 악기별 음량 슬라이더 — 옛 저장 링크엔 없을 수 있으니(vm 등이 undefined) 그럴 땐 100%(배수 1)로.
   const clampVolPct=v=>{ const n=+v; return (Number.isFinite(n) && n>=0 && n<=200) ? n : 100; };
   setMelodyVol(clampVolPct(obj.vm)/100); setChordVol(clampVolPct(obj.vc)/100);
@@ -2986,11 +3008,11 @@ const SAMPLE_MIDI_URLS = {
 //   음마다 실제 마이크 녹음(통기타에 더 가까운 따뜻한 톤)을 그대로 쓸 수 있었음. 음마다 최대
 //   6.7dB 들쭉날쭉하던 피크는 -1dB로 정규화.
 // - bassguitar: Black And Blue Basses "darkblack" 일반 핑거 피킹(reg/pluck), Karoryfer Samples,
-//   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). '밴드(화음유지/피아노
-//   펼침화음)의 베이스기타 추가 버전'(band_hold_bass/band_arp_bass) 전용 베이스로 씀
-//   (scheduleBandLayer 참고) — 기존 신스 베이스(bassNote/bassGuitarPluck)가 쓰던 음역(root/4,
-//   낮으면 MIDI 24까지)은 이 음원 범위 밖이라 최대 11반음이나 아래로 피치시프트해야 해서
-//   먹먹해지므로, 이 스타일들만 한 옥타브 위(root/2)로 옮겨 거의 시프트 없이 재생함.
+//   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). 베이스 선택(bassStyle)이
+//   '베이스기타'(sample)일 때 전용으로 씀(scheduleBandLayer 참고) — 기존 신스 베이스
+//   (bassNote/bassGuitarPluck)가 쓰던 음역(root/4, 낮으면 MIDI 24까지)은 이 음원 범위 밖이라
+//   최대 11반음이나 아래로 피치시프트해야 해서 먹먹해지므로, 이 경우만 한 옥타브 위(root/2)로
+//   옮겨 거의 시프트 없이 재생함.
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
@@ -3077,20 +3099,20 @@ function tone(t,freq,dur,vol,type='triangle',opts){
   sources.push(o);
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
-// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '밴드' 스타일들과 '펼침화음(피아노)'은 실제 피아노
+// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. 'hold_piano'와 '펼침화음(피아노)'은 실제 피아노
 // 음원(piano 샘플)을 쓰고, 로딩 중일 때만 예전 배음+타건 클릭 합성 방식으로 대체함. 화음 자체의
 // 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/
 // 지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
   const bus=getChordBus();
-  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp'){
+  if(chordStyle==='guitar_arp' || chordStyle==='guitar_arpeggio'){
     // 진짜 기타(Shinyguitar 어쿠스틱) 샘플로 뜯는 소리를 냄. 아직 샘플이 로딩 중일 때만
     // guitarPluckFallback(짧게 튕겼다 잦아드는 합성 pluck)으로 임시 대체.
     if(playSampleNote('guitar', t, freq, dur, vol*0.8, bus)) return;
     guitarPluckFallback(t,freq,dur,vol);
     return;
   }
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
+  if(chordStyle==='hold_piano' || chordStyle==='arpeggio'){
     // 반주 피아노 음량 — 너무 크다는 피드백에 계속 낮추다가(2.6→1.3→0.75→0.5) 이번엔 너무 작아서
     // 잘 안 들린다는 반대 피드백을 받아 다시 살짝 키움(0.5→0.85).
     if(playSampleNote('piano', t, freq, dur, vol*0.85, bus)) return;
@@ -3279,17 +3301,13 @@ function arpPattern(voiced){
   for(let k=0;k<4;k++){ const n=voiced[k%voiced.length]; out.push(n.freq*Math.pow(2,Math.floor(k/voiced.length))); }
   return out;
 }
-// 이 마디의 화음이 실제로 화음유지(1)로 울릴지 펼침화음(2)으로 울릴지 결정함. 원래는 마디마다 고른
-// c.mode 그대로 썼는데, '펼침화음'/'밴드(화음유지)'/'밴드(피아노 펼침화음)' 스타일은 노래 전체를
-// 그 패턴 하나로 통일해 달라는 요청이라 그 세 스타일에서는 마디별 설정을 무시하고 강제함. '심플'은
-// 예전처럼 마디별로 고른 화음유지/펼침화음을 그대로 따름.
+// 이 마디의 화음이 실제로 화음유지(1)로 울릴지 펼침화음(2)으로 울릴지 결정함. 4개 화음 스타일이
+// 노래 전체를 하나의 패턴으로 통일해 달라는 요청이라, 마디별 c.mode는 무시하고 스타일마다 강제함.
 function effectiveChordMode(c){
   if(chordStyle==='arpeggio') return 2;
-  if(chordStyle==='band_hold') return 1;
-  if(chordStyle==='band_hold_bass') return 1;
-  if(chordStyle==='band_arp_bass') return 2;
+  if(chordStyle==='hold_piano') return 1;
   if(chordStyle==='guitar_arp') return 2;
-  if(chordStyle==='band_guitar_arp') return 2;
+  if(chordStyle==='guitar_arpeggio') return 2;
   return c.mode;
 }
 function scheduleChords(start,beat){
@@ -3353,7 +3371,7 @@ function scheduleChords(start,beat){
         // 샘플을 그대로 늘이면 오르간보다 그냥 "느리게 잦아드는 피아노"처럼 들려서, 대신 전용
         // organPedalTone()(tone()의 평평한 지속 구간을 쓰는 합성음)으로 진짜 오르간처럼 음량
         // 변화 없이 이어지게 함. 음량은 0.07→0.11로 키웠다가, 이번엔 살짝 크다고 해서 0.09로
-        // 조금만 다시 낮춤. 밴드 쪽(band_arp_bass)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
+        // 조금만 다시 낮춤. 기타 아르페지오 쪽은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
         // 해당했음).
         if(k===0 && chordStyle==='arpeggio'){
           const measEndBeatHere = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
@@ -3367,7 +3385,7 @@ function scheduleChords(start,beat){
       if(mi===lastChordMeasure && chordStyle!=='arpeggio'){
         // 'arpeggio' 스타일은 위 k===0에서 이미 마디 전체(뒤 2박 포함)를 근음으로 길게 끌어주고
         // 있어서, 여기서 또 근음을 겹쳐 켜면 그 구간만 소리가 두 배로 커짐 — 그래서 이 보정은
-        // arpeggio가 아닐 때만(예: band_arp_bass) 적용함.
+        // arpeggio가 아닐 때만(예: guitar_arpeggio) 적용함.
         // 요청: 멜로디가 쉼표로 일찍 끝나더라도 마지막 마디의 뒤 2박(3~4박)은 항상 근음으로 끌어줌 —
         // 그래서 더 이상 melEnd로 자르지 않고, 이 마디의 실제 끝(4박)까지 무조건 지속함.
         const rootBeat=measStartBeat+2;
@@ -3405,7 +3423,7 @@ function scheduleChords(start,beat){
   }
 }
 
-// ---------- '밴드' 화음 스타일 전용: 베이스 + 드럼 ----------
+// ---------- 드럼/베이스(scheduleBandLayer, chordStyle과 독립) ----------
 // 화음/멜로디용 musicBus·chordBus와는 별도의 버스로 둬서, 녹음할 때도 독립적으로 섞을 수 있게 함.
 // 베이스와 드럼도 학생용 슬라이더로 따로따로 조절할 수 있어야 해서(요청) 서로 다른 버스로 분리함
 // (예전엔 둘 다 drumBus 하나를 같이 썼음).
@@ -3424,7 +3442,7 @@ function getBassBus(){
 function bassNote(t,freq,dur,vol){
   tone(t,freq,dur,vol,'sine',{bus:getBassBus(), filterMul:2.0});
 }
-// '밴드(피아노 펼침화음)' 전용 베이스 — 마디 내내 한 음을 쭉 끄는 bassNote 대신, 통기타처럼 줄을
+// 펼침화음 계열 베이스 전용 — 마디 내내 한 음을 쭉 끄는 bassNote 대신, 통기타처럼 줄을
 // 뜯는 순간 튕겼다가 자연스럽게 잦아드는 "베이스기타" 느낌의 감쇠(decay) 포락선을 씀(요청: "베이스
 // 기타소리"). 점4분음표+8분음표를 한 세트로 반복하는 리듬(scheduleBandLayer 참고)에 맞게 각 음이
 // 그 박자 동안만 튕기고 죽게 함.
@@ -3505,12 +3523,12 @@ function drumHat(t, vel=1){
   src.start(t); src.stop(t+0.06);
   sources.push(src);
 }
-// 화음유지/펼침화음 스케줄링(scheduleChords)은 절대 안 건드리고, 그 위에 베이스(마디마다 화음 근음을
-// 낮은 옥타브로 한 번)와 드럼(킥-스네어 번갈아 + 매 8분음표 하이햇)을 additive하게 얹기만 함 — '밴드'
-// 계열 스타일일 때만 호출됨. 멜로디가 끝난 뒤(빈 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd
-// 기준).
+// 화음유지/펼침화음 스케줄링(scheduleChords)은 절대 안 건드리고, 그 위에 드럼(킥-스네어 번갈아 +
+// 하이햇)과 베이스(화음 근음)를 additive하게 얹기만 함 — 요청으로 chordStyle과 완전히 독립된
+// drumStyle/bassStyle 두 값만 보고 각각 켜고 끔(둘 다 꺼져 있으면 그냥 리턴). 멜로디가 끝난 뒤(빈
+// 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd 기준).
 function scheduleBandLayer(start,beat){
-  if(chordStyle!=='band_hold' && chordStyle!=='band_hold_bass' && chordStyle!=='band_arp_bass' && chordStyle!=='band_guitar_arp') return;
+  if(drumStyle==='off' && bassStyle==='off') return;
   // scheduleChords와 같은 이유로 melEnd 대신 arrangementEndBeats() 사용 — 멜로디 없이 화음만 있는
   // 뒷마디에서도 드럼/베이스가 함께 이어지게 함.
   const melEnd=arrangementEndBeats();
@@ -3524,47 +3542,50 @@ function scheduleBandLayer(start,beat){
     const measStartBeat=mi*BEATS;
     if(measStartBeat>=melEnd) continue;
     const measEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
-    // 곡의 맨 마지막 마디(lastMeas)만은 드럼(킥/스네어/하이햇)이 4번째 박까지 안 가고 3번째 박에서
-    // 멈춤 — 그래야 계속 치다가 뚝 끊기는 느낌 없이 3박에서 마무리되는 자연스러운 엔딩이 됨. 화음/
-    // 베이스는 그대로 4박까지 끌리게 둠(위 measEndBeat, 드럼과 무관).
-    const drumEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS-1) : measEndBeat;
-    for(let b=0;b<BEATS;b++){
-      const beatPos=measStartBeat+b;
-      if(beatPos>=drumEndBeat) break;
-      // 곡의 정말 마지막 타격(3번째 박)인지 — 맞으면 평소 킥보다 더 크고 낮은 "쿵" 하나만 단독으로
-      // 내고, 같이 치던 하이햇도(요청: 쿵 뒤에 하이햇 소리가 계속 남) 그 박 자체를 포함해서 아예
-      // 안 냄 — 그래야 쿵 소리 뒤에 아무 소리도 안 남고 깔끔하게 끝남(요청: "세번째 박에서 쿵 하고
-      // 끝내줘").
-      const isLastDrumHit = (mi===lastMeas) && (beatPos+1>=drumEndBeat);
-      if(isLastDrumHit){
-        drumKickFinal(start+beatPos*beat);
-      } else {
-        if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
-        if(drumStyle==='16beat'){
-          // 하이햇을 정박(1.0)-엇박(0.55~0.85)으로 강약을 줘서, 다 같은 세기로 기계적으로 치는
-          // 것보다 자연스러운 16비트 그루브를 냄. 2박째엔 다음 킥(3박) 앞에 여린 당김음(싱코페이션)
-          // 킥을 하나 더 넣음(흔한 팝/알앤비 16비트 킥 패턴) — 요청: "16비트 좀 더 세련되게".
-          const hatOffsets=[0,0.25,0.5,0.75], hatVels=[1,0.55,0.85,0.55];
-          hatOffsets.forEach((off,oi)=>{ if(beatPos+off<drumEndBeat) drumHat(start+(beatPos+off)*beat, hatVels[oi]); });
-          if(b===1 && beatPos+0.75<drumEndBeat) drumKick(start+(beatPos+0.75)*beat, 0.55);
+    if(drumStyle!=='off'){
+      // 곡의 맨 마지막 마디(lastMeas)만은 드럼(킥/스네어/하이햇)이 4번째 박까지 안 가고 3번째 박에서
+      // 멈춤 — 그래야 계속 치다가 뚝 끊기는 느낌 없이 3박에서 마무리되는 자연스러운 엔딩이 됨. 화음/
+      // 베이스는 그대로 4박까지 끌리게 둠(위 measEndBeat, 드럼과 무관).
+      const drumEndBeat = (mi===lastMeas) ? (measStartBeat+BEATS-1) : measEndBeat;
+      for(let b=0;b<BEATS;b++){
+        const beatPos=measStartBeat+b;
+        if(beatPos>=drumEndBeat) break;
+        // 곡의 정말 마지막 타격(3번째 박)인지 — 맞으면 평소 킥보다 더 크고 낮은 "쿵" 하나만 단독으로
+        // 내고, 같이 치던 하이햇도(요청: 쿵 뒤에 하이햇 소리가 계속 남) 그 박 자체를 포함해서 아예
+        // 안 냄 — 그래야 쿵 소리 뒤에 아무 소리도 안 남고 깔끔하게 끝남(요청: "세번째 박에서 쿵 하고
+        // 끝내줘").
+        const isLastDrumHit = (mi===lastMeas) && (beatPos+1>=drumEndBeat);
+        if(isLastDrumHit){
+          drumKickFinal(start+beatPos*beat);
         } else {
-          [0,0.5].forEach(off=>{ if(beatPos+off<drumEndBeat) drumHat(start+(beatPos+off)*beat); });
+          if(b%2===0) drumKick(start+beatPos*beat); else drumSnare(start+beatPos*beat);
+          if(drumStyle==='16beat'){
+            // 하이햇을 정박(1.0)-엇박(0.55~0.85)으로 강약을 줘서, 다 같은 세기로 기계적으로 치는
+            // 것보다 자연스러운 16비트 그루브를 냄. 2박째엔 다음 킥(3박) 앞에 여린 당김음(싱코페이션)
+            // 킥을 하나 더 넣음(흔한 팝/알앤비 16비트 킥 패턴) — 요청: "16비트 좀 더 세련되게".
+            const hatOffsets=[0,0.25,0.5,0.75], hatVels=[1,0.55,0.85,0.55];
+            hatOffsets.forEach((off,oi)=>{ if(beatPos+off<drumEndBeat) drumHat(start+(beatPos+off)*beat, hatVels[oi]); });
+            if(b===1 && beatPos+0.75<drumEndBeat) drumKick(start+(beatPos+0.75)*beat, 0.55);
+          } else {
+            [0,0.5].forEach(off=>{ if(beatPos+off<drumEndBeat) drumHat(start+(beatPos+off)*beat); });
+          }
         }
       }
     }
+    if(bassStyle==='off') continue;
     const c=chordData[mi];
     if(c){
       const nl=chordNotesAndLabel(c);
       if(nl && nl.notes.length){
         const voiced=voiceChordNotes(nl.notes,3);
-        if(chordStyle==='band_arp_bass' || chordStyle==='band_guitar_arp'){
-          // '밴드(피아노 펼침화음+베이스기타)'/'밴드(기타 아르페지오)'는 베이스를 점4분음표+8분음표
-          // (=2박) 한 세트로 반복하는 리듬으로 넣음. band_arp_bass는 실제 베이스기타 음원(샘플)을
-          // 쓰고(요청: "피아노 부분에 베이스기타 넣는 버전"), 이 음원 범위(bassguitar 출처 주석
-          // 참고)에 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀 — band_guitar_arp는 신스 pluck
-          // (bassGuitarPluck) 그대로 유지.
-          const useSample = chordStyle==='band_arp_bass';
-          const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
+        // bassStyle이 'sample'이면 실제 베이스기타 음원을 쓰고(요청: "베이스도 스스로 넣을수있게"),
+        // 이 음원 범위(bassguitar 출처 주석 참고)에 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀 —
+        // 'synth'는 기존 신스 pluck(bassGuitarPluck/bassNote) 그대로, root/4 유지.
+        const useSample = bassStyle==='sample';
+        const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
+        if(effectiveChordMode(c)===2){
+          // 펼침화음 계열(펼침화음/어쿠스틱 기타/기타 아르페지오) 화음 스타일엔 베이스도 점4분음표+
+          // 8분음표(=2박) 한 세트로 반복하는 움직이는 리듬을 넣음.
           const pat=[1.5,0.5,1.5,0.5];
           let off=0;
           for(const d of pat){
@@ -3582,11 +3603,7 @@ function scheduleBandLayer(start,beat){
             off+=d;
           }
         } else {
-          // band_hold / band_hold_bass: 마디 내내 한 음을 끎. band_hold_bass만 실제 베이스기타
-          // 음원으로 바꿈(그 한 음을 실제로 뜯어서 자연스럽게 울려 퍼지게 둠, root/2로 옮기는 이유는
-          // 위와 동일).
-          const useSample = chordStyle==='band_hold_bass';
-          const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
+          // 화음유지(피아노) 스타일엔 베이스도 마디 내내 한 음을 끎.
           const durBeats=measEndBeat-measStartBeat;
           if(durBeats>0.05){
             const t=start+measStartBeat*beat, noteDur=durBeats*beat;
@@ -3625,9 +3642,9 @@ async function startPlayback(countIn,useMet,btn){
   // 일 없이 재생 시작부터 바로 진짜 악기 소리가 남. 이미 불러온 상태면(흔한 경우) 거의 즉시 끝남.
   const neededLibs=new Set();
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
-  if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
-  if(chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass') neededLibs.add('bassguitar');
+  if(chordStyle==='hold_piano' || chordStyle==='arpeggio') neededLibs.add('piano');
+  if(chordStyle==='guitar_arp' || chordStyle==='guitar_arpeggio') neededLibs.add('guitar');
+  if(bassStyle==='sample') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
   if(stillLoading.length){
     setStatus('악기 음원을 불러오는 중…');
@@ -3783,7 +3800,7 @@ async function startMicCapture(){
     recMusicDuck=A.createGain(); recMusicDuck.gain.value=REC_MUSIC_DUCK;
     getMusicBus().connect(recMusicDuck);
     getChordBus().connect(recMusicDuck);
-    getDrumBus().connect(recMusicDuck);   // '밴드' 스타일일 때 드럼도 녹음에 같이 담기게 함(스타일이 아니면 이 버스엔 소리가 없어 영향 없음)
+    getDrumBus().connect(recMusicDuck);   // 드럼이 켜져 있을 때 드럼도 녹음에 같이 담기게 함(꺼져 있으면 이 버스엔 소리가 없어 영향 없음)
     getBassBus().connect(recMusicDuck);   // 베이스도 마찬가지로 같이 담김
     recSyncDelay=A.createDelay(1.0); recSyncDelay.delayTime.value=recSyncDelaySeconds(A);
     recMusicDuck.connect(recSyncDelay);
