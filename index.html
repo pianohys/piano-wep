@@ -2837,15 +2837,18 @@ const SAMPLE_MIDI_URLS = {
 // 출처(전부 자유 이용 라이선스):
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
 // - flute: VSCO2 Community Edition, Versilian Studios, CC0
-// - guitar: Shinyguitar(어쿠스틱/아치탑) by D. Smolken(Karoryfer Samples), CC0 — 예전에 쓰다가
-//   "소리가 듣기싫다"고 빼버린 Martin HD28 스틸스트링과는 다른 녹음(벨로시티 레이어까지 있는
-//   더 꼼꼼한 멀티샘플)이라, 이번엔 '기타 아르페지오' 전용 화음 스타일로 다시 넣어봄.
-// - elecguitar: "최대한 진짜 음원으로" 요청을 받고 처음 재사용했던 Shinyguitar 일렉트릭(음역이
-//   3반음 간격이라 성긴 편) 대신, Black And Green Guitars(Karoryfer Samples, CC0)의 그레치
-//   애니버서리(green, "twang") 녹음으로 교체함 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플
-//   (MIDI 40~86)이라 이 앱의 멜로디 음역(G3~E6, MIDI 55~88)이 거의 다 피치시프트 없이 재생됨.
-//   원본 17개 음의 피크가 -15~-33dB로 음마다 최대 18dB까지 들쭉날쭉해서(바이올린 때와 같은
-//   문제) 음마다 -2dB로 정규화해서 받아옴.
+// - guitar: "아이유 밤편지 핑거스타일 어쿠스틱기타 느낌으로" 요청을 받고, 같은 Shinyguitar(D.
+//   Smolken, Karoryfer Samples, CC0) 라이브러리 안에서 마그네틱 픽업(electric) 채널 대신 마이크로
+//   직접 녹음한 acoustic 채널로 교체함 — 같은 연주를 픽업/마이크로 동시에 녹음해둔 라이브러리라
+//   음마다 실제 마이크 녹음(통기타에 더 가까운 따뜻한 톤)을 그대로 쓸 수 있었음. 음마다 최대
+//   6.7dB 들쭉날쭉하던 피크는 -1dB로 정규화.
+// - elecguitar: "부활 네버엔딩스토리 간주 같은 일렉기타 소리로" 요청을 받음. CC0로 공개된 샘플
+//   라이브러리 중엔 멜로디 연주에 필요한(반음마다 촘촘하고 길게 지속되는) 오버드라이브/디스토션
+//   기타 음원을 찾지 못해서(찾은 라이브러리는 라이선스 미표기거나 뮤트/파워코드 위주라 부적합),
+//   대신 위에서 쓰던 깨끗한 Black And Green Guitars(그레치 애니버서리 "twang") 녹음에 ffmpeg로
+//   미니 앰프 시뮬레이션(중역 부스트 EQ + 오버드라이브 소프트클리핑 + 서스테인용 컴프레서)을
+//   입혀 록 리드 톤을 새로 만듦 — 실제로 클린 녹음을 오버드라이브 페달/앰프에 다시 태우는
+//   "리앰핑"과 같은 원리. 47개 음 전체에 동일한 체인을 적용하고 -1dB로 재정규화.
 // - bassguitar: Black And Blue Basses "darkblack" 일반 핑거 피킹(reg/pluck), Karoryfer Samples,
 //   CC0 — 매 반음마다 실제 녹음이 있는 촘촘한 멀티샘플(MIDI 35~76). '밴드(화음유지/피아노
 //   펼침화음)의 베이스기타 추가 버전'(band_hold_bass/band_arp_bass) 전용 베이스로 씀
