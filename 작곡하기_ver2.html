@@ -468,7 +468,7 @@
         <option value="band_hold_bass">화음 스타일: 밴드(화음유지+베이스기타)</option>
         <option value="band_arp">화음 스타일: 밴드(피아노 펼침화음)</option>
         <option value="band_arp_bass">화음 스타일: 밴드(피아노 펼침화음+베이스기타)</option>
-        <option value="guitar_arp">화음 스타일: 기타 아르페지오</option>
+        <option value="guitar_arp">화음 스타일: 어쿠스틱 기타</option>
         <option value="band_guitar_arp">화음 스타일: 밴드(기타 아르페지오)</option>
       </select>
       <select id="melodyInstSel" class="keymode-select">
@@ -879,6 +879,17 @@ function voiceChordNotes(pcs, baseOctave){
     prevAbs=absSemi;
   }
   return out;
+}
+// '어쿠스틱 기타'(guitar_arp) 전용 반주 패턴에서 원래 화음(3화음)에 없던 7음을 새로 끌어올 때 씀 —
+// 화음이 이미 세븐스 계열(quality가 '7'/'m7')이면 그 4번째 음(반음 10, 원래도 7화음)을 그대로 쓰고,
+// 순정 3화음(major/minor)이면 근음 위에 새로 얹음: major는 장7도(반음 11, 밤편지 같은 발라드에서
+// 흔한 은은한 톤), minor는 단7도(반음 10). 건반 직접입력 화음(custom)처럼 quality가 없는 경우엔 새
+// 7음을 만들지 않고 null 반환 — 호출부에서 원래 화음 음만 그대로 쓰는 걸로 자연스럽게 대체됨.
+function diatonicSeventhPc(c, nl){
+  if(nl.isCustom) return null;
+  if(nl.notes.length>=4) return null;   // 이미 quality 자체에 7음이 있음('7'/'m7')
+  const iv = (c.quality==='minor') ? 10 : 11;
+  return ((c.root+iv)%12+12)%12;
 }
 // 마디별로 붙인 화음: 마디 인덱스 -> {deg:1~7, mode:1(화음유지)|2(펼침화음)} | null. MEAS 길이에 맞춰
 // setMeasures()가 늘리고 줄임(아래).
@@ -2402,7 +2413,9 @@ keymodeSel.addEventListener('change',()=>{
 // - band_arp: 드럼+베이스를 더하고, 화음은 항상 펼침화음 패턴 + 피아노 배음 음색으로 고정.
 // - band_arp_bass: band_arp와 같지만 베이스만 실제 베이스기타 음원으로 바꿈(점4분음표+8분음표
 //   리듬은 그대로).
-// - guitar_arp: 항상 펼침화음 패턴 + 진짜 기타(Shinyguitar) 샘플 음색으로 고정(드럼/베이스 없음).
+// - guitar_arp(표시 이름 '어쿠스틱 기타'): 진짜 기타(Shinyguitar 어쿠스틱) 샘플 음색 고정(드럼/베이스
+//   없음), 화음 패턴도 다른 펼침화음 스타일과 다른 전용 핑거스타일 패턴을 씀(scheduleChords의
+//   guitar_arp 분기, diatonicSeventhPc 참고 — 아이유 밤편지 반주 느낌 요청).
 // - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp와 같은 신스 베이스기타 리듬)를 더함.
 //   (요청으로 기타 아르페지오 쪽의 베이스기타 버전은 빼고, 대신 band_hold/band_arp 쪽에 각각
 //   베이스기타 버전을 새로 만듦.)
@@ -3322,7 +3335,30 @@ function scheduleChords(start,beat){
     if(measStartBeat>=melEnd) continue;   // 멜로디가 이미 완전히 끝난 뒤(뒤쪽 빈 마디)는 화음도 아예 안 냄
     const nl=chordNotesAndLabel(c); if(!nl || !nl.notes.length) continue;
     const voiced=voiceChordNotes(nl.notes, 3);   // 근음을 3옥타브대에 둬서 멜로디보다 낮은 반주 음역으로
-    if(effectiveChordMode(c)===2){
+    if(effectiveChordMode(c)===2 && chordStyle==='guitar_arp'){
+      // '어쿠스틱 기타' 전용 핑거스타일 패턴(아이유 밤편지 반주 느낌 요청) — 한 마디(4박)를 2박씩 두
+      // 덩어리로 나눠서, 앞 2박은 근음(1)을 한 번 치고 3·5도 화음을 8분음표-4분음표-8분음표 리듬으로
+      // 두 번, 뒤 2박은 3음을 한 번 치고 5·7도 화음을 같은 리듬으로 두 번 쳐서 위로 굴러가듯 올라감.
+      // 7음은 diatonicSeventhPc()로 새로 끌어옴(원래 3화음엔 없던 음).
+      const seventhPc=diatonicSeventhPc(c, nl);
+      const v4=seventhPc!=null ? voiceChordNotes([...nl.notes, seventhPc], 3) : voiced;
+      const at=i=>v4[Math.min(i, v4.length-1)];
+      const events=[
+        {beat:0,   dur:0.5, notes:[at(0)]},
+        {beat:0.5, dur:1.0, notes:[at(1),at(2)]},
+        {beat:1.5, dur:0.5, notes:[at(1),at(2)]},
+        {beat:2,   dur:0.5, notes:[at(1)]},
+        {beat:2.5, dur:1.0, notes:[at(2),at(3)]},
+        {beat:3.5, dur:0.5, notes:[at(2),at(3)]},
+      ];
+      for(const ev of events){
+        const noteBeat=measStartBeat+ev.beat;
+        if(noteBeat>=melEnd) break;
+        const durBeats=Math.min(ev.dur, melEnd-noteBeat);
+        if(durBeats<=0.05) continue;
+        ev.notes.forEach(n=>chordTone(start+noteBeat*beat, n.freq, durBeats*beat*0.92, 0.14));
+      }
+    } else if(effectiveChordMode(c)===2){
       // 펼침화음 마지막 음을 길게 끌어주던 것은(진짜 마지막 8번째 음 기준) 오히려 소리가 지저분해진다고
       // 해서 취소 — 원래대로 짧은 8분음표 8개(근음-5도-옥타브위근음-옥타브위3도를 두 바퀴)가 맑게
       // 또박또박 울리는 형태가 기본. 다만 맨 끝 마디(lastChordMeasure)만은 예외로, 앞 2박은 그대로
