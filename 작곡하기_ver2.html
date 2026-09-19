@@ -3306,13 +3306,15 @@ function scheduleChords(start,beat){
     const voiced=voiceChordNotes(nl.notes, 3);   // 근음을 3옥타브대에 둬서 멜로디보다 낮은 반주 음역으로
     if(effectiveChordMode(c)===2 && chordStyle==='guitar_arp'){
       // '어쿠스틱 기타' 전용 핑거스타일 패턴(아이유 밤편지 반주 느낌 요청) — 한 마디(4박)를 2박씩 두
-      // 덩어리로 나눠서, 각 덩어리마다 근음(1)을 한 번 치고 3·5도 화음을 8분음표-4분음표-8분음표
-      // 리듬으로 두 번 쳐서 반복함(요청: "1음 후에 3,5음으로만 반복").
+      // 덩어리로 나눠서, 각 덩어리마다 근음(1)을 한 번 치고 5·10도(5도, 옥타브 위 3도 — arpPattern()의
+      // 1·5·8·10 번호 매김과 같은 규칙) 화음을 8분음표-4분음표-8분음표 리듬으로 두 번 쳐서 반복함
+      // (요청: "1음 치고 5,10음 반복, 리듬은 그대로").
       const at=i=>voiced[Math.min(i, voiced.length-1)];
+      const root=at(0).freq, fifth=at(2).freq, tenth=at(1).freq*2;
       const half=[
-        {beat:0,   dur:0.5, notes:[at(0)]},
-        {beat:0.5, dur:1.0, notes:[at(1),at(2)]},
-        {beat:1.5, dur:0.5, notes:[at(1),at(2)]},
+        {beat:0,   dur:0.5, freqs:[root]},
+        {beat:0.5, dur:1.0, freqs:[fifth,tenth]},
+        {beat:1.5, dur:0.5, freqs:[fifth,tenth]},
       ];
       const events=[...half, ...half.map(ev=>({...ev, beat:ev.beat+2}))];
       for(const ev of events){
@@ -3320,7 +3322,7 @@ function scheduleChords(start,beat){
         if(noteBeat>=melEnd) break;
         const durBeats=Math.min(ev.dur, melEnd-noteBeat);
         if(durBeats<=0.05) continue;
-        ev.notes.forEach(n=>chordTone(start+noteBeat*beat, n.freq, durBeats*beat*0.92, 0.14));
+        ev.freqs.forEach(f=>chordTone(start+noteBeat*beat, f, durBeats*beat*0.92, 0.14));
       }
     } else if(effectiveChordMode(c)===2){
       // 펼침화음 마지막 음을 길게 끌어주던 것은(진짜 마지막 8번째 음 기준) 오히려 소리가 지저분해진다고
