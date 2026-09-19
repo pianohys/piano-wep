@@ -457,7 +457,6 @@
         <option value="minor">단조 (라-시-도-레-미-파-솔(솔#))</option>
       </select>
       <select id="chordStyleSel" class="keymode-select">
-        <option value="simple">화음 스타일: 심플</option>
         <option value="arpeggio">화음 스타일: 펼침화음(피아노)</option>
         <option value="band_hold">화음 스타일: 밴드(화음유지)</option>
         <option value="band_hold_bass">화음 스타일: 밴드(화음유지+베이스기타)</option>
@@ -2284,10 +2283,12 @@ const tempo=document.getElementById('tempo'), bpmLbl=document.getElementById('bp
 tempo.addEventListener('input',()=>bpmLbl.textContent=tempo.value);
 const keymodeSel=document.getElementById('keymode');
 keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordPopup(); refreshChordTags(); });
-// 화음 반주를 어떤 소리·패턴으로 들려줄지:
-// - simple: 마디마다 골라둔 화음유지/펼침화음(mode 1/2) 그대로, 원래 화음 소리.
-// - arpeggio: 마디별 설정과 상관없이 항상 펼침화음 패턴으로(음색은 simple과 같음).
-// - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴으로 고정.
+// 화음 반주를 어떤 소리·패턴으로 들려줄지 (예전엔 마디마다 골라둔 화음유지/펼침화음을 그대로 신스
+// 음색으로 내는 'simple' 스타일도 있었는데, 요청으로 아예 없앰 — 그 신스 음색은 이제 band_hold가
+// 그대로 물려받음. 첫 옵션은 arpeggio):
+// - arpeggio: 마디별 설정과 상관없이 항상 펼침화음 패턴 + 피아노 음색으로 고정.
+// - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴 + (구 'simple'과 같은)
+//   신스 음색으로 고정.
 // - band_hold_bass: band_hold와 같지만 베이스만 실제 베이스기타 음원(bassguitar 샘플)으로 바꿈
 //   (마디 내내 한 음을 끄는 리듬은 그대로 — 실제 베이스도 한 번 뜯고 자연스럽게 울려 퍼지게 둠).
 // - band_arp: 드럼+베이스를 더하고, 화음은 항상 펼침화음 패턴 + 피아노 배음 음색으로 고정.
@@ -2301,13 +2302,13 @@ keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordP
 //   베이스기타 버전을 새로 만듦.)
 // (밴드 스타일의 신스 베이스는 '베이스기타' 느낌으로 합성함, scheduleBandLayer 참고.)
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
-let chordStyle='simple';   // 'simple' | 'arpeggio' | 'band_hold' | 'band_hold_bass' | 'band_arp' | 'band_arp_bass' | 'guitar_arp' | 'band_guitar_arp'
+let chordStyle='arpeggio';   // 'arpeggio' | 'band_hold' | 'band_hold_bass' | 'band_arp' | 'band_arp_bass' | 'guitar_arp' | 'band_guitar_arp'
 const chordStyleSel=document.getElementById('chordStyleSel');
 // 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면(밴드/펼침화음) 미리 그 악기 음원을 내려받기
 // 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
 // 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
 function preloadForChordStyle(style){
-  if(style==='band_hold' || style==='band_hold_bass' || style==='band_arp' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
+  if(style==='band_hold_bass' || style==='band_arp' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
   if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
   if(style==='band_hold_bass' || style==='band_arp_bass') loadInstrumentSamples('bassguitar');
 }
@@ -2463,7 +2464,8 @@ function applyStateObj(obj){
   keyMode = (obj.k==='minor') ? 'minor' : 'major';
   if(keymodeSel) keymodeSel.value=keyMode;
   // 'piano'/'band'/'guitar'는 예전에 잠깐 썼던 값 — 혹시 옛 저장 링크에 남아있어도 안전하게 simple로.
-  chordStyle = ['simple','arpeggio','band_hold','band_hold_bass','band_arp','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st) ? obj.st : 'simple';
+  // 'simple'은 예전에 잠깐 썼던 값(화음 스타일에서 뺌) — 옛 저장 링크에 남아있어도 안전하게 arpeggio로.
+  chordStyle = ['arpeggio','band_hold','band_hold_bass','band_arp','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st) ? obj.st : 'arpeggio';
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   // 'violin'/'recorder'는 예전에 잠깐 썼던 값(멜로디 악기에서 뺌) — 옛 저장 링크에 남아있어도
@@ -2954,10 +2956,11 @@ function tone(t,freq,dur,vol,type='triangle',opts){
   sources.push(o);
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
-// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '밴드' 두 스타일과 '펼침화음(피아노)'은 실제 피아노
-// 음원(piano 샘플)을 쓰고, 로딩 중일 때만 예전 배음+타건 클릭 합성 방식으로 대체함. 화음 자체의
-// 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/
-// 지지직 문제가 다시 생기지 않게 함.
+// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '밴드(화음유지+베이스기타)'·'밴드(피아노 펼침화음)'
+// 두 스타일과 '펼침화음(피아노)'은 실제 피아노 음원(piano 샘플)을 쓰고, 로딩 중일 때만 예전 배음+
+// 타건 클릭 합성 방식으로 대체함. '밴드(화음유지)'는 요청으로 피아노 대신 신스(맨 아래 기본 tone())
+// 음색을 씀 — 예전 'simple' 스타일이 쓰던 것과 같은 음색. 화음 자체의 음높이·박자·지속시간(화음유지/
+// 펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
   const bus=getChordBus();
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp'){
@@ -2967,7 +2970,7 @@ function chordTone(t,freq,dur,vol){
     guitarPluckFallback(t,freq,dur,vol);
     return;
   }
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
+  if(chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
     // 반주 피아노 음량 — 너무 크다는 피드백에 계속 낮추다가(2.6→1.3→0.75→0.5) 이번엔 너무 작아서
     // 잘 안 들린다는 반대 피드백을 받아 다시 살짝 키움(0.5→0.85).
     if(playSampleNote('piano', t, freq, dur, vol*0.85, bus)) return;
@@ -3494,7 +3497,7 @@ async function startPlayback(countIn,useMet,btn){
   // 일 없이 재생 시작부터 바로 진짜 악기 소리가 남. 이미 불러온 상태면(흔한 경우) 거의 즉시 끝남.
   const neededLibs=new Set();
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
+  if(chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
   if(chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
