@@ -460,7 +460,6 @@
         <option value="arpeggio">화음 스타일: 펼침화음(피아노)</option>
         <option value="band_hold">화음 스타일: 밴드(화음유지)</option>
         <option value="band_hold_bass">화음 스타일: 밴드(화음유지+베이스기타)</option>
-        <option value="band_arp">화음 스타일: 밴드(피아노 펼침화음)</option>
         <option value="band_arp_bass">화음 스타일: 밴드(피아노 펼침화음+베이스기타)</option>
         <option value="guitar_arp">화음 스타일: 어쿠스틱 기타</option>
         <option value="band_guitar_arp">화음 스타일: 밴드(기타 아르페지오)</option>
@@ -2276,24 +2275,24 @@ keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordP
 // - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴 + 피아노 음색으로 고정.
 // - band_hold_bass: band_hold와 같지만 베이스만 실제 베이스기타 음원(bassguitar 샘플)으로 바꿈
 //   (마디 내내 한 음을 끄는 리듬은 그대로 — 실제 베이스도 한 번 뜯고 자연스럽게 울려 퍼지게 둠).
-// - band_arp: 드럼+베이스를 더하고, 화음은 항상 펼침화음 패턴 + 피아노 배음 음색으로 고정.
-// - band_arp_bass: band_arp와 같지만 베이스만 실제 베이스기타 음원으로 바꿈(점4분음표+8분음표
-//   리듬은 그대로).
+// - band_arp_bass: 드럼+베이스(실제 베이스기타 음원)를 더하고, 화음은 항상 펼침화음 패턴 + 피아노
+//   배음 음색으로 고정(점4분음표+8분음표 리듬). 원래 신스 베이스를 쓰는 'band_arp'도 있었는데
+//   요청으로 뺌 — 옛 저장 링크는 이 스타일로 안전하게 대체됨.
 // - guitar_arp(표시 이름 '어쿠스틱 기타'): 진짜 기타(Shinyguitar 어쿠스틱) 샘플 음색 고정(드럼/베이스
 //   없음), 화음 패턴도 다른 펼침화음 스타일과 다른 전용 핑거스타일 패턴을 씀(scheduleChords의
 //   guitar_arp 분기 — 아이유 밤편지 반주 느낌 요청. 근음(1) 치고 3·5도 화음 반복).
-// - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp와 같은 신스 베이스기타 리듬)를 더함.
-//   (요청으로 기타 아르페지오 쪽의 베이스기타 버전은 빼고, 대신 band_hold/band_arp 쪽에 각각
-//   베이스기타 버전을 새로 만듦.)
+// - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp_bass와 같은 신스 베이스기타 리듬)를
+//   더함.(요청으로 기타 아르페지오 쪽의 베이스기타 버전은 빼고, 대신 band_hold/band_arp_bass 쪽에
+//   각각 베이스기타 버전을 새로 만듦.)
 // (밴드 스타일의 신스 베이스는 '베이스기타' 느낌으로 합성함, scheduleBandLayer 참고.)
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
-let chordStyle='arpeggio';   // 'arpeggio' | 'band_hold' | 'band_hold_bass' | 'band_arp' | 'band_arp_bass' | 'guitar_arp' | 'band_guitar_arp'
+let chordStyle='arpeggio';   // 'arpeggio' | 'band_hold' | 'band_hold_bass' | 'band_arp_bass' | 'guitar_arp' | 'band_guitar_arp'
 const chordStyleSel=document.getElementById('chordStyleSel');
 // 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면(밴드/펼침화음) 미리 그 악기 음원을 내려받기
 // 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
 // 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
 function preloadForChordStyle(style){
-  if(style==='band_hold' || style==='band_hold_bass' || style==='band_arp' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
+  if(style==='band_hold' || style==='band_hold_bass' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
   if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
   if(style==='band_hold_bass' || style==='band_arp_bass') loadInstrumentSamples('bassguitar');
 }
@@ -2448,9 +2447,10 @@ function applyStateObj(obj){
   Object.assign(accData, obj.a||{});
   keyMode = (obj.k==='minor') ? 'minor' : 'major';
   if(keymodeSel) keymodeSel.value=keyMode;
-  // 'piano'/'band'/'guitar'는 예전에 잠깐 썼던 값 — 혹시 옛 저장 링크에 남아있어도 안전하게 simple로.
-  // 'simple'은 예전에 잠깐 썼던 값(화음 스타일에서 뺌) — 옛 저장 링크에 남아있어도 안전하게 arpeggio로.
-  chordStyle = ['arpeggio','band_hold','band_hold_bass','band_arp','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st) ? obj.st : 'arpeggio';
+  // 'piano'/'band'/'guitar'/'simple'/'band_arp'는 예전에 잠깐 썼던 값(화음 스타일에서 뺌) — 옛
+  // 저장 링크의 'band_arp'는 같은 계열인 band_arp_bass로, 그 외는 arpeggio로 안전하게 대체.
+  chordStyle = ['arpeggio','band_hold','band_hold_bass','band_arp_bass','guitar_arp','band_guitar_arp'].includes(obj.st)
+    ? obj.st : (obj.st==='band_arp' ? 'band_arp_bass' : 'arpeggio');
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
   // 'violin'/'recorder'/'elecguitar'는 예전에 잠깐 썼던 값(멜로디 악기에서 뺌) — 옛 저장 링크에
@@ -2937,7 +2937,7 @@ function chordTone(t,freq,dur,vol){
     guitarPluckFallback(t,freq,dur,vol);
     return;
   }
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
+  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
     // 반주 피아노 음량 — 너무 크다는 피드백에 계속 낮추다가(2.6→1.3→0.75→0.5) 이번엔 너무 작아서
     // 잘 안 들린다는 반대 피드백을 받아 다시 살짝 키움(0.5→0.85).
     if(playSampleNote('piano', t, freq, dur, vol*0.85, bus)) return;
@@ -3134,7 +3134,6 @@ function effectiveChordMode(c){
   if(chordStyle==='arpeggio') return 2;
   if(chordStyle==='band_hold') return 1;
   if(chordStyle==='band_hold_bass') return 1;
-  if(chordStyle==='band_arp') return 2;
   if(chordStyle==='band_arp_bass') return 2;
   if(chordStyle==='guitar_arp') return 2;
   if(chordStyle==='band_guitar_arp') return 2;
@@ -3199,7 +3198,7 @@ function scheduleChords(start,beat){
         // 샘플을 그대로 늘이면 오르간보다 그냥 "느리게 잦아드는 피아노"처럼 들려서, 대신 전용
         // organPedalTone()(tone()의 평평한 지속 구간을 쓰는 합성음)으로 진짜 오르간처럼 음량
         // 변화 없이 이어지게 함. 음량은 0.07→0.11로 키웠다가, 이번엔 살짝 크다고 해서 0.09로
-        // 조금만 다시 낮춤. 밴드 쪽(band_arp)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
+        // 조금만 다시 낮춤. 밴드 쪽(band_arp_bass)은 그대로 짧은 8분음표 그대로 둠(요청이 '그냥 피아노'만
         // 해당했음).
         if(k===0 && chordStyle==='arpeggio'){
           const measEndBeatHere = (mi===lastMeas) ? (measStartBeat+BEATS) : Math.min(measStartBeat+BEATS, melEnd);
@@ -3213,7 +3212,7 @@ function scheduleChords(start,beat){
       if(mi===lastChordMeasure && chordStyle!=='arpeggio'){
         // 'arpeggio' 스타일은 위 k===0에서 이미 마디 전체(뒤 2박 포함)를 근음으로 길게 끌어주고
         // 있어서, 여기서 또 근음을 겹쳐 켜면 그 구간만 소리가 두 배로 커짐 — 그래서 이 보정은
-        // arpeggio가 아닐 때만(예: band_arp) 적용함.
+        // arpeggio가 아닐 때만(예: band_arp_bass) 적용함.
         // 요청: 멜로디가 쉼표로 일찍 끝나더라도 마지막 마디의 뒤 2박(3~4박)은 항상 근음으로 끌어줌 —
         // 그래서 더 이상 melEnd로 자르지 않고, 이 마디의 실제 끝(4박)까지 무조건 지속함.
         const rootBeat=measStartBeat+2;
@@ -3352,7 +3351,7 @@ function drumHat(t){
 // 계열 스타일일 때만 호출됨. 멜로디가 끝난 뒤(빈 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd
 // 기준).
 function scheduleBandLayer(start,beat){
-  if(chordStyle!=='band_hold' && chordStyle!=='band_hold_bass' && chordStyle!=='band_arp' && chordStyle!=='band_arp_bass' && chordStyle!=='band_guitar_arp') return;
+  if(chordStyle!=='band_hold' && chordStyle!=='band_hold_bass' && chordStyle!=='band_arp_bass' && chordStyle!=='band_guitar_arp') return;
   // scheduleChords와 같은 이유로 melEnd 대신 arrangementEndBeats() 사용 — 멜로디 없이 화음만 있는
   // 뒷마디에서도 드럼/베이스가 함께 이어지게 함.
   const melEnd=arrangementEndBeats();
@@ -3391,12 +3390,12 @@ function scheduleBandLayer(start,beat){
       const nl=chordNotesAndLabel(c);
       if(nl && nl.notes.length){
         const voiced=voiceChordNotes(nl.notes,3);
-        if(chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='band_guitar_arp'){
-          // '밴드(피아노 펼침화음)'/'밴드(기타 아르페지오)'는 베이스를 점4분음표+8분음표(=2박) 한
-          // 세트로 반복하는 리듬으로 넣음. band_arp_bass만 실제 베이스기타 음원(샘플)을 쓰고
-          // (요청: "피아노 부분에 베이스기타 넣는 버전"), 이 음원 범위(bassguitar 출처 주석 참고)에
-          // 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀 — 나머지(band_arp/band_guitar_arp)는 신스
-          // pluck(bassGuitarPluck) 그대로 유지.
+        if(chordStyle==='band_arp_bass' || chordStyle==='band_guitar_arp'){
+          // '밴드(피아노 펼침화음+베이스기타)'/'밴드(기타 아르페지오)'는 베이스를 점4분음표+8분음표
+          // (=2박) 한 세트로 반복하는 리듬으로 넣음. band_arp_bass는 실제 베이스기타 음원(샘플)을
+          // 쓰고(요청: "피아노 부분에 베이스기타 넣는 버전"), 이 음원 범위(bassguitar 출처 주석
+          // 참고)에 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀 — band_guitar_arp는 신스 pluck
+          // (bassGuitarPluck) 그대로 유지.
           const useSample = chordStyle==='band_arp_bass';
           const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
           const pat=[1.5,0.5,1.5,0.5];
@@ -3459,7 +3458,7 @@ async function startPlayback(countIn,useMet,btn){
   // 일 없이 재생 시작부터 바로 진짜 악기 소리가 남. 이미 불러온 상태면(흔한 경우) 거의 즉시 끝남.
   const neededLibs=new Set();
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
-  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
+  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
   if(chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
