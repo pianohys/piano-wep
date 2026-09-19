@@ -845,17 +845,6 @@ function voiceChordNotes(names, baseOctave){
   }
   return out;
 }
-// '어쿠스틱 기타'(guitar_arp) 전용 반주 패턴에서 원래 화음(3화음)에 없던 7음을 새로 끌어올 때 씀 —
-// 현재 조성(keyMode)의 음계에서 근음 위 7도(음계 6칸 위)를 그대로 씀. 예: 장조 딸림화음(솔-시-레)의
-// 근음 솔 위 7도는 파라서 딸림7화음(솔-시-레-파)과 같은 소리가 남. 건반 직접입력 화음처럼 scale에 없는
-// 음이름(임의 반음 등)이 오면 못 찾은 것으로 보고 null 반환 — 호출부에서 7음 없이 3화음만 쓰는 걸로
-// 자연스럽게 대체됨.
-const SCALE_NAMES={ major:['도','레','미','파','솔','라','시'], minor:['라','시','도','레','미','파','솔#'] };
-function diatonicSeventh(rootName){
-  const scale=SCALE_NAMES[keyMode]||SCALE_NAMES.major;
-  const idx=scale.indexOf(rootName);
-  return idx<0 ? null : scale[(idx+6)%7];
-}
 // 마디별로 붙인 화음: 마디 인덱스 -> {deg:1~7, mode:1(화음유지)|2(펼침화음)} | null. MEAS 길이에 맞춰
 // setMeasures()가 늘리고 줄임(아래).
 const chordData=new Array(MEAS).fill(null);
@@ -2282,11 +2271,9 @@ tempo.addEventListener('input',()=>bpmLbl.textContent=tempo.value);
 const keymodeSel=document.getElementById('keymode');
 keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordPopup(); refreshChordTags(); });
 // 화음 반주를 어떤 소리·패턴으로 들려줄지 (예전엔 마디마다 골라둔 화음유지/펼침화음을 그대로 신스
-// 음색으로 내는 'simple' 스타일도 있었는데, 요청으로 아예 없앰 — 그 신스 음색은 이제 band_hold가
-// 그대로 물려받음. 첫 옵션은 arpeggio):
+// 음색으로 내는 'simple' 스타일도 있었는데, 요청으로 아예 없앰. 첫 옵션은 arpeggio):
 // - arpeggio: 마디별 설정과 상관없이 항상 펼침화음 패턴 + 피아노 음색으로 고정.
-// - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴 + (구 'simple'과 같은)
-//   신스 음색으로 고정.
+// - band_hold: 드럼+베이스를 더하고, 화음은 항상 화음유지(블록 코드) 패턴 + 피아노 음색으로 고정.
 // - band_hold_bass: band_hold와 같지만 베이스만 실제 베이스기타 음원(bassguitar 샘플)으로 바꿈
 //   (마디 내내 한 음을 끄는 리듬은 그대로 — 실제 베이스도 한 번 뜯고 자연스럽게 울려 퍼지게 둠).
 // - band_arp: 드럼+베이스를 더하고, 화음은 항상 펼침화음 패턴 + 피아노 배음 음색으로 고정.
@@ -2294,7 +2281,7 @@ keymodeSel.addEventListener('change',()=>{ keyMode=keymodeSel.value; closeChordP
 //   리듬은 그대로).
 // - guitar_arp(표시 이름 '어쿠스틱 기타'): 진짜 기타(Shinyguitar 어쿠스틱) 샘플 음색 고정(드럼/베이스
 //   없음), 화음 패턴도 다른 펼침화음 스타일과 다른 전용 핑거스타일 패턴을 씀(scheduleChords의
-//   guitar_arp 분기, diatonicSeventh 참고 — 아이유 밤편지 반주 느낌 요청).
+//   guitar_arp 분기 — 아이유 밤편지 반주 느낌 요청. 근음(1) 치고 3·5도 화음 반복).
 // - band_guitar_arp: guitar_arp에 밴드(드럼+베이스, band_arp와 같은 신스 베이스기타 리듬)를 더함.
 //   (요청으로 기타 아르페지오 쪽의 베이스기타 버전은 빼고, 대신 band_hold/band_arp 쪽에 각각
 //   베이스기타 버전을 새로 만듦.)
@@ -2306,7 +2293,7 @@ const chordStyleSel=document.getElementById('chordStyleSel');
 // 시작함 — startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생
 // 버튼을 눌렀을 때 로딩 없이 바로 소리가 남.
 function preloadForChordStyle(style){
-  if(style==='band_hold_bass' || style==='band_arp' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
+  if(style==='band_hold' || style==='band_hold_bass' || style==='band_arp' || style==='band_arp_bass' || style==='arpeggio') loadInstrumentSamples('piano');
   if(style==='guitar_arp' || style==='band_guitar_arp') loadInstrumentSamples('guitar');
   if(style==='band_hold_bass' || style==='band_arp_bass') loadInstrumentSamples('bassguitar');
 }
@@ -2937,11 +2924,10 @@ function tone(t,freq,dur,vol,type='triangle',opts){
   sources.push(o);
 }
 // 화음 한 음 — 멜로디의 hit()과 다른(더 부드럽고 어두운) 음색을 쓰고, chordBus로 보내서 멜로디와
-// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '밴드(화음유지+베이스기타)'·'밴드(피아노 펼침화음)'
-// 두 스타일과 '펼침화음(피아노)'은 실제 피아노 음원(piano 샘플)을 쓰고, 로딩 중일 때만 예전 배음+
-// 타건 클릭 합성 방식으로 대체함. '밴드(화음유지)'는 요청으로 피아노 대신 신스(맨 아래 기본 tone())
-// 음색을 씀 — 예전 'simple' 스타일이 쓰던 것과 같은 음색. 화음 자체의 음높이·박자·지속시간(화음유지/
-// 펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/지지직 문제가 다시 생기지 않게 함.
+// 소리는 섞이되 녹음할 때는 따로 뺄 수 있게 함. '밴드' 스타일들과 '펼침화음(피아노)'은 실제 피아노
+// 음원(piano 샘플)을 쓰고, 로딩 중일 때만 예전 배음+타건 클릭 합성 방식으로 대체함. 화음 자체의
+// 음높이·박자·지속시간(화음유지/펼침화음 타이밍)은 절대 안 건드려서, 위에서 애써 잡아둔 맥놀이/
+// 지지직 문제가 다시 생기지 않게 함.
 function chordTone(t,freq,dur,vol){
   const bus=getChordBus();
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp'){
@@ -2951,7 +2937,7 @@ function chordTone(t,freq,dur,vol){
     guitarPluckFallback(t,freq,dur,vol);
     return;
   }
-  if(chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
+  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio'){
     // 반주 피아노 음량 — 너무 크다는 피드백에 계속 낮추다가(2.6→1.3→0.75→0.5) 이번엔 너무 작아서
     // 잘 안 들린다는 반대 피드백을 받아 다시 살짝 키움(0.5→0.85).
     if(playSampleNote('piano', t, freq, dur, vol*0.85, bus)) return;
@@ -3181,20 +3167,15 @@ function scheduleChords(start,beat){
     const voiced=voiceChordNotes(nl.notes, 3);   // 근음을 3옥타브대에 둬서 멜로디보다 낮은 반주 음역으로
     if(effectiveChordMode(c)===2 && chordStyle==='guitar_arp'){
       // '어쿠스틱 기타' 전용 핑거스타일 패턴(아이유 밤편지 반주 느낌 요청) — 한 마디(4박)를 2박씩 두
-      // 덩어리로 나눠서, 앞 2박은 근음(1)을 한 번 치고 3·5도 화음을 8분음표-4분음표-8분음표 리듬으로
-      // 두 번, 뒤 2박은 3음을 한 번 치고 5·7도 화음을 같은 리듬으로 두 번 쳐서 위로 굴러가듯 올라감.
-      // 7음은 diatonicSeventh()로 새로 끌어옴(원래 3화음엔 없던 음).
-      const seventhName=diatonicSeventh(nl.notes[0]);
-      const v4=seventhName ? voiceChordNotes([...nl.notes, seventhName], 3) : voiced;
-      const at=i=>v4[Math.min(i, v4.length-1)];
-      const events=[
+      // 덩어리로 나눠서, 각 덩어리마다 근음(1)을 한 번 치고 3·5도 화음을 8분음표-4분음표-8분음표
+      // 리듬으로 두 번 쳐서 반복함(요청: "1음 후에 3,5음으로만 반복").
+      const at=i=>voiced[Math.min(i, voiced.length-1)];
+      const half=[
         {beat:0,   dur:0.5, notes:[at(0)]},
         {beat:0.5, dur:1.0, notes:[at(1),at(2)]},
         {beat:1.5, dur:0.5, notes:[at(1),at(2)]},
-        {beat:2,   dur:0.5, notes:[at(1)]},
-        {beat:2.5, dur:1.0, notes:[at(2),at(3)]},
-        {beat:3.5, dur:0.5, notes:[at(2),at(3)]},
       ];
+      const events=[...half, ...half.map(ev=>({...ev, beat:ev.beat+2}))];
       for(const ev of events){
         const noteBeat=measStartBeat+ev.beat;
         if(noteBeat>=melEnd) break;
@@ -3478,7 +3459,7 @@ async function startPlayback(countIn,useMet,btn){
   // 일 없이 재생 시작부터 바로 진짜 악기 소리가 남. 이미 불러온 상태면(흔한 경우) 거의 즉시 끝남.
   const neededLibs=new Set();
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
-  if(chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
+  if(chordStyle==='band_hold' || chordStyle==='band_hold_bass' || chordStyle==='band_arp' || chordStyle==='band_arp_bass' || chordStyle==='arpeggio') neededLibs.add('piano');
   if(chordStyle==='guitar_arp' || chordStyle==='band_guitar_arp') neededLibs.add('guitar');
   if(chordStyle==='band_hold_bass' || chordStyle==='band_arp_bass') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
