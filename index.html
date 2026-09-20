@@ -3469,7 +3469,11 @@ function scheduleBandLayer(start,beat){
               if(useSample){
                 if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45, getBassBus())) bassGuitarPluck(t, rootFreq, noteDur, 0.20);
               } else {
-                bassOrganTone(t, rootFreq, noteDur, 0.26);
+                // 요청: "베이스 신스도 베이스기타와 같은 리듬으로" — 음 길이(noteDur) 자체는 이미
+                // 베이스기타와 똑같이 pat을 그대로 따르지만, bassOrganTone은 감쇠 없이 쭉 이어지는
+                // 소리라 같은 음(근음)이 이어지면 리듬이 안 들리고 하나로 뭉개짐. 각 음을 살짝(92%)
+                // 짧게 끊어서 베이스기타처럼 음 하나하나가 리듬으로 또렷하게 들리게 함.
+                bassOrganTone(t, rootFreq, noteDur*0.92, 0.26);
               }
             }
             off+=d;
