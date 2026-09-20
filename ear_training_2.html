@@ -636,6 +636,192 @@
   const stepCompleteScreen = document.getElementById("stepCompleteScreen");
   const stepIntroScreen = document.getElementById("stepIntroScreen");
 
+  // ---------- student setup ----------
+  document.getElementById("setupStartBtn").addEventListener("click", ()=>{
+    const g = document.getElementById("setupGrade").value.trim();
+    const c = document.getElementById("setupClass").value.trim();
+    const n = document.getElementById("setupName").value.trim();
+    const err = document.getElementById("setupError");
+    if(!g || !c || !n){ err.textContent = "학년, 반, 이름을 모두 입력해주세요."; return; }
+    err.textContent = "";
+    studentInfo = { grade:g, klass:c, name:n, storageId: sanitizeToken(g)+"-"+sanitizeToken(c)+"-"+sanitizeToken(n) };
+    document.getElementById("screen-setup").style.display = "none";
+    renderMenu();
+    menuScreen.style.display = "block";
+  });
+
+  // ---------- hidden teacher entry: tap the page title 5 times quickly ----------
+  let titleTaps = 0;
+  let titleTapTimer = null;
+  document.querySelector("h1").addEventListener("click", ()=>{
+    titleTaps++;
+    clearTimeout(titleTapTimer);
+    titleTapTimer = setTimeout(()=>{ titleTaps = 0; }, 1500);
+    if(titleTaps >= 5){
+      titleTaps = 0;
+      document.getElementById("teacherPinInput").value = "";
+      document.getElementById("teacherPinError").textContent = "";
+      document.getElementById("teacherAuthOverlay").classList.add("open");
+    }
+  });
+
+  function submitTeacherPin(){
+    const val = document.getElementById("teacherPinInput").value.trim();
+    if(val === TEACHER_PIN){
+      document.getElementById("teacherAuthOverlay").classList.remove("open");
+      document.getElementById("teacherDashOverlay").classList.add("open");
+      loadDashboard();
+      startDashboardPolling();
+    } else {
+      document.getElementById("teacherPinError").textContent = "비밀번호가 올바르지 않아요.";
+    }
+  }
+  document.getElementById("teacherPinSubmit").addEventListener("click", submitTeacherPin);
+  document.getElementById("teacherPinInput").addEventListener("keydown", e=>{ if(e.key === "Enter") submitTeacherPin(); });
+
+  document.getElementById("dashCloseBtn").addEventListener("click", ()=>{
+    document.getElementById("teacherDashOverlay").classList.remove("open");
+    stopDashboardPolling();
+  });
+  document.getElementById("dashRefreshBtn").addEventListener("click", loadDashboard);
+
+  document.getElementById("dashExportBtn").addEventListener("click", ()=>{
+    if(lastDashRows.length === 0){ alert("내려받을 기록이 없어요."); return; }
+    const header = ["학년","반","이름","회차","단계","정답","전체","정확도","기기ID"];
+    const csvRows = lastDashRows.map(r=> [
+      r.grade||"", r.klass||"", r.name||"", r.attemptNo||1, r.stepTitle||r.step||"",
+      r.correct, r.total, (r.accuracy!=null ? r.accuracy : (r.total ? Math.round(r.correct/r.total*100) : 0)), r.deviceId||""
+    ]);
+    const esc = v=>{ const s=String(v==null?"":v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+    const csv = [header, ...csvRows].map(row=> row.map(esc).join(",")).join("\r\n");
+    const blob = new Blob(["﻿"+csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = APP_MODE + "_기록_" + stamp + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("dashClearBtn").addEventListener("click", async ()=>{
+    if(!confirm("기록을 모두 삭제할까요? 되돌릴 수 없어요.")) return;
+    try{
+      const res = await window.storage.list(APP_MODE+":");
+      const keyNames = ((res && res.keys) || []).map(k=> typeof k==="string" ? k : k.key);
+      for(const k of keyNames){ try{ await window.storage.delete(k); }catch(e){} }
+    }catch(e){ console.error(e); }
+    loadDashboard();
+  });
+
+  let dashInterval = null;
+  function startDashboardPolling(){ stopDashboardPolling(); dashInterval = setInterval(loadDashboard, 4000); }
+  function stopDashboardPolling(){ if(dashInterval){ clearInterval(dashInterval); dashInterval = null; } }
+
+  let lastDashRows = [];
+
+  async function loadDashboard(){
+    const dashBody = document.getElementById("dashBody");
+    const dashUpdated = document.getElementById("dashUpdated");
+    try{
+      const res = await window.storage.list(APP_MODE+":");
+      const keyNames = ((res && res.keys) || []).map(k=> typeof k==="string" ? k : k.key);
+      const rows = [];
+      for(const k of keyNames){
+        try{
+          const got = await window.storage.get(k);
+          if(got && got.value) rows.push(JSON.parse(got.value));
+        }catch(e){}
+      }
+      const numOr = v=>{ const n=parseInt(v,10); return isNaN(n) ? 9999 : n; };
+      rows.sort((a,b)=>
+        numOr(a.grade)-numOr(b.grade) ||
+        numOr(a.klass)-numOr(b.klass) ||
+        (a.name||"").localeCompare(b.name||"","ko") ||
+        (a.attemptNo||1)-(b.attemptNo||1)
+      );
+      lastDashRows = rows;
+      renderDashRows(rows);
+      dashUpdated.textContent = rows.length + "명 · " + new Date().toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit" }) + " 기준";
+    }catch(e){
+      lastDashRows = [];
+      dashUpdated.textContent = "불러오지 못했어요";
+      dashBody.innerHTML = '<tr class="empty-row"><td colspan="8">데이터를 불러올 수 없어요</td></tr>';
+    }
+  }
+
+  // 같은 기기(deviceId)로 서로 다른 이름이 제출된 경우를 찾아 의심 신호로 표시
+  function findSuspiciousNames(rows){
+    const namesByDevice = {};
+    rows.forEach(r=>{
+      if(!r.deviceId) return;
+      if(!namesByDevice[r.deviceId]) namesByDevice[r.deviceId] = new Set();
+      namesByDevice[r.deviceId].add(r.name || "이름없음");
+    });
+    const suspicious = new Set();
+    rows.forEach(r=>{ if(r.deviceId && namesByDevice[r.deviceId].size > 1) suspicious.add(r); });
+    return suspicious;
+  }
+
+  function renderDashRows(rows){
+    const dashBody = document.getElementById("dashBody");
+    if(rows.length === 0){
+      dashBody.innerHTML = '<tr class="empty-row"><td colspan="8">아직 제출한 학생이 없어요</td></tr>';
+      return;
+    }
+    const suspicious = findSuspiciousNames(rows);
+    dashBody.innerHTML = "";
+    rows.forEach(r=>{
+      const tr = document.createElement("tr");
+
+      const gradeTd = document.createElement("td"); gradeTd.className = "num"; gradeTd.textContent = r.grade || "-";
+      const classTd = document.createElement("td"); classTd.className = "num"; classTd.textContent = r.klass || "-";
+      const nameTd = document.createElement("td"); nameTd.textContent = r.name || "이름없음";
+      if(suspicious.has(r)){
+        const warnEl = document.createElement("span");
+        warnEl.textContent = " ⚠️ 같은 기기, 다른 이름";
+        warnEl.style.color = "#ff8a70";
+        warnEl.style.fontSize = "11.5px";
+        warnEl.title = "이 기기(브라우저)로 다른 이름이 제출된 적이 있어요.";
+        nameTd.appendChild(warnEl);
+      }
+      const attemptTd = document.createElement("td"); attemptTd.className = "num"; attemptTd.textContent = (r.attemptNo||1) + "차";
+      const stepTd = document.createElement("td"); stepTd.textContent = r.stepTitle || r.step || "-";
+      const correctTd = document.createElement("td"); correctTd.className = "num"; correctTd.textContent = r.correct;
+      const totalTd = document.createElement("td"); totalTd.className = "num"; totalTd.textContent = r.total;
+      const accTd = document.createElement("td"); accTd.className = "num";
+      accTd.textContent = (r.accuracy!=null ? r.accuracy : (r.total ? Math.round(r.correct/r.total*100) : 0)) + "%";
+
+      tr.appendChild(gradeTd); tr.appendChild(classTd); tr.appendChild(nameTd); tr.appendChild(attemptTd);
+      tr.appendChild(stepTd); tr.appendChild(correctTd); tr.appendChild(totalTd); tr.appendChild(accTd);
+      dashBody.appendChild(tr);
+    });
+  }
+
+  async function submitRecord(step, correct, total, acc){
+    if(!studentInfo) return;
+    try{
+      const attemptNo = await nextAttemptNo(APP_MODE, studentInfo.storageId);
+      const key = APP_MODE + ":" + studentInfo.storageId + ":" + pad3(attemptNo);
+      const value = JSON.stringify({
+        grade: studentInfo.grade,
+        klass: studentInfo.klass,
+        name: studentInfo.name,
+        deviceId: DEVICE_ID,
+        attemptNo,
+        step: step.key,
+        stepTitle: step.title,
+        correct,
+        total,
+        accuracy: acc,
+        updatedAt: Date.now()
+      });
+      await window.storage.set(key, value);
+    }catch(e){ console.error("score submit failed", e); }
+  }
+
   function renderMenu(){
     STEPS.forEach((step, i)=>{
       const card = document.getElementById("card"+i);
@@ -960,6 +1146,7 @@
     document.getElementById("completeTitle").textContent = `🎉 ${step.title} 완료!`;
     document.getElementById("completeStats").textContent =
       `첫 시도 정답 ${firstTryRounds}회 (정확도 ${acc}%)`;
+    submitRecord(step, firstTryRounds, completedRounds, acc);
   }
 
   function prepareStep(idx){

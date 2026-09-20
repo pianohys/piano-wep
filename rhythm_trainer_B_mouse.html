@@ -123,6 +123,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
+  <div class="setup-overlay show" id="setup-overlay">
+    <div class="setup-card">
+      <div class="perm-title">🎵 학생 정보 입력</div>
+      <div class="perm-step">학년, 반, 이름을 입력하면 선생님이 결과를 확인할 수 있어요.</div>
+      <input class="name-input" id="setup-grade" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+      <input class="name-input" id="setup-klass" type="text" inputmode="numeric" placeholder="반" maxlength="3">
+      <input class="name-input" id="setup-name" type="text" placeholder="이름" maxlength="20">
+      <div class="overlay-error" id="setup-error"></div>
+      <button class="primary-btn" id="setup-start-btn">시작하기</button>
+    </div>
+  </div>
+
+  <div class="teacher-overlay" id="teacherAuthOverlay">
+    <div class="setup-card">
+      <div class="perm-title">🔒 선생님 확인</div>
+      <div class="perm-step">비밀번호를 입력하면 학생 제출 현황을 볼 수 있어요.</div>
+      <input class="name-input" id="teacher-pin-input" type="password" inputmode="numeric" placeholder="비밀번호" maxlength="12">
+      <div class="overlay-error" id="teacher-pin-error"></div>
+      <button class="primary-btn" id="teacher-pin-btn">확인</button>
+      <button class="perm-close-btn" id="teacher-auth-close" style="margin-top:.6rem;">닫기</button>
+    </div>
+  </div>
+
+  <div class="dash-overlay" id="teacherDashOverlay">
+    <div class="setup-card dash-card">
+      <div class="dash-toolbar">
+        <div class="perm-title" style="margin-bottom:0;">📊 학생 제출 현황</div>
+        <div class="dash-actions">
+          <button class="act-btn" id="dash-refresh-btn">새로고침</button>
+          <button class="act-btn" id="dash-export-btn">엑셀로 내려받기</button>
+          <button class="act-btn" id="dash-clear-btn" style="color:#E24B4A;border-color:#E24B4A;">기록 초기화</button>
+          <button class="act-btn" id="dash-close-btn">닫기</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="dash-table">
+          <thead>
+            <tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>정답</th><th>시도</th><th>최고연속</th><th>총문항</th></tr>
+          </thead>
+          <tbody id="dash-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div class="nc">
     <div class="nc-lbl" id="nc-lbl">리듬</div>
     <canvas id="nc" height="80" style="width:100%;display:block;"></canvas>
