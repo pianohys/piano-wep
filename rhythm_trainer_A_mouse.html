@@ -71,6 +71,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .perm-platform{font-size:12px;color:var(--text2);margin-bottom:.8rem;line-height:1.7;}
 .perm-platform strong{color:var(--text);font-weight:600;}
 .perm-close-btn{width:100%;padding:.65rem;font-size:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-weight:500;}
+.overlay-error{color:#E24B4A;font-size:13px;margin:.3rem 0 0;min-height:16px;text-align:center;}
+.overlay-btn{width:100%;padding:.75rem;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:1px solid #534AB7;background:#534AB7;color:#fff;cursor:pointer;margin-top:.2rem;}
+.dash-card{max-width:640px;max-height:85vh;overflow-y:auto;}
+.dash-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.7rem;gap:8px;flex-wrap:wrap;}
+.dash-title{font-size:16px;font-weight:700;color:var(--text);}
+.dash-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.dash-btn{padding:.4rem .8rem;font-size:12.5px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;}
+.dash-btn.danger{color:#E24B4A;border-color:#E24B4A;}
+.dash-updated{font-size:11.5px;color:var(--text3);margin-bottom:.5rem;}
+.dash-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.dash-table th,.dash-table td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--border);}
+.dash-table th{color:var(--text3);font-weight:600;font-size:11px;}
 </style>
 </head>
 <body>
@@ -108,6 +120,45 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
+  <div class="perm-overlay show" id="setup-overlay">
+    <div class="perm-card">
+      <div class="perm-title">✏️ 학생 정보 입력</div>
+      <input class="name-input" id="setup-grade" type="text" inputmode="numeric" placeholder="학년" maxlength="2" style="margin-bottom:.6rem;">
+      <input class="name-input" id="setup-class" type="text" inputmode="numeric" placeholder="반" maxlength="3" style="margin-bottom:.6rem;">
+      <input class="name-input" id="setup-name" type="text" placeholder="이름" maxlength="20" style="margin-bottom:.6rem;">
+      <p class="overlay-error" id="setup-error"></p>
+      <button class="overlay-btn" id="setup-submit">시작하기</button>
+    </div>
+  </div>
+
+  <div class="perm-overlay" id="teacherAuthOverlay">
+    <div class="perm-card">
+      <div class="perm-title">🔒 선생님 확인</div>
+      <input class="name-input" id="teacher-pin-input" type="password" inputmode="numeric" placeholder="비밀번호" maxlength="12" style="margin-bottom:.4rem;">
+      <p class="overlay-error" id="teacher-pin-error"></p>
+      <button class="overlay-btn" id="teacher-pin-submit">확인</button>
+    </div>
+  </div>
+
+  <div class="perm-overlay" id="teacherDashOverlay">
+    <div class="perm-card dash-card">
+      <div class="dash-head">
+        <div class="dash-title">📊 학생 제출 현황</div>
+        <div class="dash-actions">
+          <button class="dash-btn" id="dash-export">엑셀로 내려받기</button>
+          <button class="dash-btn" id="dash-refresh">새로고침</button>
+          <button class="dash-btn danger" id="dash-clear">기록 초기화</button>
+          <button class="dash-btn" id="dash-close">닫기</button>
+        </div>
+      </div>
+      <div class="dash-updated" id="dash-updated">불러오는 중...</div>
+      <table class="dash-table">
+        <thead><tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>정답</th><th>시도</th><th>최고연속</th><th>총문항</th></tr></thead>
+        <tbody id="dash-body"><tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px 0;">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="nc">
     <div class="nc-lbl" id="nc-lbl">리듬</div>
     <canvas id="nc" height="80" style="width:100%;display:block;"></canvas>
@@ -135,6 +186,50 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script>
+const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+async function storageRequest(action, params){
+  const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+  const res = await fetch(STORAGE_API_URL + '?' + qs);
+  if (!res.ok) throw new Error('storage request failed: ' + res.status);
+  return res.json();
+}
+window.storage = {
+  list: (prefix) => storageRequest('list', { prefix }),
+  get: (key) => storageRequest('get', { key }),
+  set: (key, value) => storageRequest('set', { key, value }),
+  delete: (key) => storageRequest('delete', { key })
+};
+function getDeviceId(){
+  try{
+    let id = localStorage.getItem('claudeToolsDeviceId');
+    if(!id){
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('claudeToolsDeviceId', id);
+    }
+    return id;
+  }catch(_){ return null; }
+}
+const DEVICE_ID = getDeviceId();
+const TEACHER_PIN = '2580';
+const APP_MODE = 'rhyA_ms';
+function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
+function pad3(n){ return String(n).padStart(3,'0'); }
+async function nextAttemptNo(mode, storageId){
+  try{
+    const res = await window.storage.list(mode+':'+storageId+':');
+    const keyNames = ((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    let max=0;
+    keyNames.forEach(k=>{ const n=parseInt(k.split(':').pop(),10); if(!isNaN(n)&&n>max)max=n; });
+    return max+1;
+  }catch(e){ return 1; }
+}
+let studentInfo = null;
+function blockedByOverlay(){
+  return !studentInfo ||
+    document.getElementById('teacherAuthOverlay').classList.contains('show') ||
+    document.getElementById('teacherDashOverlay').classList.contains('show');
+}
+
 let bpm=72,audioCtx=null;
 function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
 function playClick(t,accent){const c=getCtx(),o=c.createOscillator(),g=c.createGain();o.frequency.value=accent?1500:1000;o.type='sine';g.gain.setValueAtTime(accent?.6:.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.07);}
@@ -436,7 +531,19 @@ function advanceQuestion(){
     showDone();
   }
 }
-function showDone(){phase='done';stopMetro();stopMic();playFanfare();document.getElementById('done-screen').style.display='block';document.getElementById('done-sub').textContent='총 '+attempts+'번 시도 / 정답 '+correct+'문제 / 최고 연속 '+streak+'회';setStatus('모든 리듬 완료! 축하합니다! 🎉','s-done');setTimeout(()=>document.getElementById('name-input').focus(),400);}
+function showDone(){phase='done';stopMetro();stopMic();playFanfare();document.getElementById('done-screen').style.display='block';document.getElementById('done-sub').textContent='총 '+attempts+'번 시도 / 정답 '+correct+'문제 / 최고 연속 '+streak+'회';setStatus('모든 리듬 완료! 축하합니다! 🎉','s-done');submitRecord();setTimeout(()=>document.getElementById('name-input').focus(),400);}
+async function submitRecord(){
+  try{
+    const attemptNo = await nextAttemptNo(APP_MODE, studentInfo.storageId);
+    const key = APP_MODE+':'+studentInfo.storageId+':'+pad3(attemptNo);
+    const value = JSON.stringify({
+      grade: studentInfo.grade, klass: studentInfo.klass, name: studentInfo.name,
+      deviceId: DEVICE_ID, attemptNo, correct, attempts, streak, total: RHYTHMS.length,
+      updatedAt: Date.now()
+    });
+    await window.storage.set(key, value);
+  }catch(e){ console.error('score submit failed', e); }
+}
 function stopMic(){micOn=false;document.getElementById('mic-btn').classList.remove('active');document.getElementById('mic-btn').textContent='🎤 음성인식 OFF';if(micAnimId){cancelAnimationFrame(micAnimId);micAnimId=null;}if(micStream){micStream.getTracks().forEach(t=>t.stop());micStream=null;}analyserNode=null;}
 function doStartMic(){navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(stream=>{micStream=stream;micOn=true;document.getElementById('mic-btn').classList.add('active');document.getElementById('mic-btn').textContent='🎤 음성인식 ON';const ac=getCtx(),source=ac.createMediaStreamSource(stream);analyserNode=ac.createAnalyser();analyserNode.fftSize=512;source.connect(analyserNode);const data=new Uint8Array(analyserNode.fftSize);function loop(){if(!micOn)return;micAnimId=requestAnimationFrame(loop);analyserNode.getByteTimeDomainData(data);let peak=0;for(let i=0;i<data.length;i++)peak=Math.max(peak,Math.abs(data[i]-128));const now=ac.currentTime;if(peak>140&&now-lastHitTime>0.08){lastHitTime=now;if(phase==='practicing')doRegisterHit();}}loop();}).catch(()=>document.getElementById('perm-overlay').classList.add('show'));}
 function startMicHit(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){document.getElementById('perm-overlay').classList.add('show');return;}doStartMic();}
@@ -456,6 +563,7 @@ function doRegisterHit(){
 }
 
 function handleAnyKey(){
+  if(blockedByOverlay())return;
   if(phase==='done')return;
   if(document.activeElement===document.getElementById('name-input'))return;
   getCtx();
@@ -468,6 +576,7 @@ function handleAnyKey(){
 // single pointerdown handler — works for mouse, touch, stylus
 let lastPointerTime=0;
 function onPointerHit(e){
+  if(blockedByOverlay())return;
   if(e.target.closest('#bpm-sl')||e.target.closest('#mic-btn')||e.target.closest('#metro-btn')||e.target.closest('#perm-overlay')||e.target.closest('#restart-btn')||e.target.closest('#name-input'))return;
   const now=Date.now();
   if(now-lastPointerTime<80)return;
@@ -479,7 +588,7 @@ function onPointerHit(e){
   }
 }
 document.getElementById('hit-btn').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();onPointerHit(e);},{capture:true});
-document.getElementById('metro-btn').addEventListener('click',()=>{getCtx();if(phase==='intro'){document.getElementById('intro-box').style.display='none';phase='idle';}startMetroAndPractice();});
+document.getElementById('metro-btn').addEventListener('click',()=>{if(blockedByOverlay())return;getCtx();if(phase==='intro'){document.getElementById('intro-box').style.display='none';phase='idle';}startMetroAndPractice();});
 document.getElementById('mic-btn').addEventListener('click',()=>{if(micOn)stopMic();else startMicHit();});
 document.getElementById('perm-close').addEventListener('click',()=>document.getElementById('perm-overlay').classList.remove('show'));
 // keydown disabled — mouse only version
@@ -487,6 +596,159 @@ document.getElementById('bpm-sl').addEventListener('input',e=>{bpm=parseInt(e.ta
 document.getElementById('restart-btn').addEventListener('click',()=>{curQ=0;attempts=0;correct=0;streak=0;passCount=0;qAttempts=[];skippedQ=[];phase='idle';stopMetro();clearPT();document.getElementById('done-screen').style.display='none';document.getElementById('name-input').value='';updateUI();drawNotation(-1,null);setStatus('여기를 탭하거나 눌러서 시작하세요','s-idle');});
 window.addEventListener('resize',()=>drawNotation(highlightBeat,highlightColor));
 updateUI();drawNotation(-1,null);
+
+function submitSetup(){
+  const g=document.getElementById('setup-grade').value.trim();
+  const k=document.getElementById('setup-class').value.trim();
+  const n=document.getElementById('setup-name').value.trim();
+  const err=document.getElementById('setup-error');
+  if(!g||!k||!n){ err.textContent='학년, 반, 이름을 모두 입력해주세요.'; return; }
+  err.textContent='';
+  studentInfo={ grade:g, klass:k, name:n, storageId: sanitizeToken(g)+'-'+sanitizeToken(k)+'-'+sanitizeToken(n) };
+  document.getElementById('setup-overlay').classList.remove('show');
+}
+document.getElementById('setup-submit').addEventListener('click', submitSetup);
+['setup-grade','setup-class','setup-name'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown', e=>{ if(e.key==='Enter') submitSetup(); });
+});
+
+let titleTaps=0,titleTapTimer=null;
+document.querySelector('.title').addEventListener('click', () => {
+  titleTaps++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer=setTimeout(()=>{titleTaps=0;},1500);
+  if(titleTaps>=5){
+    titleTaps=0;
+    document.getElementById('teacher-pin-input').value='';
+    document.getElementById('teacher-pin-error').textContent='';
+    document.getElementById('teacherAuthOverlay').classList.add('show');
+  }
+});
+
+function submitTeacherPin(){
+  const val=document.getElementById('teacher-pin-input').value.trim();
+  if(val===TEACHER_PIN){
+    document.getElementById('teacherAuthOverlay').classList.remove('show');
+    document.getElementById('teacherDashOverlay').classList.add('show');
+    loadDashboard();
+    startDashPolling();
+  } else {
+    document.getElementById('teacher-pin-error').textContent='비밀번호가 올바르지 않아요.';
+  }
+}
+document.getElementById('teacher-pin-submit').addEventListener('click', submitTeacherPin);
+document.getElementById('teacher-pin-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submitTeacherPin(); });
+
+let dashInterval=null,lastDashRows=[];
+function startDashPolling(){ stopDashPolling(); dashInterval=setInterval(loadDashboard,4000); }
+function stopDashPolling(){ if(dashInterval){ clearInterval(dashInterval); dashInterval=null; } }
+document.getElementById('dash-close').addEventListener('click', () => {
+  document.getElementById('teacherDashOverlay').classList.remove('show');
+  stopDashPolling();
+});
+document.getElementById('dash-refresh').addEventListener('click', loadDashboard);
+
+function findSuspiciousNames(rows){
+  const namesByDevice={};
+  rows.forEach(r=>{
+    if(!r.deviceId)return;
+    if(!namesByDevice[r.deviceId])namesByDevice[r.deviceId]=new Set();
+    namesByDevice[r.deviceId].add(r.name||'이름없음');
+  });
+  const suspicious=new Set();
+  rows.forEach(r=>{ if(r.deviceId&&namesByDevice[r.deviceId].size>1)suspicious.add(r); });
+  return suspicious;
+}
+
+async function loadDashboard(){
+  const body=document.getElementById('dash-body');
+  const updated=document.getElementById('dash-updated');
+  try{
+    const res=await window.storage.list(APP_MODE+':');
+    const keyNames=((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    const rows=[];
+    for(const k of keyNames){
+      try{
+        const got=await window.storage.get(k);
+        if(got&&got.value)rows.push(JSON.parse(got.value));
+      }catch(e){}
+    }
+    const numOr=v=>{ const num=parseInt(v,10); return isNaN(num)?9999:num; };
+    rows.sort((a,b)=>
+      numOr(a.grade)-numOr(b.grade) ||
+      numOr(a.klass)-numOr(b.klass) ||
+      (a.name||'').localeCompare(b.name||'','ko') ||
+      (a.attemptNo||1)-(b.attemptNo||1)
+    );
+    lastDashRows=rows;
+    renderDashRows(rows);
+    updated.textContent=rows.length+'명 · '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 기준';
+  }catch(e){
+    lastDashRows=[];
+    updated.textContent='불러오지 못했어요';
+    body.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px 0;">데이터를 불러올 수 없어요</td></tr>';
+  }
+}
+
+function renderDashRows(rows){
+  const body=document.getElementById('dash-body');
+  if(rows.length===0){
+    body.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px 0;">아직 제출한 학생이 없어요</td></tr>';
+    return;
+  }
+  const suspicious=findSuspiciousNames(rows);
+  body.innerHTML='';
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    const cells=[r.grade||'-',r.klass||'-',null,(r.attemptNo||1)+'차',r.correct,r.attempts,r.streak||0,r.total||RHYTHMS.length];
+    cells.forEach((val,i)=>{
+      const td=document.createElement('td');
+      if(i===2){
+        td.textContent=r.name||'이름없음';
+        if(suspicious.has(r)){
+          const warnEl=document.createElement('span');
+          warnEl.textContent=' ⚠️ 같은 기기, 다른 이름';
+          warnEl.style.color='#E24B4A';
+          warnEl.style.fontSize='11px';
+          warnEl.title='이 기기(브라우저)로 다른 이름이 제출된 적이 있어요.';
+          td.appendChild(warnEl);
+        }
+      } else {
+        td.textContent=val;
+      }
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+document.getElementById('dash-export').addEventListener('click', () => {
+  if(lastDashRows.length===0){ alert('내려받을 기록이 없어요.'); return; }
+  const header=['학년','반','이름','회차','정답','시도','최고연속','총문항','기기ID'];
+  const csvRows=lastDashRows.map(r=>[r.grade||'',r.klass||'',r.name||'',r.attemptNo||1,r.correct,r.attempts,r.streak||0,r.total||RHYTHMS.length,r.deviceId||'']);
+  const esc=v=>{ const s=String(v==null?'':v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const csv=[header,...csvRows].map(row=>row.map(esc).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{ type:'text/csv;charset=utf-8;' });
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download='리듬트레이너_'+APP_MODE+'_'+stamp+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('dash-clear').addEventListener('click', async () => {
+  if(!confirm('모든 기록을 삭제할까요? 되돌릴 수 없어요.'))return;
+  try{
+    const res=await window.storage.list(APP_MODE+':');
+    const keyNames=((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    for(const k of keyNames){ try{ await window.storage.delete(k); }catch(e){} }
+  }catch(e){ console.error(e); }
+  loadDashboard();
+});
 </script>
 </body>
 </html>
