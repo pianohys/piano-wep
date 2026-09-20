@@ -1196,6 +1196,183 @@ document.getElementById('play').addEventListener('click',()=>{
   const total=(start+SLOTS*beat - A.currentTime)*1000 + 120;
   timers.push(setTimeout(()=>{ stopAll(); setStatus('연주 끝! 다시 들어 보거나 음표를 바꿔 보세요.'); }, total));
 });
+
+// ---------- 선생님께 제출 ----------
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const gradeVal = document.getElementById('gradeInput').value.trim();
+  const classVal = document.getElementById('classInput').value.trim();
+  const nameVal = (document.getElementById('savename').value || '').trim();
+  if (!gradeVal || !classVal || !nameVal){
+    setStatus('<b>학년·반·이름</b>을 모두 입력한 뒤 제출해 주세요.');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  try {
+    const storageId = sanitizeToken(gradeVal) + '-' + sanitizeToken(classVal) + '-' + sanitizeToken(nameVal);
+    const attemptNo = await nextAttemptNo(APP_MODE, storageId);
+    const key = APP_MODE + ':' + storageId + ':' + pad3(attemptNo);
+    const value = JSON.stringify({
+      grade: gradeVal, klass: classVal, name: nameVal,
+      deviceId: DEVICE_ID, attemptNo,
+      measureCount: MEAS, noteCount: slotData.filter(Boolean).length, totalSlots: SLOTS,
+      tempo: +tempo.value, shareCode: encodeShare(), updatedAt: Date.now()
+    });
+    await window.storage.set(key, value);
+    setStatus('선생님께 제출했어요! 🙋');
+  } catch (e) {
+    console.error('submit failed', e);
+    setStatus('제출에 실패했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- 숨은 선생님 입장: 제목을 5번 빠르게 누르면 비밀번호 화면이 열림 ----------
+let titleTaps = 0, titleTapTimer = null;
+document.querySelector('.top h1').addEventListener('click', () => {
+  titleTaps++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTaps = 0; }, 1500);
+  if (titleTaps >= 5){
+    titleTaps = 0;
+    document.getElementById('teacherPinInput').value = '';
+    document.getElementById('teacherPinError').textContent = '';
+    document.getElementById('teacherAuthOverlay').classList.add('open');
+  }
+});
+function submitTeacherPin(){
+  const val = document.getElementById('teacherPinInput').value.trim();
+  if (val === TEACHER_PIN){
+    document.getElementById('teacherAuthOverlay').classList.remove('open');
+    document.getElementById('teacherDashOverlay').classList.add('open');
+    loadDashboard();
+    startDashboardPolling();
+  } else {
+    document.getElementById('teacherPinError').textContent = '비밀번호가 올바르지 않아요.';
+  }
+}
+document.getElementById('teacherPinSubmit').addEventListener('click', submitTeacherPin);
+document.getElementById('teacherPinInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitTeacherPin(); });
+document.getElementById('dashClose').addEventListener('click', () => {
+  document.getElementById('teacherDashOverlay').classList.remove('open');
+  stopDashboardPolling();
+});
+
+let dashInterval = null;
+function startDashboardPolling(){ stopDashboardPolling(); dashInterval = setInterval(loadDashboard, 4000); }
+function stopDashboardPolling(){ if (dashInterval){ clearInterval(dashInterval); dashInterval = null; } }
+
+// 같은 기기(deviceId)로 서로 다른 이름이 제출된 경우, 다른 사람 이름으로 제출했을 수 있다는 의심 신호로 표시함.
+function findSuspiciousNames(rows){
+  const byDevice = {};
+  rows.forEach(r => {
+    if (!r.deviceId) return;
+    if (!byDevice[r.deviceId]) byDevice[r.deviceId] = new Set();
+    byDevice[r.deviceId].add(r.name || '이름없음');
+  });
+  const suspicious = new Set();
+  rows.forEach(r => { if (r.deviceId && byDevice[r.deviceId].size > 1) suspicious.add(r); });
+  return suspicious;
+}
+
+let lastDashRows = [];
+async function loadDashboard(){
+  const dashBody = document.getElementById('dashBody');
+  const dashUpdated = document.getElementById('dashUpdated');
+  try {
+    const res = await window.storage.list(APP_MODE + ':');
+    const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+    const rows = [];
+    for (const k of keyNames){
+      try { const got = await window.storage.get(k); if (got && got.value) rows.push(JSON.parse(got.value)); } catch (e) {}
+    }
+    const numOr = v => { const n = parseInt(v, 10); return isNaN(n) ? 9999 : n; };
+    rows.sort((a, b) =>
+      numOr(a.grade) - numOr(b.grade) ||
+      numOr(a.klass) - numOr(b.klass) ||
+      (a.name || '').localeCompare(b.name || '', 'ko') ||
+      (a.attemptNo || 1) - (b.attemptNo || 1)
+    );
+    lastDashRows = rows;
+    renderDashRows(rows);
+    dashUpdated.textContent = rows.length + '명 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
+  } catch (e) {
+    lastDashRows = [];
+    dashUpdated.textContent = '불러오지 못했어요';
+    dashBody.innerHTML = '<tr class="dash-empty"><td colspan="9">데이터를 불러올 수 없어요</td></tr>';
+  }
+}
+
+function renderDashRows(rows){
+  const dashBody = document.getElementById('dashBody');
+  if (rows.length === 0){
+    dashBody.innerHTML = '<tr class="dash-empty"><td colspan="9">아직 제출한 학생이 없어요</td></tr>';
+    return;
+  }
+  const suspicious = findSuspiciousNames(rows);
+  dashBody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const gradeTd = document.createElement('td'); gradeTd.className = 'num'; gradeTd.textContent = r.grade || '-';
+    const klassTd = document.createElement('td'); klassTd.className = 'num'; klassTd.textContent = r.klass || '-';
+    const nameTd = document.createElement('td'); nameTd.textContent = r.name || '이름없음';
+    if (suspicious.has(r)){
+      const w = document.createElement('span');
+      w.className = 'dash-warn';
+      w.textContent = ' ⚠️ 같은 기기, 다른 이름';
+      w.title = '이 기기(브라우저)로 다른 이름이 제출된 적이 있어요.';
+      nameTd.appendChild(w);
+    }
+    const attTd = document.createElement('td'); attTd.className = 'num'; attTd.textContent = (r.attemptNo || 1) + '차';
+    const measTd = document.createElement('td'); measTd.className = 'num'; measTd.textContent = r.measureCount != null ? r.measureCount : '-';
+    const noteTd = document.createElement('td'); noteTd.className = 'num'; noteTd.textContent = r.noteCount != null ? r.noteCount : '-';
+    const tempoTd = document.createElement('td'); tempoTd.className = 'num'; tempoTd.textContent = r.tempo != null ? (r.tempo + ' BPM') : '-';
+    const whenTd = document.createElement('td'); whenTd.className = 'num'; whenTd.textContent = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '-';
+    const viewTd = document.createElement('td');
+    if (r.shareCode){
+      const vbtn = document.createElement('button');
+      vbtn.className = 'dash-view-btn';
+      vbtn.textContent = '보기';
+      vbtn.addEventListener('click', () => window.open(location.pathname + '#z=' + r.shareCode, '_blank'));
+      viewTd.appendChild(vbtn);
+    } else viewTd.textContent = '-';
+    tr.appendChild(gradeTd); tr.appendChild(klassTd); tr.appendChild(nameTd); tr.appendChild(attTd);
+    tr.appendChild(measTd); tr.appendChild(noteTd); tr.appendChild(tempoTd); tr.appendChild(whenTd); tr.appendChild(viewTd);
+    dashBody.appendChild(tr);
+  });
+}
+
+document.getElementById('dashRefresh').addEventListener('click', loadDashboard);
+document.getElementById('dashExport').addEventListener('click', () => {
+  if (lastDashRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
+  const header = ['학년', '반', '이름', '회차', '마디수', '음표수', '빠르기', '제출시각', '기기ID'];
+  const csvRows = lastDashRows.map(r => [
+    r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.measureCount || '', r.noteCount || '',
+    r.tempo || '', r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '', r.deviceId || ''
+  ]);
+  const esc = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [header, ...csvRows].map(row => row.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = '리듬악보합치기_제출_' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.getElementById('dashClear').addEventListener('click', async () => {
+  if (!confirm('제출 기록을 모두 삭제할까요? 되돌릴 수 없어요.')) return;
+  try {
+    const res = await window.storage.list(APP_MODE + ':');
+    const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+    for (const k of keyNames){ try { await window.storage.delete(k); } catch (e) {} }
+  } catch (e) { console.error(e); }
+  loadDashboard();
+});
 </script>
 </body>
 </html>
