@@ -3442,6 +3442,13 @@ function getBassBus(){
 function bassNote(t,freq,dur,vol){
   tone(t,freq,dur,vol,'sine',{bus:getBassBus(), filterMul:2.0});
 }
+// 베이스 '신스' 선택 전용(요청: "베이스신스가 잘 안 들려서 오르간처럼 오래 울리는 소리로") —
+// bassGuitarPluck처럼 짧게 튕겼다 잦아드는 대신, organPedalTone과 같은 방식(tone()의 평평한 지속
+// 구간)으로 음량 변화 없이 음 길이만큼 쭉 이어지게 함. '베이스기타'(sample) 선택 쪽은 그대로 실제
+// 음원(또는 로딩 전 임시 대체용 bassGuitarPluck/bassNote)을 씀 — 이 함수는 안 씀.
+function bassOrganTone(t,freq,dur,vol){
+  tone(t,freq,dur,vol,'sine',{bus:getBassBus(), filterMul:2.5});
+}
 // 펼침화음 계열 베이스 전용 — 마디 내내 한 음을 쭉 끄는 bassNote 대신, 통기타처럼 줄을
 // 뜯는 순간 튕겼다가 자연스럽게 잦아드는 "베이스기타" 느낌의 감쇠(decay) 포락선을 씀(요청: "베이스
 // 기타소리"). 점4분음표+8분음표를 한 세트로 반복하는 리듬(scheduleBandLayer 참고)에 맞게 각 음이
@@ -3582,11 +3589,11 @@ function scheduleBandLayer(start,beat){
       const nl=chordNotesAndLabel(c);
       if(nl && nl.notes.length){
         const voiced=voiceChordNotes(nl.notes,3);
-        // bassStyle이 'sample'이면 실제 베이스기타 음원을 쓰고(요청: "베이스도 스스로 넣을수있게"),
-        // 이 음원 범위(bassguitar 출처 주석 참고)에 맞춰 root/4 대신 한 옥타브 위인 root/2를 씀 —
-        // 'synth'는 기존 신스 pluck(bassGuitarPluck/bassNote) 그대로, root/4 유지.
+        // 근음 옥타브: 'sample'은 베이스기타 음원 범위(bassguitar 출처 주석 참고)에 맞춰 원래부터
+        // root/4 대신 root/2를 썼고, 'synth'도 요청("한옥타브높여서")으로 원래 root/4에서 한 옥타브
+        // 올려 root/2로 맞춤 — 결과적으로 둘 다 root/2.
         const useSample = bassStyle==='sample';
-        const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
+        const rootFreq = voiced[0].freq/2;
         if(effectiveChordMode(c)===2){
           // 펼침화음 계열(펼침화음/어쿠스틱 기타/기타 아르페지오) 화음 스타일엔 베이스도 한 마디
           // 동안 점4분음표+8분음표+2분음표(1.5+0.5+2=4박, 마디 전체) 리듬으로 움직이게 함(요청:
@@ -3602,7 +3609,7 @@ function scheduleBandLayer(start,beat){
               if(useSample){
                 if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45, getBassBus())) bassGuitarPluck(t, rootFreq, noteDur, 0.20);
               } else {
-                bassGuitarPluck(t, rootFreq, noteDur, 0.20);
+                bassOrganTone(t, rootFreq, noteDur, 0.26);
               }
             }
             off+=d;
@@ -3615,7 +3622,7 @@ function scheduleBandLayer(start,beat){
             if(useSample){
               if(!playSampleNote('bassguitar', t, rootFreq, noteDur, 0.45, getBassBus())) bassNote(t, rootFreq, noteDur, 0.20);
             } else {
-              bassNote(t, rootFreq, noteDur, 0.20);
+              bassOrganTone(t, rootFreq, noteDur, 0.26);
             }
           }
         }
