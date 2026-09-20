@@ -165,6 +165,48 @@
   @media (max-width:560px){
     .tile{ width:96px; } .tilebox{ height:74px; }
   }
+
+  /* ---- teacher submission ---- */
+  .gcinput{width:64px;max-width:18vw;text-align:center}
+  .btn-submit{background:var(--coral);color:#fff;border:2px solid var(--coral)}
+  .btn-submit:hover{filter:brightness(1.05);border-color:var(--coral)}
+  .teacher-overlay{position:fixed;inset:0;z-index:9999;background:rgba(35,40,66,.45);
+    display:none;align-items:center;justify-content:center;padding:20px}
+  .teacher-overlay.open{display:flex}
+  .teacher-card{background:var(--paper2);border:2px solid var(--soft);border-radius:18px;
+    box-shadow:var(--shadow);padding:28px 24px;max-width:380px;width:100%;text-align:center}
+  .teacher-card h2{font-family:"Gaegu",cursive;font-size:26px;margin:0 0 8px}
+  .teacher-card p{color:#6c6657;font-size:14px;margin:0 0 18px}
+  .teacher-card input[type=password]{width:100%;box-sizing:border-box;padding:12px 14px;
+    border:2px solid var(--soft);border-radius:12px;font-size:16px;font-family:inherit;
+    margin-bottom:10px;text-align:center;color:var(--ink)}
+  .teacher-card input:focus{outline:none;border-color:var(--teal)}
+  .teacher-err{color:var(--coral);font-size:13px;min-height:16px;margin:0 0 10px}
+  .teacher-card .big-btn{background:var(--teal);color:#fff;border:none;border-radius:12px;
+    padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit}
+  .dash-overlay{position:fixed;inset:0;z-index:9999;background:var(--paper);overflow-y:auto;
+    display:none;padding:20px}
+  .dash-overlay.open{display:block}
+  .dash-wrap{max-width:1100px;margin:0 auto}
+  .dash-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+    gap:10px;margin-bottom:14px}
+  .dash-head h2{font-family:"Gaegu",cursive;font-size:28px;margin:0}
+  .dash-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .dash-actions button{background:#fff;border:2px solid var(--soft);border-radius:10px;
+    padding:9px 14px;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit}
+  .dash-actions button:hover{border-color:var(--teal)}
+  .dash-actions button.danger{color:var(--coral);border-color:#f0c9bd}
+  .dash-updated{font-size:12.5px;color:#807a6a}
+  .dash-table-wrap{background:var(--paper2);border:2px solid var(--soft);border-radius:18px;
+    padding:16px;box-shadow:var(--shadow);overflow-x:auto}
+  table.dash-table{width:100%;border-collapse:collapse;font-size:14px}
+  table.dash-table th,table.dash-table td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--soft);white-space:nowrap}
+  table.dash-table th{color:#6c6657;font-weight:700;font-size:12.5px}
+  table.dash-table td.num{font-variant-numeric:tabular-nums}
+  .dash-empty td{text-align:center;color:#807a6a;padding:24px 0;white-space:normal}
+  .dash-view-btn{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:6px 12px;
+    font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .dash-warn{color:#c0392b;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -202,10 +244,15 @@
       <span class="savesep"></span>
       <button id="tsave">💾 임시저장</button>
       <button id="tload">📂 이어서 하기</button>
+      <span class="savesep"></span>
+      <input id="gradeInput" class="savename gcinput" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+      <input id="classInput" class="savename gcinput" type="text" inputmode="numeric" placeholder="반" maxlength="3">
       <input id="savename" class="savename" type="text" placeholder="모둠 이름 (예: 1반2모둠)" maxlength="40">
       <button id="fsave">⬇️ 파일로 저장</button>
       <label class="savebtn" for="fopen">📁 파일 열기</label>
       <input id="fopen" type="file" accept=".html,.json,text/html,application/json" hidden>
+      <span class="savesep"></span>
+      <button id="submitBtn" class="btn-submit">🙋 선생님께 제출</button>
     </div>
     <div id="board"></div>
     <p class="hint">가사를 <b>먼저 적어도</b> 돼요 — 빈 칸마다 <b>1~4글자</b>까지 적고 <b>스페이스바</b>로 다음 칸으로 넘어가요(가사를 먼저 쓴 칸엔 그 <b>글자 수와 같은 개수</b>로 이루어진 음표만 놓여요). 음표는 음표 상자에서 <b>손가락으로 끌어다</b> 빈 칸에 놓아요(<b>두 번 탭</b>하면 자동으로 놓이고, 놓은 음표를 <b>탭</b>하면 사라져요). 가사는 음표를 지워도 그대로 남아 있어요.</p>
@@ -235,7 +282,76 @@
   </section>
 </div>
 
+<div class="teacher-overlay" id="teacherAuthOverlay">
+  <div class="teacher-card">
+    <h2>선생님 확인</h2>
+    <p>비밀번호를 입력하면 제출 현황을 볼 수 있어요.</p>
+    <input type="password" id="teacherPinInput" inputmode="numeric" maxlength="12" placeholder="비밀번호">
+    <p class="teacher-err" id="teacherPinError"></p>
+    <button class="big-btn" id="teacherPinSubmit">확인</button>
+  </div>
+</div>
+
+<div class="dash-overlay" id="teacherDashOverlay">
+  <div class="dash-wrap">
+    <div class="dash-head">
+      <h2>제출 현황</h2>
+      <span class="dash-updated" id="dashUpdated">불러오는 중...</span>
+      <div class="dash-actions">
+        <button id="dashRefresh">새로고침</button>
+        <button id="dashExport">엑셀로 내려받기</button>
+        <button class="danger" id="dashClear">기록 초기화</button>
+        <button id="dashClose">닫기</button>
+      </div>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead><tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>마디수</th><th>음표수</th><th>빠르기</th><th>제출시각</th><th>보기</th></tr></thead>
+        <tbody id="dashBody"><tr class="dash-empty"><td colspan="9">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
+const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+async function storageRequest(action, params){
+  const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+  const res = await fetch(STORAGE_API_URL + '?' + qs);
+  if (!res.ok) throw new Error('storage request failed: ' + res.status);
+  return res.json();
+}
+window.storage = {
+  list: (prefix) => storageRequest('list', { prefix }),
+  get: (key) => storageRequest('get', { key }),
+  set: (key, value) => storageRequest('set', { key, value }),
+  delete: (key) => storageRequest('delete', { key })
+};
+function getDeviceId(){
+  try{
+    let id = localStorage.getItem('claudeToolsDeviceId');
+    if(!id){
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('claudeToolsDeviceId', id);
+    }
+    return id;
+  }catch(_){ return null; }
+}
+const DEVICE_ID = getDeviceId();
+const TEACHER_PIN = '2580';
+function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
+function pad3(n){ return String(n).padStart(3,'0'); }
+async function nextAttemptNo(mode, storageId){
+  try{
+    const res = await window.storage.list(mode+':'+storageId+':');
+    const keyNames = ((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    let max=0;
+    keyNames.forEach(k=>{ const n=parseInt(k.split(':').pop(),10); if(!isNaN(n)&&n>max)max=n; });
+    return max+1;
+  }catch(e){ return 1; }
+}
+const APP_MODE = 'rmk_tablet';
+
 const INK="#232842", BY=60, TY=22, VW=96, VH=112;
 const H =cx=>`<ellipse cx="${cx}" cy="${BY}" rx="6.2" ry="4.7" transform="rotate(-18 ${cx} ${BY})" fill="${INK}"/>`;
 const S =(cx,t=TY)=>{const x=cx+5.2;return `<line x1="${x}" y1="${BY-2.5}" x2="${x}" y2="${t}" stroke="${INK}" stroke-width="2"/>`};
@@ -957,6 +1073,183 @@ document.getElementById('play').addEventListener('click',()=>{
   timers.push(setTimeout(()=>{ if(playing) setStatus('연주 중 ♪'); },(start-A.currentTime)*1000));
   const total=(start+SLOTS*beat - A.currentTime)*1000 + 120;
   timers.push(setTimeout(()=>{ stopAll(); setStatus('연주 끝! 다시 들어 보거나 음표를 바꿔 보세요.'); }, total));
+});
+
+// ---------- 선생님께 제출 ----------
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const gradeVal = document.getElementById('gradeInput').value.trim();
+  const classVal = document.getElementById('classInput').value.trim();
+  const nameVal = (document.getElementById('savename').value || '').trim();
+  if (!gradeVal || !classVal || !nameVal){
+    setStatus('<b>학년·반·이름</b>을 모두 입력한 뒤 제출해 주세요.');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  try {
+    const storageId = sanitizeToken(gradeVal) + '-' + sanitizeToken(classVal) + '-' + sanitizeToken(nameVal);
+    const attemptNo = await nextAttemptNo(APP_MODE, storageId);
+    const key = APP_MODE + ':' + storageId + ':' + pad3(attemptNo);
+    const value = JSON.stringify({
+      grade: gradeVal, klass: classVal, name: nameVal,
+      deviceId: DEVICE_ID, attemptNo,
+      measureCount: MEAS, noteCount: slotData.filter(Boolean).length, totalSlots: SLOTS,
+      tempo: +tempo.value, shareCode: encodeShare(), updatedAt: Date.now()
+    });
+    await window.storage.set(key, value);
+    setStatus('선생님께 제출했어요! 🙋');
+  } catch (e) {
+    console.error('submit failed', e);
+    setStatus('제출에 실패했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- 숨은 선생님 입장: 제목을 5번 빠르게 누르면 비밀번호 화면이 열림 ----------
+let titleTaps = 0, titleTapTimer = null;
+document.querySelector('.top h1').addEventListener('click', () => {
+  titleTaps++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTaps = 0; }, 1500);
+  if (titleTaps >= 5){
+    titleTaps = 0;
+    document.getElementById('teacherPinInput').value = '';
+    document.getElementById('teacherPinError').textContent = '';
+    document.getElementById('teacherAuthOverlay').classList.add('open');
+  }
+});
+function submitTeacherPin(){
+  const val = document.getElementById('teacherPinInput').value.trim();
+  if (val === TEACHER_PIN){
+    document.getElementById('teacherAuthOverlay').classList.remove('open');
+    document.getElementById('teacherDashOverlay').classList.add('open');
+    loadDashboard();
+    startDashboardPolling();
+  } else {
+    document.getElementById('teacherPinError').textContent = '비밀번호가 올바르지 않아요.';
+  }
+}
+document.getElementById('teacherPinSubmit').addEventListener('click', submitTeacherPin);
+document.getElementById('teacherPinInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitTeacherPin(); });
+document.getElementById('dashClose').addEventListener('click', () => {
+  document.getElementById('teacherDashOverlay').classList.remove('open');
+  stopDashboardPolling();
+});
+
+let dashInterval = null;
+function startDashboardPolling(){ stopDashboardPolling(); dashInterval = setInterval(loadDashboard, 4000); }
+function stopDashboardPolling(){ if (dashInterval){ clearInterval(dashInterval); dashInterval = null; } }
+
+// 같은 기기(deviceId)로 서로 다른 이름이 제출된 경우, 다른 사람 이름으로 제출했을 수 있다는 의심 신호로 표시함.
+function findSuspiciousNames(rows){
+  const byDevice = {};
+  rows.forEach(r => {
+    if (!r.deviceId) return;
+    if (!byDevice[r.deviceId]) byDevice[r.deviceId] = new Set();
+    byDevice[r.deviceId].add(r.name || '이름없음');
+  });
+  const suspicious = new Set();
+  rows.forEach(r => { if (r.deviceId && byDevice[r.deviceId].size > 1) suspicious.add(r); });
+  return suspicious;
+}
+
+let lastDashRows = [];
+async function loadDashboard(){
+  const dashBody = document.getElementById('dashBody');
+  const dashUpdated = document.getElementById('dashUpdated');
+  try {
+    const res = await window.storage.list(APP_MODE + ':');
+    const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+    const rows = [];
+    for (const k of keyNames){
+      try { const got = await window.storage.get(k); if (got && got.value) rows.push(JSON.parse(got.value)); } catch (e) {}
+    }
+    const numOr = v => { const n = parseInt(v, 10); return isNaN(n) ? 9999 : n; };
+    rows.sort((a, b) =>
+      numOr(a.grade) - numOr(b.grade) ||
+      numOr(a.klass) - numOr(b.klass) ||
+      (a.name || '').localeCompare(b.name || '', 'ko') ||
+      (a.attemptNo || 1) - (b.attemptNo || 1)
+    );
+    lastDashRows = rows;
+    renderDashRows(rows);
+    dashUpdated.textContent = rows.length + '명 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
+  } catch (e) {
+    lastDashRows = [];
+    dashUpdated.textContent = '불러오지 못했어요';
+    dashBody.innerHTML = '<tr class="dash-empty"><td colspan="9">데이터를 불러올 수 없어요</td></tr>';
+  }
+}
+
+function renderDashRows(rows){
+  const dashBody = document.getElementById('dashBody');
+  if (rows.length === 0){
+    dashBody.innerHTML = '<tr class="dash-empty"><td colspan="9">아직 제출한 학생이 없어요</td></tr>';
+    return;
+  }
+  const suspicious = findSuspiciousNames(rows);
+  dashBody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const gradeTd = document.createElement('td'); gradeTd.className = 'num'; gradeTd.textContent = r.grade || '-';
+    const klassTd = document.createElement('td'); klassTd.className = 'num'; klassTd.textContent = r.klass || '-';
+    const nameTd = document.createElement('td'); nameTd.textContent = r.name || '이름없음';
+    if (suspicious.has(r)){
+      const w = document.createElement('span');
+      w.className = 'dash-warn';
+      w.textContent = ' ⚠️ 같은 기기, 다른 이름';
+      w.title = '이 기기(브라우저)로 다른 이름이 제출된 적이 있어요.';
+      nameTd.appendChild(w);
+    }
+    const attTd = document.createElement('td'); attTd.className = 'num'; attTd.textContent = (r.attemptNo || 1) + '차';
+    const measTd = document.createElement('td'); measTd.className = 'num'; measTd.textContent = r.measureCount != null ? r.measureCount : '-';
+    const noteTd = document.createElement('td'); noteTd.className = 'num'; noteTd.textContent = r.noteCount != null ? r.noteCount : '-';
+    const tempoTd = document.createElement('td'); tempoTd.className = 'num'; tempoTd.textContent = r.tempo != null ? (r.tempo + ' BPM') : '-';
+    const whenTd = document.createElement('td'); whenTd.className = 'num'; whenTd.textContent = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '-';
+    const viewTd = document.createElement('td');
+    if (r.shareCode){
+      const vbtn = document.createElement('button');
+      vbtn.className = 'dash-view-btn';
+      vbtn.textContent = '보기';
+      vbtn.addEventListener('click', () => window.open(location.pathname + '#z=' + r.shareCode, '_blank'));
+      viewTd.appendChild(vbtn);
+    } else viewTd.textContent = '-';
+    tr.appendChild(gradeTd); tr.appendChild(klassTd); tr.appendChild(nameTd); tr.appendChild(attTd);
+    tr.appendChild(measTd); tr.appendChild(noteTd); tr.appendChild(tempoTd); tr.appendChild(whenTd); tr.appendChild(viewTd);
+    dashBody.appendChild(tr);
+  });
+}
+
+document.getElementById('dashRefresh').addEventListener('click', loadDashboard);
+document.getElementById('dashExport').addEventListener('click', () => {
+  if (lastDashRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
+  const header = ['학년', '반', '이름', '회차', '마디수', '음표수', '빠르기', '제출시각', '기기ID'];
+  const csvRows = lastDashRows.map(r => [
+    r.grade || '', r.klass || '', r.name || '', r.attemptNo || 1, r.measureCount || '', r.noteCount || '',
+    r.tempo || '', r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '', r.deviceId || ''
+  ]);
+  const esc = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const csv = [header, ...csvRows].map(row => row.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = '리듬만들기_태블릿_제출_' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.getElementById('dashClear').addEventListener('click', async () => {
+  if (!confirm('제출 기록을 모두 삭제할까요? 되돌릴 수 없어요.')) return;
+  try {
+    const res = await window.storage.list(APP_MODE + ':');
+    const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+    for (const k of keyNames){ try { await window.storage.delete(k); } catch (e) {} }
+  } catch (e) { console.error(e); }
+  loadDashboard();
 });
 </script>
 </body>

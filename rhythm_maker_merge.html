@@ -175,6 +175,48 @@
   @media (max-width:560px){
     .tile{ width:96px; } .tilebox{ height:74px; }
   }
+
+  /* ---- teacher submission ---- */
+  .gcinput{width:64px;max-width:18vw;text-align:center}
+  .btn-submit{background:var(--coral);color:#fff;border:2px solid var(--coral)}
+  .btn-submit:hover{filter:brightness(1.05);border-color:var(--coral)}
+  .teacher-overlay{position:fixed;inset:0;z-index:9999;background:rgba(35,40,66,.45);
+    display:none;align-items:center;justify-content:center;padding:20px}
+  .teacher-overlay.open{display:flex}
+  .teacher-card{background:var(--paper2);border:2px solid var(--soft);border-radius:18px;
+    box-shadow:var(--shadow);padding:28px 24px;max-width:380px;width:100%;text-align:center}
+  .teacher-card h2{font-family:"Gaegu",cursive;font-size:26px;margin:0 0 8px}
+  .teacher-card p{color:#6c6657;font-size:14px;margin:0 0 18px}
+  .teacher-card input[type=password]{width:100%;box-sizing:border-box;padding:12px 14px;
+    border:2px solid var(--soft);border-radius:12px;font-size:16px;font-family:inherit;
+    margin-bottom:10px;text-align:center;color:var(--ink)}
+  .teacher-card input:focus{outline:none;border-color:var(--teal)}
+  .teacher-err{color:var(--coral);font-size:13px;min-height:16px;margin:0 0 10px}
+  .teacher-card .big-btn{background:var(--teal);color:#fff;border:none;border-radius:12px;
+    padding:12px 20px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit}
+  .dash-overlay{position:fixed;inset:0;z-index:9999;background:var(--paper);overflow-y:auto;
+    display:none;padding:20px}
+  .dash-overlay.open{display:block}
+  .dash-wrap{max-width:1100px;margin:0 auto}
+  .dash-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+    gap:10px;margin-bottom:14px}
+  .dash-head h2{font-family:"Gaegu",cursive;font-size:28px;margin:0}
+  .dash-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .dash-actions button{background:#fff;border:2px solid var(--soft);border-radius:10px;
+    padding:9px 14px;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit}
+  .dash-actions button:hover{border-color:var(--teal)}
+  .dash-actions button.danger{color:var(--coral);border-color:#f0c9bd}
+  .dash-updated{font-size:12.5px;color:#807a6a}
+  .dash-table-wrap{background:var(--paper2);border:2px solid var(--soft);border-radius:18px;
+    padding:16px;box-shadow:var(--shadow);overflow-x:auto}
+  table.dash-table{width:100%;border-collapse:collapse;font-size:14px}
+  table.dash-table th,table.dash-table td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--soft);white-space:nowrap}
+  table.dash-table th{color:#6c6657;font-weight:700;font-size:12.5px}
+  table.dash-table td.num{font-variant-numeric:tabular-nums}
+  .dash-empty td{text-align:center;color:#807a6a;padding:24px 0;white-space:normal}
+  .dash-view-btn{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:6px 12px;
+    font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .dash-warn{color:#c0392b;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -230,10 +272,15 @@
       <span class="savesep"></span>
       <button id="tsave">💾 임시저장</button>
       <button id="tload">📂 이어서 하기</button>
+      <span class="savesep"></span>
+      <input id="gradeInput" class="savename gcinput" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+      <input id="classInput" class="savename gcinput" type="text" inputmode="numeric" placeholder="반" maxlength="3">
       <input id="savename" class="savename" type="text" placeholder="저장 이름 (예: 3학년완성)" maxlength="40">
       <button id="fsave">⬇️ 파일로 저장</button>
       <label class="savebtn" for="fopen">📁 파일 열기</label>
       <input id="fopen" type="file" accept=".html,.json,text/html,application/json" hidden>
+      <span class="savesep"></span>
+      <button id="submitBtn" class="btn-submit">🙋 선생님께 제출</button>
     </div>
     <div id="board"></div>
     <p class="hint">가사를 <b>먼저 적어도</b> 돼요 — 빈 칸마다 <b>1~4글자</b>까지 적고 <b>스페이스바</b>로 다음 칸으로 넘어가요(가사를 먼저 쓴 칸엔 그 <b>글자 수와 같은 개수</b>로 이루어진 음표만 놓여요). 음표는 음표 상자에서 <b>손가락으로 끌어다</b> 빈 칸에 놓아요(<b>두 번 탭</b>하면 자동으로 놓이고, 놓은 음표를 <b>탭</b>하면 사라져요). 가사는 음표를 지워도 그대로 남아 있어요.</p>
@@ -263,7 +310,76 @@
   </section>
 </div>
 
+<div class="teacher-overlay" id="teacherAuthOverlay">
+  <div class="teacher-card">
+    <h2>선생님 확인</h2>
+    <p>비밀번호를 입력하면 제출 현황을 볼 수 있어요.</p>
+    <input type="password" id="teacherPinInput" inputmode="numeric" maxlength="12" placeholder="비밀번호">
+    <p class="teacher-err" id="teacherPinError"></p>
+    <button class="big-btn" id="teacherPinSubmit">확인</button>
+  </div>
+</div>
+
+<div class="dash-overlay" id="teacherDashOverlay">
+  <div class="dash-wrap">
+    <div class="dash-head">
+      <h2>제출 현황</h2>
+      <span class="dash-updated" id="dashUpdated">불러오는 중...</span>
+      <div class="dash-actions">
+        <button id="dashRefresh">새로고침</button>
+        <button id="dashExport">엑셀로 내려받기</button>
+        <button class="danger" id="dashClear">기록 초기화</button>
+        <button id="dashClose">닫기</button>
+      </div>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead><tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>마디수</th><th>음표수</th><th>빠르기</th><th>제출시각</th><th>보기</th></tr></thead>
+        <tbody id="dashBody"><tr class="dash-empty"><td colspan="9">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
+const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+async function storageRequest(action, params){
+  const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+  const res = await fetch(STORAGE_API_URL + '?' + qs);
+  if (!res.ok) throw new Error('storage request failed: ' + res.status);
+  return res.json();
+}
+window.storage = {
+  list: (prefix) => storageRequest('list', { prefix }),
+  get: (key) => storageRequest('get', { key }),
+  set: (key, value) => storageRequest('set', { key, value }),
+  delete: (key) => storageRequest('delete', { key })
+};
+function getDeviceId(){
+  try{
+    let id = localStorage.getItem('claudeToolsDeviceId');
+    if(!id){
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('claudeToolsDeviceId', id);
+    }
+    return id;
+  }catch(_){ return null; }
+}
+const DEVICE_ID = getDeviceId();
+const TEACHER_PIN = '2580';
+function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
+function pad3(n){ return String(n).padStart(3,'0'); }
+async function nextAttemptNo(mode, storageId){
+  try{
+    const res = await window.storage.list(mode+':'+storageId+':');
+    const keyNames = ((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    let max=0;
+    keyNames.forEach(k=>{ const n=parseInt(k.split(':').pop(),10); if(!isNaN(n)&&n>max)max=n; });
+    return max+1;
+  }catch(e){ return 1; }
+}
+const APP_MODE = 'rmk_merge';
+
 const INK="#232842", BY=60, TY=22, VW=96, VH=112;
 const H =cx=>`<ellipse cx="${cx}" cy="${BY}" rx="6.2" ry="4.7" transform="rotate(-18 ${cx} ${BY})" fill="${INK}"/>`;
 const S =(cx,t=TY)=>{const x=cx+5.2;return `<line x1="${x}" y1="${BY-2.5}" x2="${x}" y2="${t}" stroke="${INK}" stroke-width="2"/>`};
