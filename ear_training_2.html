@@ -123,6 +123,45 @@
   .transition-screen .big{ font-family:'Noto Serif KR', serif; font-size:22px; font-weight:700; color:var(--brass-bright); margin-bottom:10px; }
   .transition-screen p{ color:var(--ivory-dim); font-size:13.5px; line-height:1.7; margin-bottom:18px; }
   footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); margin-top:24px; opacity:0.6; }
+
+  /* ---- student setup ---- */
+  .setup-fields{ display:flex; flex-direction:column; gap:12px; margin:18px 0; }
+  .setup-row{ display:flex; gap:10px; }
+  .setup-input{
+    flex:1; width:100%; padding:12px 14px; font-size:15px; border-radius:10px;
+    border:1px solid rgba(201,162,75,0.35); background:rgba(0,0,0,0.25);
+    color:var(--ivory); font-family:'Noto Sans KR', sans-serif;
+  }
+  .setup-input::placeholder{ color:var(--ivory-dim); opacity:0.75; }
+  .setup-input:focus{ outline:none; border-color:var(--brass-bright); }
+  .setup-error{ color:var(--bad); font-size:13px; min-height:18px; margin:2px 0 6px; }
+
+  /* ---- teacher overlays ---- */
+  .teacher-overlay{
+    position:fixed; inset:0; z-index:9999; background:rgba(10,7,4,0.72);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .teacher-overlay.open{ display:flex; }
+  .teacher-card{
+    background: linear-gradient(180deg, var(--panel), var(--bg-mid));
+    border:1px solid rgba(201,162,75,0.3); border-radius:18px; padding:26px 24px;
+    max-width:420px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.55);
+  }
+  .teacher-dash{ max-width:760px; text-align:left; max-height:86vh; display:flex; flex-direction:column; }
+  .teacher-dash-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .teacher-dash-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .small-btn{ font-size:12.5px; padding:7px 13px; border-radius:999px; }
+  .small-btn.danger{ color:#ff8a70; border-color:rgba(177,80,58,0.55); }
+  .dash-body-scroll{ overflow-y:auto; flex:1; }
+  .teacher-dash table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .teacher-dash th, .teacher-dash td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--wood-line); }
+  .teacher-dash th{ color:var(--ivory-dim); font-weight:700; font-size:11.5px; }
+  .teacher-dash td.num{ font-variant-numeric:tabular-nums; }
+  .teacher-dash .empty-row td{ text-align:center; color:var(--ivory-dim); padding:24px 0; }
+
+  @media (max-width:480px){
+    .setup-row{ flex-direction:column; }
+  }
 </style>
 </head>
 <body>
@@ -136,7 +175,23 @@
   </header>
 
   <div class="card">
-    <div id="menuScreen">
+    <div id="screen-setup" class="transition-screen">
+      <div class="big">학생 정보 입력</div>
+      <p>학년·반·이름을 입력하면 선생님이 결과를 확인할 수 있어요.</p>
+      <div class="setup-fields">
+        <div class="setup-row">
+          <input class="setup-input" id="setupGrade" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+          <input class="setup-input" id="setupClass" type="text" inputmode="numeric" placeholder="반" maxlength="3">
+        </div>
+        <input class="setup-input" id="setupName" type="text" placeholder="이름 (예: 홍길동)" maxlength="20">
+      </div>
+      <p class="setup-error" id="setupError"></p>
+      <div class="controls">
+        <button class="primary" id="setupStartBtn">시작하기</button>
+      </div>
+    </div>
+
+    <div id="menuScreen" style="display:none;">
       <div class="menu-intro">
         <div class="note-icon">♪ ♫ ♪</div>
         <p>단계는 순서와 상관없이 자유롭게 선택할 수 있어요. 소리가 나오니 볼륨을 확인해주세요.</p>
@@ -208,8 +263,80 @@
   <footer>Claude가 만든 절대음감 연습 도구 · 이어폰 사용을 권장합니다 · 매번 새로운 문제로 출제돼요</footer>
 </div>
 
+<div class="teacher-overlay" id="teacherAuthOverlay">
+  <div class="teacher-card">
+    <div class="big" style="font-size:19px;">선생님 확인</div>
+    <p style="color:var(--ivory-dim); font-size:13px; margin:0 0 16px;">비밀번호를 입력하면 학생 현황을 볼 수 있어요.</p>
+    <input class="setup-input" id="teacherPinInput" type="password" inputmode="numeric" placeholder="비밀번호" maxlength="12" style="margin-bottom:10px;">
+    <p class="setup-error" id="teacherPinError"></p>
+    <div class="controls">
+      <button class="primary" id="teacherPinSubmit">확인</button>
+    </div>
+  </div>
+</div>
+
+<div class="teacher-overlay" id="teacherDashOverlay">
+  <div class="teacher-card teacher-dash">
+    <div class="teacher-dash-toolbar">
+      <span id="dashUpdated" style="font-size:12.5px; color:var(--ivory-dim);">불러오는 중...</span>
+      <div class="teacher-dash-actions">
+        <button class="small-btn" id="dashRefreshBtn">새로고침</button>
+        <button class="small-btn" id="dashExportBtn">엑셀로 내려받기</button>
+        <button class="small-btn danger" id="dashClearBtn">기록 초기화</button>
+        <button class="small-btn" id="dashCloseBtn">닫기</button>
+      </div>
+    </div>
+    <div class="dash-body-scroll">
+      <table>
+        <thead><tr><th>학년</th><th>반</th><th>이름</th><th>회차</th><th>단계</th><th>정답</th><th>전체</th><th>정확도</th></tr></thead>
+        <tbody id="dashBody"><tr class="empty-row"><td colspan="8">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
+  const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+  async function storageRequest(action, params){
+    const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+    const res = await fetch(STORAGE_API_URL + '?' + qs);
+    if (!res.ok) throw new Error('storage request failed: ' + res.status);
+    return res.json();
+  }
+  window.storage = {
+    list: (prefix) => storageRequest('list', { prefix }),
+    get: (key) => storageRequest('get', { key }),
+    set: (key, value) => storageRequest('set', { key, value }),
+    delete: (key) => storageRequest('delete', { key })
+  };
+  function getDeviceId(){
+    try{
+      let id = localStorage.getItem('claudeToolsDeviceId');
+      if(!id){
+        id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem('claudeToolsDeviceId', id);
+      }
+      return id;
+    }catch(_){ return null; }
+  }
+  const DEVICE_ID = getDeviceId();
+  const TEACHER_PIN = '2580';
+  const APP_MODE = 'ear2';
+  function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
+  function pad3(n){ return String(n).padStart(3,'0'); }
+  async function nextAttemptNo(mode, storageId){
+    try{
+      const res = await window.storage.list(mode+':'+storageId+':');
+      const keyNames = ((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+      let max=0;
+      keyNames.forEach(k=>{ const n=parseInt(k.split(':').pop(),10); if(!isNaN(n)&&n>max)max=n; });
+      return max+1;
+    }catch(e){ return 1; }
+  }
+
+  let studentInfo = null;
+
   // ---------- Note pools ----------
   const NOTES_ONE = [ // 한 옥타브, 흰건반만
     {name:"C4", freq:261.63, step:-2, label:"도", accidental:null},
