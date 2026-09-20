@@ -3448,9 +3448,10 @@ function scheduleBandLayer(start,beat){
         const useSample = bassStyle==='sample';
         const rootFreq = useSample ? voiced[0].freq/2 : voiced[0].freq/4;
         if(effectiveChordMode(c)===2){
-          // 펼침화음 계열(펼침화음/어쿠스틱 기타/기타 아르페지오) 화음 스타일엔 베이스도 점4분음표+
-          // 8분음표(=2박) 한 세트로 반복하는 움직이는 리듬을 넣음.
-          const pat=[1.5,0.5,1.5,0.5];
+          // 펼침화음 계열(펼침화음/어쿠스틱 기타/기타 아르페지오) 화음 스타일엔 베이스도 한 마디
+          // 동안 점4분음표+8분음표+2분음표(1.5+0.5+2=4박, 마디 전체) 리듬으로 움직이게 함(요청:
+          // "점8분음표, 8분음표, 2분음표 반복" — 마디에 딱 맞게 점4분음표로 조정).
+          const pat=[1.5,0.5,2];
           let off=0;
           for(const d of pat){
             const noteBeat=measStartBeat+off;
