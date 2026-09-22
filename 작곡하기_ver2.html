@@ -899,6 +899,11 @@ const FRAC_HASPITCH={s1:true, s1r:false, e1:true, e1r:false};
 // anchored to the exact same onset positions). Both the glyph AND the actual playback pitch change —
 // see freqForStepAcc() above, which shifts the note's real frequency by a semitone.
 const accData={};
+// 붙임줄(tie) — 같은 음높이의 두 "단순 음표"(한 번만 소리 나는, 쉼표/여러음 아닌 음표)가 빈틈없이
+// 바로 이어질 때만 걸 수 있음. Set에는 "뒤 음표"의 시작 idx만 저장함(그 앞에 바로 붙은 음표가 이걸로
+// 이어진다는 뜻) — tieEligible()로 매번 다시 확인해서, 음을 바꾸거나 지워 더 이상 붙일 수 없게 되면
+// (Set에는 남아 있어도) 화면/재생 양쪽에서 저절로 무시됨.
+const tieData=new Set();
 function accSymbol(code){ return code==='#'?'♯':code==='b'?'♭':code==='n'?'♮':''; }
 // draws one accidental glyph just to the left of a notehead at (x,y) in the slot's own SVG viewBox
 function accGlyphSVG(x,y,code){
@@ -1644,6 +1649,79 @@ function rebuildHeld(){
     if(id){ const sp=spanOf(id); for(let k=1;k<sp && i+k<SLOTS;k++) heldFrom[i+k]=i; }
   }
 }
+// rightIdx 칸 바로 앞에 빈틈없이 붙어 있는 "단순 음표"(쉼표 아니고, 한 음만 나는)의 시작 idx —
+// 없으면 null. span>1인 긴 음표면 그 마지막 이어짐 칸(rightIdx-1)의 heldFrom이 시작 idx를 가리킴.
+function tieLeftStart(rightIdx){
+  if(rightIdx<=0) return null;
+  const leftStart = (heldFrom[rightIdx-1]!=null) ? heldFrom[rightIdx-1] : (rightIdx-1);
+  const lid=slotData[leftStart];
+  if(!lid || lid==='_frac' || !TYPE[lid] || TYPE[lid].on.length!==1) return null;
+  if(leftStart+spanOf(lid)!==rightIdx) return null;   // 사이에 빈 칸 없이 정확히 맞닿아야 함
+  return leftStart;
+}
+// rightIdx에서 시작하는 음표가, 바로 앞 음표와 붙임줄로 이을 수 있는 상태인지(둘 다 단순 음표 +
+// 같은 음높이) — 실제로 붙임줄이 걸려 있는지는 tieActive()가 따로 확인함.
+function tieEligible(rightIdx){
+  const leftStart=tieLeftStart(rightIdx); if(leftStart==null) return false;
+  const rid=slotData[rightIdx];
+  if(!rid || rid==='_frac' || !TYPE[rid] || TYPE[rid].on.length!==1) return false;
+  return stepsFor(leftStart)[0]===stepsFor(rightIdx)[0];
+}
+function tieActive(rightIdx){ return tieData.has(rightIdx) && tieEligible(rightIdx); }
+// startIdx의 단순 음표가 재생될 때 실제로 울려야 할 길이(박) — 뒤로 붙임줄이 몇 개 이어지든 다 더함.
+// 붙임줄이 없으면 자기 원래 길이 그대로.
+function tieChainDurationBeats(startIdx){
+  const id=slotData[startIdx];
+  let total=onsetDurations(id)[0];
+  let cursor=startIdx+spanOf(id);
+  while(cursor<SLOTS && tieActive(cursor)){
+    const nid=slotData[cursor];
+    total+=onsetDurations(nid)[0];
+    cursor+=spanOf(nid);
+  }
+  return total;
+}
+function toggleTie(rightIdx){
+  if(!tieEligible(rightIdx)){
+    setStatus('붙임줄은 <b>같은 음높이</b>의 단순한 음표 두 개가 바로 붙어 있을 때만 걸 수 있어요.');
+    return;
+  }
+  maybePushUndo();
+  if(tieData.has(rightIdx)){ tieData.delete(rightIdx); setStatus('붙임줄을 지웠어요.'); }
+  else { tieData.add(rightIdx); setStatus('붙임줄로 이었어요 — 뒤 음표는 다시 치지 않고 앞 음표에 이어서 울려요.'); }
+  render(rightIdx-1); render(rightIdx);
+}
+// 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 작은 반원을
+// 양쪽에 하나씩 그려서 "여기서 이어진다"는 느낌만 줌(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니
+// 안전함). side='right'는 이 음표(왼쪽 음표)의 칸 오른쪽 끝에, side='left'는 다음 음표(오른쪽
+// 음표)의 칸 왼쪽 끝에 그림 — 둘 중 어느 쪽을 눌러도 같은 rightIdx의 붙임줄이 켜짐/꺼짐.
+function tieArcSVG(step,side,active,rightIdx){
+  const y=stepY(step), dy=12*(-stemDir(step));
+  const x1 = side==='right' ? 58 : 2;
+  const x2 = side==='right' ? 94 : 38;
+  const mx=(x1+x2)/2;
+  const opacity=active?0.85:0.25;
+  const width=active?2.6:1.6;
+  const dash=active?'':' stroke-dasharray="3 3"';
+  const boxTop=(y+Math.min(0,dy)-14).toFixed(2), boxH=(Math.abs(dy)+28).toFixed(2);
+  return `<g class="tie-btn" data-idx="${rightIdx}">`
+    + `<rect x="${Math.min(x1,x2)-4}" y="${boxTop}" width="${Math.abs(x2-x1)+8}" height="${boxH}" fill="transparent" style="pointer-events:all;cursor:pointer"/>`
+    + `<path d="M${x1},${y.toFixed(2)} Q${mx},${(y+dy).toFixed(2)} ${x2},${y.toFixed(2)}" fill="none" stroke="${INK}" stroke-width="${width}"${dash} stroke-linecap="round" opacity="${opacity}" style="pointer-events:none"/>`
+    + `</g>`;
+}
+// idx칸에 그릴 붙임줄 반쪽(들) — 이 칸이 어떤 음표의 마지막 칸이면서 다음 음표와 이을 수 있으면
+// 오른쪽 반쪽을, 이 칸 자체가 앞 음표와 이을 수 있는 음표 시작 칸이면 왼쪽 반쪽을 반환함(둘 다
+// 해당하면 둘 다). 붙임줄이 아직 안 걸려 있어도 걸 수 있는 자리면 옅은 점선으로 미리 보여줌.
+function tieHookHTML(idx){
+  let h='';
+  if(idx+1<SLOTS && tieEligible(idx+1)){
+    h+=tieArcSVG(stepsFor(tieLeftStart(idx+1))[0], 'right', tieActive(idx+1), idx+1);
+  }
+  if(tieEligible(idx)){
+    h+=tieArcSVG(stepsFor(idx)[0], 'left', tieActive(idx), idx);
+  }
+  return h;
+}
 function clearReviewFlags(){ board.querySelectorAll('.measure.flagged').forEach(el=>el.classList.remove('flagged')); }
 function renderAll(){ clearReviewFlags(); for(let i=0;i<SLOTS;i++) render(i); }   // 악보가 바뀌면 예전 검토 표시(빨간 박스)는 지워서 다시 검토하도록 함
 
@@ -1656,7 +1734,7 @@ let undoStack=[]; const UNDO_MAX=60; let undoDepth=0;
 function snapshotForUndo(){
   return { b:+tempo.value, m:MEAS, n:slotData.slice(), l:JSON.parse(JSON.stringify(lyrChar)),
     p:pitchData.map(x=>Array.isArray(x)?x.slice():x), f:JSON.parse(JSON.stringify(fracData)), k:{t:currentKey.tonicPC, mo:currentKey.mode},
-    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle, mi:melodyInstrument };
+    a:JSON.parse(JSON.stringify(accData)), c:chordData.slice(), st:chordStyle, mi:melodyInstrument, ty:[...tieData] };
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(b) b.disabled = undoStack.length===0; }
 function pushUndo(){
@@ -1711,7 +1789,7 @@ function render(idx){
       }
     });
     atoms.forEach((a,k)=>{ if(FRAC_HASPITCH[a.id]) h+=accGlyphSVG(xs[k], stepY(a.pitch!=null?a.pitch:DEFAULT_STEP), accData[idx+'_'+k]); });
-    h+='</svg>';
+    h+=tieHookHTML(idx)+'</svg>';
     const n=Math.max(xs.length,1), w=n>=4?14:(n===3?20:26), fs=n>=4?13:(n===3?16:19);
     xs.forEach((x,k)=>{
       const ch=(lyrChar[idx+'_'+k]||'').replace(/"/g,'&quot;');
@@ -1742,7 +1820,8 @@ function render(idx){
     const step=hasPitch? stepsFor(startIdx)[0] : DEFAULT_STEP;
     const y=stepY(step);
     slot.innerHTML = `<svg class="note" viewBox="0 0 ${VW} ${VH2}" preserveAspectRatio="none">`
-      + `<line x1="4" y1="${y}" x2="${VW-4}" y2="${y}" stroke="${INK}" stroke-width="3" stroke-dasharray="7 6" opacity="0.5"/></svg>`;
+      + `<line x1="4" y1="${y}" x2="${VW-4}" y2="${y}" stroke="${INK}" stroke-width="3" stroke-dasharray="7 6" opacity="0.5"/>`
+      + tieHookHTML(idx) + `</svg>`;
     return;
   }
 
@@ -1759,7 +1838,7 @@ function render(idx){
       h+=`<text x="${xs[1]}" y="${topY}" font-size="13" font-style="italic" text-anchor="middle" fill="${INK}" font-family="Georgia,serif">3</text>`;
     }
     xs.forEach((x,k)=>{ h+=accGlyphSVG(x, stepY(steps[k]), accData[idx+'_'+k]); });
-    h+='</svg>';
+    h+=tieHookHTML(idx)+'</svg>';
     const n=xs.length, w = n>=4?14:(n===3?20:26), fs = n>=4?13:(n===3?16:19);
     xs.forEach((x,k)=>{
       const ch=(lyrChar[idx+'_'+k]||'').replace(/"/g,'&quot;');
@@ -1776,6 +1855,7 @@ function render(idx){
   let w, fs;
   if(!effId){ w=58; fs=16; } else { w = n>=4?14:(n===3?20:26); fs = n>=4?13:(n===3?16:19); }
   let h='';
+  const tieHooks=tieHookHTML(idx);
   if(effId){
     const hasPitch = t0.on.length>0;
     const step = hasPitch ? stepsFor(startIdx)[onsetIdx] : DEFAULT_STEP;
@@ -1784,7 +1864,10 @@ function render(idx){
        + (hasPitch? ledgerSVG(xs,step) : '')
        + `<g transform="translate(0,${dy})">${notePaths(effId,PAPER2,stemDir(step))}</g>`
        + (hasPitch? accGlyphSVG(xs[0], stepY(step), accData[idx+'_0']) : '')
+       + tieHooks
        + `</svg>`;
+  } else if(tieHooks){
+    h += `<svg class="note" viewBox="0 0 ${VW} ${VH2}" preserveAspectRatio="none">${tieHooks}</svg>`;
   }
   xs.forEach((x,k)=>{
     const ch=(lyrChar[idx+'_'+k]||'').replace(/"/g,'&quot;');
@@ -1907,6 +1990,8 @@ function removeFracAtom(idx,pos){
 }
 
 board.addEventListener('click',e=>{
+  const tieBtn=e.target.closest('.tie-btn');
+  if(tieBtn){ toggleTie(+tieBtn.dataset.idx); return; }
   if(measureEraseMode){
     const measEl=e.target.closest('.measure');
     if(measEl) clearMeasureContents(+measEl.dataset.m);
@@ -2304,6 +2389,7 @@ document.addEventListener('pointerdown',e=>{
   // 화음 배지나 화음 고르기 팝업 위를 누른 것은 음표 드래그 시작이 아님(클릭은 위쪽 document
   // click 리스너가 따로 처리함) — 여기서는 그냥 아무 것도 하지 않고 빠져나감.
   if(e.target.closest('.chordTag') || e.target.closest('.chordPickPopup')) return;
+  if(e.target.closest('.tie-btn')) return;   // 붙임줄 버튼 클릭은 위쪽 document click 리스너가 처리함
   const tile=e.target.closest('.tile');
   const slot=e.target.closest('.slot');
   if(tile){ pending={type:tile.dataset.type, from:null, onsetIndex:0, origin:null, x0:e.clientX, y0:e.clientY}; }
@@ -2549,7 +2635,7 @@ document.getElementById('clearAllLyrics').addEventListener('click',()=>{
 function encodeState(){
   const grade=document.getElementById('recGrade'), cls=document.getElementById('recCls'), num=document.getElementById('recNum'), name=document.getElementById('recName');
   const obj={b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:lyrChar, p:pitchData.map(x=>x==null?'':x), f:fracData, k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:accData,
-    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, ds:drumStyle, bs:bassStyle,
+    c:chordData.map(x=>x||''), st:chordStyle, mi:melodyInstrument, ds:drumStyle, bs:bassStyle, ty:[...tieData],
     vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100),
     grade:grade?grade.value:'', cls:cls?cls.value:'', num:num?num.value:'', sname:name?name.value:''};
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -2641,6 +2727,8 @@ function applyStateObj(obj){
     chordData.push((root!=null && root>=0 && root<=11 && CHORD_QUALITIES[quality]) ? {root, quality, mode:(mode===2?2:1)} : null);
   }
   order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+  tieData.clear();
+  (Array.isArray(obj.ty)?obj.ty:[]).forEach(v=>{ const n=+v; if(Number.isInteger(n) && n>0 && n<SLOTS) tieData.add(n); });
   buildBoard();
 }
 function decodeState(s){
@@ -3695,11 +3783,13 @@ async function startPlayback(countIn,useMet,btn){
       });
     } else if(id){
       const hasPitch=TYPE[id].on.length>0;
-      if(hasPitch){
+      const isTieTarget = TYPE[id].on.length===1 && tieActive(s);
+      if(hasPitch && !isTieTarget){   // 붙임줄로 이어받는 단순 음표는 여기서 다시 소리 내지 않음(앞 음표가 늘어난 길이로 이미 커버함)
         const steps=stepsFor(s), durs=onsetDurations(id);
         TYPE[id].on.forEach((o,oi)=>{
           const key=accKeyForOnset(id,s,oi);
-          hit(bt+o*beat, freqForStepAcc(steps[oi], effectiveAccForNote(key,steps[oi])), durs[oi]*beat);
+          const dur = TYPE[id].on.length===1 ? tieChainDurationBeats(s) : durs[oi];   // 뒤로 붙임줄이 이어져 있으면 그만큼 늘림
+          hit(bt+o*beat, freqForStepAcc(steps[oi], effectiveAccForNote(key,steps[oi])), dur*beat);
         });
       }
     }
