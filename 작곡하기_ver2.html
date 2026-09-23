@@ -579,6 +579,13 @@
         <button type="button" class="btn-record-mode" id="modeVoiceBtn">🎤 멜로디와 화음반주에 목소리 녹음하기<span class="recModeSub">이어폰을 끼고 노래를 불러서 멜로디+화음 반주와 함께 녹음해요</span></button>
       </div>
     </div>
+    <div id="recIntroChoice" style="display:none">
+      <p class="popupSub">전주로 만들고 싶은 마디가 있는지(4마디 정도) 알려주세요. 맨 끝 4개 마디를 추천합니다.</p>
+      <div class="recModeBtns">
+        <button type="button" class="btn-record-mode" id="introYesBtn">🎼 맨 끝 4마디를 전주로 사용<span class="recModeSub" id="introYesSub">전주가 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요</span></button>
+        <button type="button" class="btn-record-mode" id="introNoBtn">🚫 전주 없이 바로 시작<span class="recModeSub">1번째 마디부터 바로 녹음이 시작돼요</span></button>
+      </div>
+    </div>
     <div class="recBtnRow">
       <span class="status" id="recStatus">위에서 방식을 골라주세요.</span>
     </div>
@@ -4005,6 +4012,8 @@ document.getElementById('playnomet').addEventListener('click',()=>{
 // 버튼을 또 눌러도(더블클릭 등) 녹음이 두 번 겹쳐 시작되지 않도록 막아줌.
 let recState='idle';   // 'idle' | 'starting' | 'countdown' | 'recording'
 let recKind='voice';   // 'melody'(마이크 없이 연주만) | 'voice'(마이크로 노래+반주) — 이번 녹음이 어느 방식인지
+let recIntroCount=0;         // 목소리 녹음 때 전주로 앞에 붙일 마디 수(0=전주 없음)
+let recIntroRestoreSnap=null;   // 전주를 붙이려고 잠깐 늘려둔 악보를 녹음이 끝난 뒤 원래대로 되돌릴 스냅샷
 let captureActive=false, countdownIv=null;
 let recStream=null, recSourceNode=null, recProcessor=null, recSilentGain=null, recChunks=[], recSampleRate=44100, recBlob=null;
 // 녹음 형식: 브라우저가 MediaRecorder로 mp4/webm을 바로 만들 수 있으면 그걸 쓰고(파일 용량도 작고,
@@ -4329,11 +4338,77 @@ function runCountdown(){
     }
   },1000);
 }
+// applyStateObj()에 그대로 먹일 수 있는 현재 악보 전체 스냅샷 — encodeState()와 똑같은 모양(빈
+// 칸/음/화음은 ''로)으로 만들어야, 다시 이 스냅샷을 되돌릴 때 applyStateObj가 "옛 저장 형식의 숫자
+// 하나짜리 pitch"로 잘못 해석하는 일이 없음(undo용 snapshotForUndo()는 이 규칙을 안 지켜서 여기엔
+// 못 씀 — 그리고 drumStyle/bassStyle/붙임줄도 undo 스냅샷엔 없음).
+function snapshotFullState(){
+  return {
+    b:+tempo.value, m:MEAS, n:slotData.map(x=>x||''), l:JSON.parse(JSON.stringify(lyrChar)),
+    p:pitchData.map(x=>x==null?'':x), f:JSON.parse(JSON.stringify(fracData)),
+    k:{t:currentKey.tonicPC, mo:currentKey.mode}, a:JSON.parse(JSON.stringify(accData)), c:chordData.map(x=>x||''),
+    st:chordStyle, mi:melodyInstrument, ds:drumStyle, bs:bassStyle, ty:[...tieData],
+    vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100)
+  };
+}
+// 목소리 녹음 전용 — 지금 악보의 맨 끝 count개 마디를 그대로 복사해서 악보 맨 앞에 "전주"로 붙인
+// 임시 스냅샷을 만듦. applyStateObj로 이 스냅샷을 적용하면 재생 엔진(startPlayback/scheduleChords/
+// scheduleBandLayer)은 그냥 좀 더 긴 악보로 알고 처음부터 끝까지 그대로 재생하므로, 화음/드럼/베이스
+// 반주 타이밍 로직을 하나도 안 건드리고 "전주 먼저, 그다음 원곡"을 구현할 수 있음. 녹음이 끝나면
+// finishRecording()이 snapshotFullState()로 미리 떠 둔 원래 상태로 되돌림.
+function buildIntroSnapshot(count){
+  const introMeas=[];
+  for(let i=0;i<count;i++){
+    const m=MEAS-count+i, base=m*BEATS;
+    const n=[], p=[], f={}, a={};
+    for(let b=0;b<BEATS;b++){
+      const idx=base+b;
+      n.push(slotData[idx]);
+      p.push(Array.isArray(pitchData[idx]) ? pitchData[idx].slice() : pitchData[idx]);
+      if(fracData[idx]) f[b]=JSON.parse(JSON.stringify(fracData[idx]));
+      for(let k=0;k<4;k++){ if(accData[idx+'_'+k]!=null) a[b+'_'+k]=accData[idx+'_'+k]; }
+    }
+    introMeas.push({ n, p, f, a, c: chordData[m] ? JSON.parse(JSON.stringify(chordData[m])) : null });
+  }
+  const newMEAS=MEAS+count;
+  const n=new Array(newMEAS*BEATS).fill(''), p=new Array(newMEAS*BEATS).fill('');
+  const l={}, f={}, a={}, c=new Array(newMEAS).fill('');
+  introMeas.forEach((mm,i)=>{
+    const base=i*BEATS;
+    for(let b=0;b<BEATS;b++){
+      const idx=base+b;
+      n[idx]=mm.n[b]||''; p[idx]=mm.p[b]==null?'':mm.p[b];
+      if(mm.f[b]) f[idx]=mm.f[b];
+      for(let k=0;k<4;k++){ if(mm.a[b+'_'+k]!=null) a[idx+'_'+k]=mm.a[b+'_'+k]; }
+    }
+    c[i]=mm.c||'';   // 전주엔 가사를 안 붙임 — 원곡 가사를 전주에서 또 보여주면 카라오케 색칠이 헷갈림
+  });
+  for(let s=0;s<SLOTS;s++){
+    const idx=count*BEATS+s;
+    n[idx]=slotData[s]||'';
+    p[idx]=pitchData[s]==null?'':(Array.isArray(pitchData[s])?pitchData[s].slice():pitchData[s]);
+    if(fracData[s]) f[idx]=JSON.parse(JSON.stringify(fracData[s]));
+    for(let k=0;k<4;k++){
+      if(accData[s+'_'+k]!=null) a[idx+'_'+k]=accData[s+'_'+k];
+      if(lyrChar[s+'_'+k]!=null) l[idx+'_'+k]=lyrChar[s+'_'+k];
+    }
+  }
+  for(let m=0;m<MEAS;m++) c[count+m]=chordData[m]||'';
+  return Object.assign(snapshotFullState(), {
+    m:newMEAS, n, l, p, f, a, c, ty:[...tieData].map(v=>v+count*BEATS)
+  });
+}
 function beginRecordedPlayback(){
   recState='recording'; captureActive=true;
   recBtn.textContent='🔴 녹음 중… (누르면 정지)'; recBtn.classList.add('recording');
   setRecStatus(recKind==='melody' ? '🎵 연주를 녹음하는 중…' : '🎤 노래해보세요!');
   if(recMode==='mr' && recMR && recMR.state==='inactive'){ try{ recMR.start(); }catch(_){ } }
+  if(recKind==='voice' && recIntroCount>0){
+    recIntroRestoreSnap=snapshotFullState();
+    applyStateObj(buildIntroSnapshot(recIntroCount));
+    const firstMeasureEl=document.querySelector('.measure[data-m="0"]');
+    if(firstMeasureEl) firstMeasureEl.scrollIntoView({behavior:'smooth', block:'start'});
+  }
   startPlayback(false,false,{textContent:''});   // countIn=false, useMet=false — 녹음에는 메트로놈 소리가 섞이지 않음
 }
 function mimeToExt(baseMime){
@@ -4369,6 +4444,10 @@ function showRecResult(){
 function finishRecording(){
   recState='idle'; captureActive=false;
   recBtn.textContent='🎵 음원 녹음하기'; recBtn.classList.remove('recording');
+  if(recIntroRestoreSnap){   // 전주를 붙이려고 잠깐 늘려뒀던 악보를 원래대로 되돌림
+    applyStateObj(recIntroRestoreSnap);
+    recIntroRestoreSnap=null;
+  }
   if(recMode==='mr' && recMR){
     if(recMR.state==='recording'){
       const finalize=async ()=>{
@@ -4487,10 +4566,22 @@ document.getElementById('micHelpClose').addEventListener('click', ()=>{
 // directly from a real tap" user-activation that getUserMedia() requires, so it's safer (and was
 // the likely reason retry could silently do nothing) to run this directly from retry's own real tap.
 const recModeChoiceEl=document.getElementById('recModeChoice');
+const recIntroChoiceEl=document.getElementById('recIntroChoice');
 function showRecModeChoice(){
   if(recModeChoiceEl) recModeChoiceEl.style.display='block';
+  if(recIntroChoiceEl) recIntroChoiceEl.style.display='none';
   document.getElementById('recResult').style.display='none';
   setRecStatus('위에서 방식을 골라주세요.');
+}
+// 「멜로디와 화음반주에 목소리 녹음하기」를 고르면, 바로 녹음에 들어가기 전에 전주로 쓸 마디가
+// 있는지 한 번 더 물어봄(멜로디만 녹음할 땐 노래하는 사람이 없어 전주가 의미 없으니 묻지 않음).
+function showRecIntroChoice(){
+  if(recModeChoiceEl) recModeChoiceEl.style.display='none';
+  if(recIntroChoiceEl) recIntroChoiceEl.style.display='block';
+  const introMax=Math.min(4, MEAS);
+  const sub=document.getElementById('introYesSub');
+  if(sub) sub.textContent = `${MEAS-introMax+1}~${MEAS}번째 마디(${introMax}마디)가 전주로 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요`;
+  setRecStatus('전주를 쓸지 골라주세요.');
 }
 function handleRecordClick(){
   if(recState==='countdown'){   // 시작 음 미리듣기~카운트다운 중에 다시 누르면 취소
@@ -4517,6 +4608,7 @@ async function beginRecordFlow(mode){
   if(playing) return;
   recKind=mode;
   if(recModeChoiceEl) recModeChoiceEl.style.display='none';
+  if(recIntroChoiceEl) recIntroChoiceEl.style.display='none';
   recState='starting';
   if(mode==='voice'){
     setRecStatus('마이크 권한을 요청하는 중…');
@@ -4543,8 +4635,10 @@ async function beginRecordFlow(mode){
   if(mode==='voice') playFirstNoteThenCountdown();
   else runCountdown();   // 멜로디만 모드는 노래할 사람이 없으니 시작 음 미리듣기 없이 바로 카운트다운
 }
-document.getElementById('modeMelodyBtn').addEventListener('click', ()=>beginRecordFlow('melody'));
-document.getElementById('modeVoiceBtn').addEventListener('click', ()=>beginRecordFlow('voice'));
+document.getElementById('modeMelodyBtn').addEventListener('click', ()=>{ recIntroCount=0; beginRecordFlow('melody'); });
+document.getElementById('modeVoiceBtn').addEventListener('click', showRecIntroChoice);
+document.getElementById('introYesBtn').addEventListener('click', ()=>{ recIntroCount=Math.min(4, MEAS); beginRecordFlow('voice'); });
+document.getElementById('introNoBtn').addEventListener('click', ()=>{ recIntroCount=0; beginRecordFlow('voice'); });
 document.getElementById('micHelpRetry').addEventListener('click', ()=>{
   document.getElementById('micHelpOverlay').classList.remove('show');
   beginRecordFlow('voice');   // 마이크 권한 문제로 실패했던 것이니 반주와함께(마이크) 모드로 바로 재시도 — 이 탭 자체가 실제 사용자 조작
