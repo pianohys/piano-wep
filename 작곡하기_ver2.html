@@ -282,6 +282,12 @@
     color:var(--ink);cursor:pointer;line-height:1.5}
   .btn-record-mode:hover{border-color:var(--teal);background:rgba(42,157,143,.06)}
   .recModeSub{display:block;font-size:12px;font-weight:400;color:#807a6a;margin-top:3px}
+  .introCustomRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .introCustomRow label{font-size:13px;color:#6c6657;display:flex;align-items:center;gap:6px}
+  .introCustomRow input{width:56px;padding:8px 10px;font-size:15px;text-align:center;
+    border:2px solid var(--soft);border-radius:10px;font-family:inherit;color:var(--ink)}
+  .introCustomRow input:focus{outline:none;border-color:var(--teal)}
+  .introCustomRow .btn-record-mode{flex:0 0 auto;padding:10px 16px;font-size:14px}
 
   .countdownOverlay{position:fixed;inset:0;background:rgba(35,40,66,.55);display:none;
     align-items:center;justify-content:center;z-index:999}
@@ -583,7 +589,16 @@
       <p class="popupSub">전주로 만들고 싶은 마디가 있는지(4마디 정도) 알려주세요. 맨 끝 4개 마디를 추천합니다.</p>
       <div class="recModeBtns">
         <button type="button" class="btn-record-mode" id="introYesBtn">🎼 맨 끝 4마디를 전주로 사용<span class="recModeSub" id="introYesSub">전주가 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요</span></button>
+        <button type="button" class="btn-record-mode" id="introCustomBtn">🎯 원하는 마디를 전주로 사용<span class="recModeSub">몇 번째 마디부터 몇 마디를 전주로 쓸지 직접 골라요</span></button>
         <button type="button" class="btn-record-mode" id="introNoBtn">🚫 전주 없이 바로 시작<span class="recModeSub">1번째 마디부터 바로 녹음이 시작돼요</span></button>
+      </div>
+      <div id="introCustomForm" style="display:none">
+        <div class="introCustomRow">
+          <label>시작 마디 <input type="text" id="introCustomStart" inputmode="numeric"></label>
+          <label>몇 마디 <input type="text" id="introCustomCount" inputmode="numeric"></label>
+          <button type="button" class="btn-record-mode" id="introCustomGoBtn">이 마디들을 전주로 시작하기</button>
+        </div>
+        <p class="popupSub" id="introCustomHint" style="margin-top:8px"></p>
       </div>
     </div>
     <div class="recBtnRow">
@@ -4013,6 +4028,7 @@ document.getElementById('playnomet').addEventListener('click',()=>{
 let recState='idle';   // 'idle' | 'starting' | 'countdown' | 'recording'
 let recKind='voice';   // 'melody'(마이크 없이 연주만) | 'voice'(마이크로 노래+반주) — 이번 녹음이 어느 방식인지
 let recIntroCount=0;         // 목소리 녹음 때 전주로 앞에 붙일 마디 수(0=전주 없음)
+let recIntroStart=0;         // 그 전주로 쓸 마디들이 원곡의 몇 번째 마디(0부터)부터 시작하는지
 let recIntroRestoreSnap=null;   // 전주를 붙이려고 잠깐 늘려둔 악보를 녹음이 끝난 뒤 원래대로 되돌릴 스냅샷
 let captureActive=false, countdownIv=null;
 let recStream=null, recSourceNode=null, recProcessor=null, recSilentGain=null, recChunks=[], recSampleRate=44100, recBlob=null;
@@ -4351,15 +4367,16 @@ function snapshotFullState(){
     vm:Math.round(melodyVolMul*100), vc:Math.round(chordVolMul*100), vb:Math.round(bassVolMul*100), vd:Math.round(drumVolMul*100)
   };
 }
-// 목소리 녹음 전용 — 지금 악보의 맨 끝 count개 마디를 그대로 복사해서 악보 맨 앞에 "전주"로 붙인
-// 임시 스냅샷을 만듦. applyStateObj로 이 스냅샷을 적용하면 재생 엔진(startPlayback/scheduleChords/
-// scheduleBandLayer)은 그냥 좀 더 긴 악보로 알고 처음부터 끝까지 그대로 재생하므로, 화음/드럼/베이스
-// 반주 타이밍 로직을 하나도 안 건드리고 "전주 먼저, 그다음 원곡"을 구현할 수 있음. 녹음이 끝나면
-// finishRecording()이 snapshotFullState()로 미리 떠 둔 원래 상태로 되돌림.
-function buildIntroSnapshot(count){
+// 목소리 녹음 전용 — 지금 악보의 introStart번째(0부터) 마디부터 count개 마디를 그대로 복사해서
+// 악보 맨 앞에 "전주"로 붙인 임시 스냅샷을 만듦. applyStateObj로 이 스냅샷을 적용하면 재생 엔진
+// (startPlayback/scheduleChords/scheduleBandLayer)은 그냥 좀 더 긴 악보로 알고 처음부터 끝까지
+// 그대로 재생하므로, 화음/드럼/베이스 반주 타이밍 로직을 하나도 안 건드리고 "전주 먼저, 그다음
+// 원곡"을 구현할 수 있음. 녹음이 끝나면 finishRecording()이 snapshotFullState()로 미리 떠 둔
+// 원래 상태로 되돌림.
+function buildIntroSnapshot(introStart,count){
   const introMeas=[];
   for(let i=0;i<count;i++){
-    const m=MEAS-count+i, base=m*BEATS;
+    const m=introStart+i, base=m*BEATS;
     const n=[], p=[], f={}, a={};
     for(let b=0;b<BEATS;b++){
       const idx=base+b;
@@ -4405,7 +4422,7 @@ function beginRecordedPlayback(){
   if(recMode==='mr' && recMR && recMR.state==='inactive'){ try{ recMR.start(); }catch(_){ } }
   if(recKind==='voice' && recIntroCount>0){
     recIntroRestoreSnap=snapshotFullState();
-    applyStateObj(buildIntroSnapshot(recIntroCount));
+    applyStateObj(buildIntroSnapshot(recIntroStart, recIntroCount));
     const firstMeasureEl=document.querySelector('.measure[data-m="0"]');
     if(firstMeasureEl) firstMeasureEl.scrollIntoView({behavior:'smooth', block:'start'});
   }
@@ -4581,7 +4598,19 @@ function showRecIntroChoice(){
   const introMax=Math.min(4, MEAS);
   const sub=document.getElementById('introYesSub');
   if(sub) sub.textContent = `${MEAS-introMax+1}~${MEAS}번째 마디(${introMax}마디)가 전주로 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요`;
+  const introCustomFormEl=document.getElementById('introCustomForm');
+  if(introCustomFormEl) introCustomFormEl.style.display='none';
+  const startEl=document.getElementById('introCustomStart'), countEl=document.getElementById('introCustomCount');
+  if(startEl) startEl.value = MEAS-introMax+1;   // 기본값도 "맨 끝 4마디"로 미리 채워두되, 직접 바꿀 수 있음
+  if(countEl) countEl.value = introMax;
+  updateIntroCustomHint();
   setRecStatus('전주를 쓸지 골라주세요.');
+}
+// 직접 고르는 시작 마디/마디 수가 지금 악보 범위 안에 있는지 보여줌 — 범위를 벗어나면 시작하기
+// 버튼을 눌렀을 때 자동으로 악보 안쪽으로 맞춰짐(아래 introCustomGoBtn 참고).
+function updateIntroCustomHint(){
+  const hintEl=document.getElementById('introCustomHint'); if(!hintEl) return;
+  hintEl.textContent = `지금 악보는 총 ${MEAS}마디예요. 1~${MEAS} 사이에서 골라주세요.`;
 }
 function handleRecordClick(){
   if(recState==='countdown'){   // 시작 음 미리듣기~카운트다운 중에 다시 누르면 취소
@@ -4637,8 +4666,25 @@ async function beginRecordFlow(mode){
 }
 document.getElementById('modeMelodyBtn').addEventListener('click', ()=>{ recIntroCount=0; beginRecordFlow('melody'); });
 document.getElementById('modeVoiceBtn').addEventListener('click', showRecIntroChoice);
-document.getElementById('introYesBtn').addEventListener('click', ()=>{ recIntroCount=Math.min(4, MEAS); beginRecordFlow('voice'); });
+document.getElementById('introYesBtn').addEventListener('click', ()=>{
+  recIntroCount=Math.min(4, MEAS); recIntroStart=MEAS-recIntroCount; beginRecordFlow('voice');
+});
 document.getElementById('introNoBtn').addEventListener('click', ()=>{ recIntroCount=0; beginRecordFlow('voice'); });
+document.getElementById('introCustomBtn').addEventListener('click', ()=>{
+  const f=document.getElementById('introCustomForm'); if(f) f.style.display='block';
+  updateIntroCustomHint();
+});
+document.getElementById('introCustomGoBtn').addEventListener('click', ()=>{
+  const startRaw=+document.getElementById('introCustomStart').value;
+  const countRaw=+document.getElementById('introCustomCount').value;
+  // 뭘 입력하든 지금 악보(1~MEAS) 안으로 안전하게 맞춤 — 범위를 벗어나거나 숫자가 아니면 알아서 보정함.
+  let start=Number.isFinite(startRaw) ? Math.round(startRaw) : 1;
+  start=Math.max(1, Math.min(MEAS, start));
+  let count=Number.isFinite(countRaw) ? Math.round(countRaw) : 1;
+  count=Math.max(1, Math.min(MEAS-start+1, count));
+  recIntroStart=start-1; recIntroCount=count;
+  beginRecordFlow('voice');
+});
 document.getElementById('micHelpRetry').addEventListener('click', ()=>{
   document.getElementById('micHelpOverlay').classList.remove('show');
   beginRecordFlow('voice');   // 마이크 권한 문제로 실패했던 것이니 반주와함께(마이크) 모드로 바로 재시도 — 이 탭 자체가 실제 사용자 조작
