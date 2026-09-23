@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="타로">
+<meta name="theme-color" content="#14112a">
+<title>타로 봐주는 앱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14112a; --bg2:#1d1840; --panel:rgba(255,255,255,.06); --panelLine:rgba(255,255,255,.12);
+    --ink:#f3eee2; --muted:#b9b2cf; --gold:#e8c46a; --gold2:#f7e2a3; --violet:#8f7ae6;
+    --up:#7fd6b0; --rev:#f29a8c;
+    --cream:#fbf5e6; --creamInk:#2b2548;
+    --cw:64px; --ch:104px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #3b2d7a 0, transparent 60%),
+      radial-gradient(800px 500px at 100% 100%, #2a1c4f 0, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:24px 16px 80px;
+    overflow-x:hidden;
+  }
+  #stars{position:fixed;inset:0;pointer-events:none;z-index:0}
+  .wrap{position:relative;z-index:1;max-width:980px;margin:0 auto}
+  h1,h2,h3,.serif{font-family:"Gowun Batang",serif}
+  header{text-align:center;margin-bottom:22px}
+  header h1{margin:0;font-size:clamp(28px,6vw,42px);letter-spacing:.02em;
+    background:linear-gradient(180deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{margin:6px 0 0;color:var(--muted);font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--panelLine);border-radius:18px;padding:20px;backdrop-filter:blur(4px)}
+  .hidden{display:none !important}
+  label.lbl{display:block;font-weight:700;margin:0 0 8px;font-size:15px}
+  textarea,input[type=text]{
+    width:100%;background:rgba(0,0,0,.25);border:1px solid var(--panelLine);border-radius:12px;
+    color:var(--ink);font:inherit;font-size:16px;padding:12px 14px;resize:none;outline:none;
+  }
+  textarea:focus,input[type=text]:focus{border-color:var(--gold)}
+  .spreads{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0 16px}
+  .spread{
+    text-align:left;background:rgba(0,0,0,.2);border:1px solid var(--panelLine);border-radius:14px;
+    padding:12px;color:var(--ink);font:inherit;cursor:pointer;transition:.15s;
+  }
+  .spread b{display:block;font-size:15px}
+  .spread small{color:var(--muted);font-size:12px;line-height:1.4;display:block;margin-top:4px}
+  .spread .cnt{float:right;color:var(--gold);font-size:12px;font-weight:700}
+  .spread:hover{border-color:rgba(232,196,106,.5)}
+  .spread.on{border-color:var(--gold);background:rgba(232,196,106,.12);box-shadow:0 0 0 1px var(--gold) inset}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .choiceInputs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .toggle{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;cursor:pointer;user-select:none}
+  .toggle input{width:18px;height:18px;accent-color:var(--gold)}
+  .btn{
+    border:none;border-radius:999px;padding:12px 22px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold2),var(--gold));color:#2b2140;box-shadow:0 6px 20px rgba(232,196,106,.25);
+    transition:transform .1s;
+  }
+  .btn:active{transform:scale(.97)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--panelLine);box-shadow:none}
+  .btn.ghost:hover{border-color:var(--gold)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .center{text-align:center}
+  .muted{color:var(--muted)}
+
+  /* ── card back ── */
+  .back{
+    width:100%;height:100%;border-radius:8px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(232,196,106,.35) 0 10%, transparent 11%),
+      repeating-linear-gradient(45deg, rgba(232,196,106,.12) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(-45deg, rgba(232,196,106,.12) 0 2px, transparent 2px 9px),
+      linear-gradient(160deg,#3a2a86,#1b1446);
+    border:2px solid var(--gold);
+    box-shadow:inset 0 0 0 3px #1b1446, inset 0 0 0 4px rgba(232,196,106,.6);
+    display:flex;align-items:center;justify-content:center;color:var(--gold2);font-size:calc(var(--cw)*.28);
+  }
+
+  /* ── shuffle stack ── */
+  .stack{position:relative;width:110px;height:180px;margin:30px auto 10px}
+  .stack .sc{position:absolute;inset:0}
+  .stack.go .sc:nth-child(odd){animation:riffleL .45s ease-in-out infinite alternate}
+  .stack.go .sc:nth-child(even){animation:riffleR .45s ease-in-out infinite alternate}
+  @keyframes riffleL{from{transform:translateX(0) rotate(0)}to{transform:translateX(-60px) rotate(-10deg)}}
+  @keyframes riffleR{from{transform:translateX(0) rotate(0)}to{transform:translateX(60px) rotate(10deg)}}
+
+  /* ── pick area ── */
+  .pickHead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .pickHead .count{font-weight:700;color:var(--gold)}
+  .deck{position:relative;margin:0 auto}
+  .deck .dc{
+    position:absolute;width:var(--cw);height:var(--ch);cursor:pointer;
+    transition:transform .2s ease, filter .2s, opacity .3s;
+    opacity:0;animation:dealIn .5s forwards;
+  }
+  @keyframes dealIn{from{opacity:0;transform:translateY(20px) scale(.9)}to{opacity:1;transform:none}}
+  @media (hover:hover){ .deck .dc:hover{transform:translateY(-10px)} }
+  .deck .dc.picked{z-index:100;transform:translateY(-16px);filter:drop-shadow(0 0 10px rgba(247,226,163,.9))}
+  .deck .dc .num{
+    position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+    background:var(--gold);color:#2b2140;font-weight:700;font-size:12px;border-radius:999px;
+    min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4)
+  }
+
+  /* ── reading ── */
+  .qEcho{text-align:center;margin:0 0 18px}
+  .qEcho .q{font-family:"Gowun Batang",serif;font-size:20px}
+  .qEcho .sp{color:var(--muted);font-size:13px;margin-top:4px}
+  .slots{display:flex;flex-wrap:wrap;justify-content:center;gap:18px 14px;margin-bottom:16px}
+  .slot{width:min(28vw,132px);text-align:center}
+  .slot .pl{font-size:13px;color:var(--gold2);margin-bottom:8px;min-height:18px;font-weight:700}
+  .flip{position:relative;width:100%;aspect-ratio:13/21;perspective:900px;cursor:pointer}
+  .flip .in{position:absolute;inset:0;transition:transform .8s cubic-bezier(.3,.7,.3,1);transform-style:preserve-3d}
+  .flip.open .in{transform:rotateY(180deg)}
+  .flip .f,.flip .b{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .flip .f{transform:rotateY(180deg)}
+  .flip .b .back{font-size:26px}
+  .flip:not(.open):hover .b{filter:brightness(1.15)}
+  .slot .dir{margin-top:8px;font-size:12px;font-weight:700;opacity:0;transition:opacity .4s .5s}
+  .slot.shown .dir{opacity:1}
+  .dir.up{color:var(--up)} .dir.rev{color:var(--rev)}
+
+  /* card face */
+  .face{
+    width:100%;height:100%;border-radius:10px;background:linear-gradient(180deg,var(--cream),#efe3c4);
+    border:2px solid var(--gold);box-shadow:inset 0 0 0 4px var(--cream), inset 0 0 0 5px rgba(160,120,40,.55), 0 10px 26px rgba(0,0,0,.45);
+    color:var(--creamInk);display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:10px 6px 9px;overflow:hidden;container-type:inline-size;
+  }
+  .face.rev .fi{transform:rotate(180deg)}
+  .fi{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between}
+  .face .top{font-family:"Gowun Batang",serif;font-weight:700;font-size:max(11px,11cqw);letter-spacing:.08em}
+  .face .art{flex:1;display:flex;align-items:center;justify-content:center;width:100%;position:relative}
+  .face .art .big{font-size:36cqw;line-height:1;filter:drop-shadow(0 3px 4px rgba(0,0,0,.2))}
+  .face .art .halo{position:absolute;width:62cqw;height:62cqw;border-radius:50%;
+    background:radial-gradient(circle,rgba(232,196,106,.45),transparent 70%)}
+  .face .pips{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:2cqw;width:84%;font-size:15cqw;line-height:1.1}
+  .face .court{display:flex;flex-direction:column;align-items:center;gap:1cqw}
+  .face .court .who{font-size:32cqw;line-height:1}
+  .face .court .s{font-size:14cqw}
+  .face .nm{font-family:"Gowun Batang",serif;font-weight:700;font-size:max(11px,12cqw);text-align:center;line-height:1.2}
+  .face .en{font-size:max(8px,7.5cqw);opacity:.6;letter-spacing:.04em;text-align:center}
+
+  .actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:6px 0 22px}
+
+  .reads{display:grid;gap:12px}
+  .read{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;animation:fadeUp .5s both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .read .mini{width:62px}
+  .read .mini .face{padding:6px 3px 5px;border-width:1.5px}
+  .read .mini .en,.read .mini .nm{display:none}
+  .read h3{margin:0 0 2px;font-size:18px}
+  .read .pos{font-size:12px;color:var(--gold2);font-weight:700;letter-spacing:.05em}
+  .read .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+  .tag.up{background:rgba(127,214,176,.15);color:var(--up)}
+  .tag.rev{background:rgba(242,154,140,.15);color:var(--rev)}
+  .kw{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .kw span{font-size:12px;background:rgba(255,255,255,.08);border-radius:999px;padding:3px 10px}
+  .read p{margin:0;line-height:1.65}
+
+  .summary{margin-top:14px;border-color:rgba(232,196,106,.45);background:linear-gradient(180deg,rgba(232,196,106,.10),rgba(232,196,106,.03));animation:fadeUp .6s both}
+  .summary h2{margin:0 0 10px;font-size:22px;color:var(--gold2)}
+  .summary ul{margin:0;padding-left:20px;line-height:1.75}
+  .answer{font-family:"Gowun Batang",serif;font-size:28px;text-align:center;margin:4px 0 12px;color:var(--gold2)}
+  .lucky{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .lucky div{background:rgba(0,0,0,.25);border-radius:12px;padding:8px 14px;font-size:14px}
+  .lucky b{color:var(--gold2)}
+  .note{font-size:12px;color:var(--muted);margin-top:14px;text-align:center}
+
+  .history{margin-top:26px}
+  .history h2{font-size:18px;margin:0 0 10px}
+  .hItem{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.2);
+    margin-bottom:8px;cursor:pointer;border:1px solid transparent;font-size:14px}
+  .hItem:hover{border-color:var(--panelLine)}
+  .hItem .hq{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hItem .hd{color:var(--muted);font-size:12px;flex-shrink:0}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:#2b2140;color:var(--ink);
+    border:1px solid var(--gold);padding:10px 18px;border-radius:999px;transition:transform .3s,opacity .3s;z-index:9;font-size:14px;opacity:0;pointer-events:none}
+  .toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+
+  @media (max-width:560px){
+    .panel{padding:16px}
+    .choiceInputs{grid-template-columns:1fr}
+    .slot{width:min(29vw,120px)}
+    .read .mini{width:52px}
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="wrap">
+  <header>
+    <h1>🔮 타로 봐주는 앱</h1>
+    <p>마음속 질문을 떠올리고, 카드를 골라 보세요</p>
+  </header>
+
+  <!-- 1. 질문 & 스프레드 -->
+  <section id="stepAsk" class="panel">
+    <label class="lbl" for="question">무엇이 궁금한가요?</label>
+    <textarea id="question" rows="2" maxlength="120" placeholder="예) 이번 시험 잘 볼 수 있을까? / 친구와 화해할 수 있을까?"></textarea>
+
+    <label class="lbl" style="margin-top:16px">어떤 방식으로 볼까요?</label>
+    <div class="spreads" id="spreads"></div>
+
+    <div class="choiceInputs hidden" id="choiceInputs">
+      <input type="text" id="optA" maxlength="30" placeholder="선택 A (예: 피아노 학원)">
+      <input type="text" id="optB" maxlength="30" placeholder="선택 B (예: 미술 학원)">
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+      <label class="toggle"><input type="checkbox" id="useRev" checked> 역방향 카드 포함</label>
+      <button class="btn" id="btnShuffle">카드 섞기 ✨</button>
+    </div>
+  </section>
+
+  <!-- 2. 섞기 & 고르기 -->
+  <section id="stepPick" class="panel hidden">
+    <div id="shuffling" class="center">
+      <div class="stack" id="stack"></div>
+      <p class="muted serif">카드를 섞고 있어요… 질문을 마음속으로 떠올려 보세요</p>
+    </div>
+    <div id="picking" class="hidden">
+      <div class="pickHead">
+        <div>마음이 끌리는 카드를 골라 주세요 · <span class="count" id="pickCount"></span></div>
+        <div class="row">
+          <button class="btn ghost" id="btnReshuffle">다시 섞기</button>
+          <button class="btn ghost" id="btnAuto">자동으로 뽑기</button>
+          <button class="btn hidden" id="btnReveal">카드 펼치기</button>
+        </div>
+      </div>
+      <div class="deck" id="deck"></div>
+    </div>
+  </section>
+
+  <!-- 3. 결과 -->
+  <section id="stepRead" class="hidden">
+    <div class="qEcho">
+      <div class="q" id="qText"></div>
+      <div class="sp" id="spText"></div>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div class="actions">
+      <button class="btn" id="btnFlipAll">모두 뒤집기</button>
+      <button class="btn ghost hidden" id="btnCopy">결과 복사</button>
+      <button class="btn ghost" id="btnNew">새로 보기</button>
+    </div>
+    <div class="reads" id="reads"></div>
+    <div id="summaryBox"></div>
+  </section>
+
+  <section class="history hidden" id="historyBox">
+    <h2 class="serif">지난 타로 기록</h2>
+    <div id="historyList"></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ───────────────── 카드 데이터 ───────────────── */
+// [이름, 영문, 그림, 정방향 키워드, 역방향 키워드, 정방향 메시지, 역방향 메시지]
+const MAJOR = [
+  ["바보","The Fool","🎒","새로운 시작·자유·모험","무모함·경솔함·망설임","두려움 없이 새로운 길로 첫걸음을 내디딜 때예요. 가벼운 마음이 행운을 불러요.","준비 없이 뛰어들고 있진 않은지, 혹은 너무 겁먹어 시작을 못 하고 있진 않은지 살펴봐요."],
+  ["마법사","The Magician","🪄","창의력·능력·실행","재능 낭비·자신감 부족·속임수","필요한 건 이미 다 가지고 있어요. 이제 실행만 하면 돼요!","능력이 있는데도 쓰지 못하고 있어요. 스스로를 믿어 보세요."],
+  ["여사제","The High Priestess","🌙","직관·지혜·비밀","직관 무시·숨은 사실","마음 깊은 곳의 직감이 이미 답을 알고 있어요. 조용히 귀 기울여요.","속마음의 소리를 무시하고 있진 않나요? 아직 드러나지 않은 사실이 있을 수 있어요."],
+  ["여황제","The Empress","🌾","풍요·보살핌·창조","의존·과잉보호·정체","사랑과 풍요로움이 가득해요. 무언가를 정성껏 키워 낼 때예요.","남을 돌보느라 나를 잃지 마세요. 나에게도 물을 주세요."],
+  ["황제","The Emperor","👑","안정·질서·리더십","고집·통제·권위적","규칙과 계획을 세우면 흔들리지 않아요. 당당하게 이끌어 가요.","너무 통제하려 하면 오히려 반발이 생겨요. 조금 느슨해져도 괜찮아요."],
+  ["교황","The Hierophant","📜","가르침·전통·조언","틀 깨기·반항·나만의 방식","믿을 만한 선생님이나 어른의 조언이 큰 도움이 돼요.","정해진 틀이 답답하다면 나만의 방식을 찾아봐도 좋아요."],
+  ["연인","The Lovers","💞","사랑·조화·선택","불화·잘못된 선택·가치관 차이","마음이 통하는 관계, 그리고 중요한 선택의 순간이에요. 마음이 가는 쪽을 믿어요.","마음과 행동이 어긋나 있어요. 내가 진짜 소중히 여기는 것을 따라요."],
+  ["전차","The Chariot","🏇","의지·승리·전진","방향 상실·통제 불능","강한 의지로 밀고 나가면 승리해요. 망설이지 말고 달려요!","방향을 잃었어요. 목표부터 다시 분명하게 정해요."],
+  ["힘","Strength","🦁","용기·인내·부드러운 힘","자기 의심·나약함·조급함","부드러운 마음이 가장 강한 힘이에요. 차분하게 버티면 이겨 내요.","스스로를 의심하지 마세요. 당신은 생각보다 훨씬 강해요."],
+  ["은둔자","The Hermit","🏮","성찰·혼자만의 시간·지혜","고립·외로움·회피","혼자 조용히 생각하는 시간이 답을 줘요. 내면의 등불을 따라가요.","너무 오래 혼자 있었어요. 사람들과 다시 이야기 나눠 봐요."],
+  ["운명의 수레바퀴","Wheel of Fortune","🎡","전환점·행운·변화","불운·저항·반복","운명의 바퀴가 좋은 쪽으로 돌아가고 있어요! 흐름을 타세요.","잠시 흐름이 안 좋지만, 바퀴는 결국 다시 돌아요. 조금만 기다려요."],
+  ["정의","Justice","⚖️","공정·균형·진실","불공정·책임 회피","뿌린 대로 거두는 때예요. 공정하고 정직하게 판단해요.","내 몫의 책임을 인정하면 꼬인 문제가 풀려요."],
+  ["매달린 사람","The Hanged Man","🙃","멈춤·새로운 관점·기다림","지연·버티기·헛된 희생","잠시 멈추고 거꾸로 보면 새로운 답이 보여요.","버티기만 하는 건 이제 그만. 움직일 때예요."],
+  ["죽음","Death","🦋","끝과 시작·변화·전환","변화 거부·정체","무서운 카드가 아니에요! 하나가 끝나야 새로운 것이 시작돼요. 변화를 받아들여요.","변화를 두려워하면 제자리에 머물러요. 놓아줄 것은 놓아줘요."],
+  ["절제","Temperance","🏺","균형·조화·인내","불균형·과함·조급함","적당히, 차근차근. 균형을 잡으면 다 잘 돼요.","무언가에 너무 치우쳐 있어요. 균형을 되찾아요."],
+  ["악마","The Devil","⛓️","유혹·집착·속박","해방·집착 끊기","끊기 어려운 습관이나 유혹에 묶여 있진 않나요? (게임, 휴대폰…?)","나를 묶던 것에서 벗어날 힘이 생겨요."],
+  ["탑","The Tower","⚡","갑작스런 변화·깨달음·흔들림","변화 회피·위기 모면","예상 못 한 일이 생겨도, 더 단단히 다시 쌓을 기회예요.","피하고 있던 변화를 이제는 마주해요. 생각보다 괜찮을 거예요."],
+  ["별","The Star","⭐","희망·치유·영감","절망·자신감 상실","희망의 별이 떠올랐어요. 소원을 품고 나아가요.","희망을 잃지 마세요. 구름 뒤에도 별은 여전히 떠 있어요."],
+  ["달","The Moon","🌕","불안·혼란·상상","불안 해소·진실 드러남","모든 게 흐릿해 보여요. 섣불리 판단하지 말고 조금 더 지켜봐요.","안개가 걷히고 진실이 드러나요. 걱정이 줄어들어요."],
+  ["태양","The Sun","☀️","성공·기쁨·활력","잠깐의 먹구름·과한 낙관","가장 밝은 카드! 기쁨과 성공이 함께해요.","잠깐 구름이 꼈지만 해는 여전히 빛나고 있어요."],
+  ["심판","Judgement","📯","부활·각성·새 출발","자기 비판·후회·망설임","과거를 정리하고 새롭게 태어날 때예요. 부름에 응답해요.","지난 실수로 자신을 너무 탓하지 마세요. 다시 시작할 수 있어요."],
+  ["세계","The World","🌍","완성·성취·통합","미완성·마무리 부족","한 여정이 멋지게 완성돼요. 축하해요!","거의 다 왔어요. 마지막 마무리를 꼼꼼히 챙겨요."]
+];
+
+const SUITS = [
+  {key:"wands",ko:"완드",en:"Wands",icon:"🔥",elem:"불",theme:"열정·행동",color:"빨강",
+   msg:"완드(불)의 기운이 강해요. 생각보다 <b>행동과 열정</b>이 중요한 때예요. 일단 해 보세요!"},
+  {key:"cups",ko:"컵",en:"Cups",icon:"💧",elem:"물",theme:"감정·관계",color:"파랑",
+   msg:"컵(물)의 기운이 강해요. 이번 질문의 핵심은 <b>마음과 관계</b>예요. 감정을 솔직하게 들여다봐요."},
+  {key:"swords",ko:"소드",en:"Swords",icon:"⚔️",elem:"공기",theme:"생각·말",color:"하늘색",
+   msg:"소드(공기)의 기운이 강해요. <b>생각과 말</b>이 중요해요. 머리를 맑게 정리하고 말은 신중하게!"},
+  {key:"pentacles",ko:"펜타클",en:"Pentacles",icon:"🪙",elem:"흙",theme:"현실·노력",color:"초록",
+   msg:"펜타클(흙)의 기운이 강해요. <b>공부, 돈, 꾸준한 노력</b>처럼 손에 잡히는 일이 핵심이에요."}
+];
+const RANK_KO = ["에이스","2","3","4","5","6","7","8","9","10","시종","기사","여왕","왕"];
+const RANK_EN = ["Ace","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Page","Knight","Queen","King"];
+const COURT_ICON = ["🧒","🐎","👸","🤴"];
+
+// [정방향 키워드, 역방향 키워드, 정방향 메시지, 역방향 메시지] × 14
+const MINOR = {
+  wands:[
+    ["새로운 시작·열정·영감","지연·의욕 저하·막힘","마음속에 불꽃이 켜졌어요. 하고 싶은 일을 지금 시작해 보세요.","의욕이 잠시 꺼져 있어요. 작은 것부터 다시 불을 붙여 봐요."],
+    ["계획·미래 설계·결정","망설임·두려움·계획 부족","더 넓은 세상을 바라보며 계획을 세울 때예요.","익숙한 곳에만 머무르려 하고 있진 않나요?"],
+    ["확장·기대·전망","지연·좌절·좁은 시야","노력의 결과가 곧 수평선 너머에서 도착해요.","기대한 결과가 조금 늦어질 수 있어요. 여유를 가져요."],
+    ["축하·안정·기쁨","어수선함·불안정","축하할 일이 생겨요. 함께한 사람들과 기쁨을 나눠요.","주변이 조금 어수선해요. 편안한 공간을 먼저 만들어요."],
+    ["경쟁·의견 충돌·도전","갈등 회피·화해","의견이 부딪히지만 그 속에서 더 좋은 답이 나와요.","다툼이 가라앉고 있어요. 먼저 손을 내밀어 봐요."],
+    ["승리·인정·자신감","자만·인정 부족·실망","당신의 노력이 인정받는 순간이 와요.","남의 칭찬보다 스스로의 만족을 먼저 챙겨요."],
+    ["용기·방어·신념","지침·포기·압도됨","내 생각을 지킬 용기가 필요한 때예요.","혼자 모든 걸 막으려다 지쳤어요. 도움을 청해요."],
+    ["속도·빠른 진행·소식","지연·조급함·혼란","일이 빠르게 진행돼요. 반가운 소식이 올 수 있어요.","서두르면 실수가 생겨요. 한 박자 쉬어 가요."],
+    ["끈기·인내·마지막 고비","피로·의심·방어적 태도","거의 다 왔어요. 조금만 더 버티면 돼요!","너무 지쳤다면 쉬는 것도 용기예요."],
+    ["부담·책임·과로","짐 내려놓기·해방","짊어진 짐이 무거워요. 꼭 필요한 것만 들고 가요.","무거운 짐을 내려놓을 수 있게 돼요."],
+    ["호기심·새 아이디어·열정","산만함·계획 없는 시작","새롭게 배우고 싶은 것이 생겨요. 호기심을 따라가 봐요.","관심이 여기저기 흩어져 있어요. 하나를 골라 집중해요."],
+    ["모험·추진력·열정","성급함·무모함·충동","망설이지 말고 힘차게 달려 나갈 때예요.","마음이 앞서 급해졌어요. 방향부터 확인해요."],
+    ["자신감·따뜻함·매력","질투·자신감 부족·예민함","당당하고 따뜻한 모습이 사람들을 끌어당겨요.","남과 비교하기보다 나만의 빛을 믿어요."],
+    ["리더십·비전·결단력","독단·고집·조급함","앞장서서 이끌어 갈 힘이 있어요.","내 방식만 고집하면 주변이 힘들 수 있어요."]
+  ],
+  cups:[
+    ["새로운 감정·사랑·기쁨","감정 억누름·공허함","마음이 따뜻하게 차오르는 새로운 인연이나 감정이 찾아와요.","마음을 너무 꽁꽁 닫아 두었어요. 조금만 열어 봐요."],
+    ["교감·우정·짝꿍","오해·불균형·어긋남","서로 마음이 통하는 사람과 좋은 관계를 맺어요.","작은 오해가 생길 수 있어요. 솔직하게 대화해요."],
+    ["우정·축하·모임","소외감·뒷말·과한 놀이","친구들과 함께 웃을 일이 생겨요.","무리 안에서 서운함을 느낄 수 있어요. 진짜 친구에게 집중해요."],
+    ["무관심·권태·고민","새로운 관심·깨달음","지루함에 빠져 눈앞의 기회를 놓치고 있을지 몰라요.","다시 관심이 생기고 새로운 기회를 알아차려요."],
+    ["상실·후회·슬픔","회복·용서·다시 일어남","잃은 것에만 눈이 가 있지만, 아직 남은 것이 있어요.","슬픔에서 벗어나 다시 일어설 힘이 생겨요."],
+    ["추억·순수함·옛 인연","과거 집착·성장 필요","좋은 추억이나 옛 친구가 마음을 따뜻하게 해 줘요.","지나간 일보다 지금 이 순간에 집중해요."],
+    ["많은 선택지·상상·환상","현실 인식·결단·명확함","선택지가 많아 헷갈려요. 진짜 원하는 것을 골라요.","안개가 걷히고 무엇을 해야 할지 분명해져요."],
+    ["떠남·더 깊은 의미 찾기","방황·떠나기 두려움","더 이상 맞지 않는 것에서 떠날 용기가 필요해요.","떠날지 머물지 망설이고 있어요. 마음의 소리를 들어요."],
+    ["소원 성취·만족·행복","욕심·불만족","소원이 이루어지는 카드예요! 바라던 일이 잘 풀려요.","원하는 게 이뤄져도 채워지지 않는다면, 진짜 바람을 다시 생각해요."],
+    ["화목·행복·조화","불화·생각 차이","가족이나 친구와 함께하는 행복이 가득해요.","가까운 사람과 생각이 달라요. 서로의 마음을 들어 줘요."],
+    ["순수한 마음·감성·설렘","감정 기복·미성숙","설레는 소식이나 새로운 감정이 찾아와요.","기분이 쉽게 오르내려요. 마음을 차분히 살펴요."],
+    ["로맨스·제안·이상 추구","변덕·비현실적 기대","마음을 담은 제안이나 고백이 다가와요.","달콤한 말에만 기대지 말고 행동을 보세요."],
+    ["공감·배려·직관","감정 소모·자기희생","다른 사람의 마음을 잘 헤아려 주는 따뜻함이 빛나요.","남을 챙기느라 내 마음을 잊지 마세요."],
+    ["감정 조절·너그러움·안정","감정 억압·변덕","감정을 차분히 다스리며 모두를 편안하게 해 줘요.","감정을 숨기기만 하면 더 쌓여요. 털어놓아요."]
+  ],
+  swords:[
+    ["명확함·진실·돌파구","혼란·잘못된 판단","머릿속이 맑아지고 문제의 답이 보여요.","생각이 엉켜 있어요. 정보를 다시 정리해요."],
+    ["결정 보류·교착·균형","결정의 순간·혼란","선택을 미루고 있어요. 눈가리개를 벗고 사실을 보세요.","이제 결정을 내릴 때가 왔어요."],
+    ["상처·슬픔·실망","회복·치유·용서","마음이 아픈 일이 있을 수 있어요. 슬퍼해도 괜찮아요.","아팠던 마음이 서서히 나아지고 있어요."],
+    ["휴식·회복·재충전","번아웃·다시 시작","잠시 멈추고 푹 쉬어야 할 때예요.","충분히 쉬었다면 이제 다시 움직여요."],
+    ["갈등·다툼·상처뿐인 승리","화해·후회·갈등 종료","이겨도 잃는 게 더 많은 싸움은 피하는 게 좋아요.","다툼을 끝내고 화해할 기회가 와요."],
+    ["전환·이동·회복의 여정","정체·미해결 문제","힘든 곳을 떠나 더 잔잔한 곳으로 가고 있어요.","해결 못 한 일이 발목을 잡아요. 정리하고 가요."],
+    ["전략·꾀·숨김","양심·들통·솔직함","영리한 전략이 필요하지만 정직함은 잃지 마세요.","숨기던 것이 드러날 수 있어요. 솔직한 게 최선이에요."],
+    ["제약·스스로 만든 한계","해방·새로운 관점","갇힌 것 같지만, 사실 스스로 묶어 둔 생각이에요.","마음의 끈이 풀리고 자유로워져요."],
+    ["걱정·불안·잠 못 이룸","불안 해소·희망","걱정이 실제보다 커져 있어요. 믿을 만한 사람에게 털어놓아요.","밤이 지나고 걱정이 조금씩 풀려요."],
+    ["끝·바닥·고통의 종료","회복·재기·최악은 지남","힘든 일이 끝을 맺어요. 이제 올라갈 일만 남았어요.","가장 힘든 순간은 지나갔어요. 다시 일어서요."],
+    ["호기심·탐구·새로운 생각","뒷말·경솔한 말","궁금한 것을 파고들면 좋은 발견을 해요.","말을 조심해요. 소문은 쉽게 퍼져요."],
+    ["추진력·직설·빠른 결단","무모함·날카로운 말","생각을 행동으로 빠르게 옮길 때예요.","너무 날카로운 말이 상처가 될 수 있어요."],
+    ["명확함·독립·솔직함","냉정함·차가운 말","흐리지 않고 분명하게 말하는 힘이 있어요.","옳은 말이라도 부드럽게 전해요."],
+    ["논리·판단력·공정","권위적·냉혹함","이성적으로 판단하면 좋은 결과가 나와요.","머리로만 판단하지 말고 마음도 살펴요."]
+  ],
+  pentacles:[
+    ["새로운 기회·풍요의 씨앗","기회 놓침·계획 부족","현실적인 좋은 기회가 손에 들어와요.","좋은 기회가 스쳐 가지 않게 잘 살펴요."],
+    ["균형·멀티태스킹·유연함","과부하·균형 상실","여러 일을 유연하게 잘 조절하고 있어요.","할 일이 너무 많아요. 우선순위를 정해요."],
+    ["협력·팀워크·실력","협동 부족·엇박자","함께 힘을 모으면 멋진 결과물이 나와요.","팀원끼리 생각을 먼저 맞춰요."],
+    ["절약·안정·지키기","집착·인색함·지나친 통제","가진 것을 잘 지키는 것이 중요한 때예요.","너무 꽉 쥐고 있으면 새로운 게 들어올 수 없어요."],
+    ["어려움·결핍·소외감","회복·도움 받기","힘든 시기지만, 도움의 손길이 가까이 있어요.","어려움이 끝나 가요. 도움을 받아들여요."],
+    ["나눔·도움·너그러움","불공평·일방적인 관계","주고받는 따뜻한 나눔이 생겨요.","한쪽만 주는 관계인지 살펴봐요."],
+    ["인내·기다림·중간 점검","조급함·노력 대비 아쉬운 결과","씨앗을 심었으니 자랄 시간을 기다려요.","결과가 더디다면 방법을 점검해 봐요."],
+    ["노력·숙련·꾸준함","대충함·지루함·완벽주의","꾸준히 연습하면 실력이 쑥쑥 늘어요.","반복이 지루해졌다면 새로운 방식으로 해 봐요."],
+    ["독립·자기만족·여유","의존·과소비","스스로 이룬 것을 누리며 여유를 즐겨요.","남에게 기대기보다 스스로 설 힘을 길러요."],
+    ["풍요·가족·오래가는 안정","불안정·가족 갈등","오래도록 이어질 안정과 풍요가 찾아와요.","가까운 사람과 현실적인 문제를 함께 이야기해요."],
+    ["배움·목표·성실함","게으름·목표 부재","새로 배우는 일에 좋은 기회가 와요.","계획만 세우고 시작을 미루고 있진 않나요?"],
+    ["성실함·책임감·꾸준함","지루함·정체·고집","느려도 꾸준한 걸음이 결국 이겨요.","너무 똑같은 방식에 갇혀 있어요. 변화를 줘 봐요."],
+    ["보살핌·실용성·안정","자기 돌봄 부족·걱정","주변을 현실적으로 챙기는 따뜻함이 있어요.","남을 챙기는 만큼 나도 챙겨요."],
+    ["성공·풍요·든든한 리더","결과 집착·완고함","노력이 확실한 성과로 이어져요.","결과만 쫓다 보면 과정의 즐거움을 놓쳐요."]
+  ]
+};
+
+const ROMAN = ["0","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX","XXI"];
+
+const DECK = [];
+MAJOR.forEach((m,i)=>DECK.push({id:DECK.length,major:true,num:i,name:m[0],en:m[1],emoji:m[2],
+  up:{k:m[3],m:m[5]},rev:{k:m[4],m:m[6]}}));
+SUITS.forEach((s,si)=>MINOR[s.key].forEach((m,r)=>DECK.push({id:DECK.length,major:false,suit:si,rank:r,
+  name:`${s.ko} ${RANK_KO[r]}`,en:`${RANK_EN[r]} of ${s.en}`,
+  up:{k:m[0],m:m[2]},rev:{k:m[1],m:m[3]}})));
+
+const cardId = (suitKey,rank)=>22 + SUITS.findIndex(s=>s.key===suitKey)*14 + rank;
+// 예/아니오 판단용
+const NEG = new Set([13,15,16, cardId("swords",2),cardId("swords",4),cardId("swords",8),cardId("swords",9),
+  cardId("cups",4),cardId("pentacles",4),cardId("wands",9)]);
+const MAYBE = new Set([2,12,18, cardId("swords",1),cardId("cups",6),cardId("cups",3)]);
+const LUCKY_CARDS = new Set([10,17,19,21, cardId("cups",8), cardId("cups",9)]);
+
+/* ───────────────── 스프레드 ───────────────── */
+const SPREADS = [
+  {id:"one",name:"오늘의 카드",pos:["오늘의 메시지"],desc:"오늘 하루의 흐름을 한 장으로"},
+  {id:"yesno",name:"예 / 아니오",pos:["대답"],desc:"질문에 대한 간단한 답"},
+  {id:"time",name:"과거·현재·미래",pos:["과거","현재","미래"],desc:"흐름을 시간 순서로 살펴봐요"},
+  {id:"advice",name:"상황·조언·결과",pos:["지금 상황","조언","결과"],desc:"어떻게 하면 좋을지 알려줘요"},
+  {id:"relation",name:"관계 보기",pos:["나의 마음","상대의 마음","두 사람의 관계"],desc:"친구·가족·좋아하는 사람과의 관계"},
+  {id:"choice",name:"두 갈래 선택",pos:["A를 고르면","B를 고르면","조언"],desc:"둘 중 무엇을 고를지 고민될 때"},
+  {id:"five",name:"다섯 장 깊이 보기",pos:["현재 상황","방해 요소","숨은 원인","가까운 미래","최종 조언"],desc:"조금 더 자세하게"}
+];
+
+/* ───────────────── 상태 ───────────────── */
+const $ = id=>document.getElementById(id);
+let spread = SPREADS[2];
+let shuffled = [];       // 섞인 카드 id 배열
+let reversedMap = [];    // 같은 순서의 역방향 여부
+let picked = [];         // deck 인덱스
+let reading = null;      // {q, spreadId, opts, cards:[{id,rev}], date}
+
+function rand(n){ // 0..n-1 균등
+  const a = new Uint32Array(1); const lim = Math.floor(0x100000000/n)*n;
+  do{ crypto.getRandomValues(a) }while(a[0]>=lim);
+  return a[0]%n;
+}
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){const j=rand(i+1);[arr[i],arr[j]]=[arr[j],arr[i]]} return arr }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])) }
+
+/* ───────────────── 1단계: 스프레드 고르기 ───────────────── */
+function renderSpreads(){
+  $("spreads").innerHTML = SPREADS.map(s=>`
+    <button class="spread ${s.id===spread.id?"on":""}" data-id="${s.id}">
+      <span class="cnt">${s.pos.length}장</span><b>${s.name}</b><small>${s.desc}</small>
+    </button>`).join("");
+  $("choiceInputs").classList.toggle("hidden", spread.id!=="choice");
+}
+$("spreads").addEventListener("click",e=>{
+  const b = e.target.closest(".spread"); if(!b) return;
+  spread = SPREADS.find(s=>s.id===b.dataset.id); renderSpreads();
+});
+
+$("btnShuffle").addEventListener("click",()=>{
+  if(spread.id==="choice" && (!$("optA").value.trim() || !$("optB").value.trim())){
+    toast("선택 A와 B를 모두 적어 주세요"); ( !$("optA").value.trim() ? $("optA") : $("optB") ).focus(); return;
+  }
+  startShuffle();
+});
+
+/* ───────────────── 2단계: 섞기 & 고르기 ───────────────── */
+function startShuffle(){
+  $("stepAsk").classList.add("hidden");
+  $("stepRead").classList.add("hidden");
+  $("stepPick").classList.remove("hidden");
+  $("shuffling").classList.remove("hidden");
+  $("picking").classList.add("hidden");
+  const st = $("stack");
+  st.innerHTML = Array.from({length:8},()=>`<div class="sc"><div class="back">✦</div></div>`).join("");
+  st.classList.add("go");
+  shuffled = shuffle(DECK.map(c=>c.id));
+  const useRev = $("useRev").checked;
+  reversedMap = shuffled.map(()=>useRev && rand(100)<35);
+  picked = [];
+  window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(()=>{
+    st.classList.remove("go");
+    $("shuffling").classList.add("hidden");
+    $("picking").classList.remove("hidden");
+    renderDeck();
+  },1600);
+}
+
+function layoutDeck(){
+  const deck = $("deck");
+  const W = deck.parentElement.clientWidth;
+  const small = W < 560;
+  const cw = small ? 52 : 68, ch = Math.round(cw*1.62);
+  document.documentElement.style.setProperty("--cw",cw+"px");
+  document.documentElement.style.setProperty("--ch",ch+"px");
+  const minStep = small ? 15 : 13;
+  let perRow = Math.max(1, Math.floor((W-cw)/minStep)+1);
+  const rows = Math.ceil(78/perRow);
+  perRow = Math.ceil(78/rows);
+  const step = perRow>1 ? Math.min(cw*.8,(W-cw)/(perRow-1)) : 0;
+  const rowW = cw + step*(perRow-1);
+  const offX = (W-rowW)/2;
+  const rowGap = ch*0.72;
+  deck.style.height = (ch + rowGap*(rows-1) + 24)+"px";
+  deck.style.width = W+"px";
+  [...deck.children].forEach((el,i)=>{
+    const r = Math.floor(i/perRow), c = i%perRow;
+    el.style.left = (offX + c*step)+"px";
+    el.style.top = (18 + r*rowGap)+"px";
+  });
+}
+function renderDeck(){
+  const deck = $("deck");
+  deck.innerHTML = shuffled.map((_,i)=>
+    `<div class="dc" data-i="${i}" style="animation-delay:${Math.min(i*12,900)}ms"><div class="back">✦</div></div>`).join("");
+  layoutDeck();
+  updatePickUI();
+}
+window.addEventListener("resize",()=>{ if(!$("picking").classList.contains("hidden")) layoutDeck() });
+
+$("deck").addEventListener("click",e=>{
+  const el = e.target.closest(".dc"); if(!el) return;
+  const i = +el.dataset.i;
+  const at = picked.indexOf(i);
+  if(at>=0) picked.splice(at,1);
+  else if(picked.length<spread.pos.length) picked.push(i);
+  else { toast(`${spread.pos.length}장까지 고를 수 있어요`); return; }
+  updatePickUI();
+  if(picked.length===spread.pos.length) setTimeout(()=>{ if(picked.length===spread.pos.length) toReading() },700);
+});
+function updatePickUI(){
+  const n = spread.pos.length;
+  $("pickCount").textContent = `${picked.length} / ${n}`;
+  [...$("deck").children].forEach((el,i)=>{
+    const k = picked.indexOf(i);
+    el.classList.toggle("picked",k>=0);
+    const old = el.querySelector(".num"); if(old) old.remove();
+    if(k>=0) el.insertAdjacentHTML("beforeend",`<span class="num">${k+1}</span>`);
+  });
+  $("btnReveal").classList.toggle("hidden",picked.length!==n);
+}
+$("btnReshuffle").addEventListener("click",startShuffle);
+$("btnAuto").addEventListener("click",()=>{
+  const free = shuffled.map((_,i)=>i).filter(i=>!picked.includes(i));
+  shuffle(free);
+  while(picked.length<spread.pos.length) picked.push(free.pop());
+  updatePickUI();
+  setTimeout(toReading,700);
+});
+$("btnReveal").addEventListener("click",toReading);
+
+function toReading(){
+  if($("stepPick").classList.contains("hidden")) return;
+  reading = {
+    q: $("question").value.trim(),
+    spreadId: spread.id,
+    opts: spread.id==="choice" ? [$("optA").value.trim(),$("optB").value.trim()] : null,
+    cards: picked.map(i=>({id:shuffled[i],rev:reversedMap[i]})),
+    date: Date.now()
+  };
+  saveHistory(reading);
+  showReading(reading,false);
+}
+
+/* ───────────────── 3단계: 결과 ───────────────── */
+function faceHTML(card,rev){
+  let top, art;
+  if(card.major){
+    top = ROMAN[card.num];
+    art = `<div class="halo"></div><div class="big">${card.emoji}</div>`;
+  }else{
+    const s = SUITS[card.suit];
+    top = card.rank===0 ? "A" : card.rank<10 ? String(card.rank+1) : RANK_EN[card.rank].toUpperCase();
+    if(card.rank===0) art = `<div class="halo"></div><div class="big">${s.icon}</div>`;
+    else if(card.rank<10) art = `<div class="pips">${s.icon.repeat(card.rank+1)}</div>`;
+    else art = `<div class="court"><div class="who">${COURT_ICON[card.rank-10]}</div><div class="s">${s.icon}</div></div>`;
+  }
+  return `<div class="face ${rev?"rev":""}"><div class="fi">
+    <div class="top">${top}</div><div class="art">${art}</div>
+    <div><div class="nm">${card.name}</div><div class="en">${card.en}</div></div>
+  </div></div>`;
+}
+function posLabels(r){
+  const sp = SPREADS.find(s=>s.id===r.spreadId);
+  if(r.spreadId==="choice") return [`「${r.opts[0]}」을(를) 고르면`,`「${r.opts[1]}」을(를) 고르면`,"조언"];
+  return sp.pos;
+}
+
+let flippedCount = 0;
+function showReading(r,openAll){
+  $("stepAsk").classList.add("hidden");
+  $("stepPick").classList.add("hidden");
+  $("stepRead").classList.remove("hidden");
+  const sp = SPREADS.find(s=>s.id===r.spreadId);
+  $("qText").textContent = r.q ? `“${r.q}”` : "마음속 질문";
+  $("spText").textContent = `${sp.name} · ${new Date(r.date).toLocaleString("ko-KR",{month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}`;
+  const labels = posLabels(r);
+  $("slots").innerHTML = r.cards.map((c,i)=>`
+    <div class="slot" data-i="${i}">
+      <div class="pl">${esc(labels[i])}</div>
+      <div class="flip"><div class="in">
+        <div class="b"><div class="back">✦</div></div>
+        <div class="f">${faceHTML(DECK[c.id],c.rev)}</div>
+      </div></div>
+      <div class="dir ${c.rev?"rev":"up"}">${c.rev?"▼ 역방향":"▲ 정방향"}</div>
+    </div>`).join("");
+  $("reads").innerHTML = "";
+  $("summaryBox").innerHTML = "";
+  $("btnFlipAll").classList.remove("hidden");
+  $("btnCopy").classList.add("hidden");
+  flippedCount = 0;
+  window.scrollTo({top:0,behavior:"smooth"});
+  if(openAll) r.cards.forEach((_,i)=>flip(i,true));
+}
+$("slots").addEventListener("click",e=>{
+  const s = e.target.closest(".slot"); if(s) flip(+s.dataset.i);
+});
+$("btnFlipAll").addEventListener("click",()=>{
+  reading.cards.forEach((_,i)=>setTimeout(()=>flip(i),i*350));
+});
+function flip(i,instant){
+  const slot = $("slots").children[i];
+  if(!slot || slot.classList.contains("shown")) return;
+  slot.classList.add("shown");
+  slot.querySelector(".flip").classList.add("open");
+  const c = reading.cards[i], card = DECK[c.id], m = c.rev?card.rev:card.up;
+  const block = document.createElement("div");
+  block.className = "read panel";
+  block.style.order = i;
+  block.innerHTML = `
+    <div class="mini">${faceHTML(card,c.rev)}</div>
+    <div>
+      <div class="pos">${i+1}. ${esc(posLabels(reading)[i])}</div>
+      <h3 class="serif">${card.name}<span class="tag ${c.rev?"rev":"up"}">${c.rev?"역방향":"정방향"}</span></h3>
+      <div class="kw">${m.k.split("·").map(k=>`<span>${k}</span>`).join("")}</div>
+      <p>${m.m}</p>
+    </div>`;
+  const add = ()=>{
+    $("reads").appendChild(block);
+    flippedCount++;
+    if(flippedCount===reading.cards.length){
+      $("btnFlipAll").classList.add("hidden");
+      $("btnCopy").classList.remove("hidden");
+      renderSummary(reading);
+    }
+  };
+  instant ? add() : setTimeout(add,550);
+}
+$("reads").style.display="flex"; $("reads").style.flexDirection="column";
+
+function yesNo(c){
+  const neg = NEG.has(c.id), maybe = MAYBE.has(c.id);
+  if(!c.rev){
+    if(neg) return ["아니오","지금은 쉽지 않아 보여요. 다른 방법을 찾아보는 게 좋겠어요."];
+    if(maybe) return ["아직 몰라요","결과가 아직 정해지지 않았어요. 조금 더 지켜봐요."];
+    return ["예!","좋은 쪽으로 흘러가고 있어요. 자신 있게 해 보세요."];
+  }
+  if(neg) return ["조금 기다리면 예","어려운 고비는 지나가는 중이에요. 시간이 필요해요."];
+  if(maybe) return ["아직 몰라요","마음이 정리되면 답이 보일 거예요."];
+  return ["아니오에 가까워요","지금은 때가 아니거나, 무언가 준비가 더 필요해요."];
+}
+
+function summaryData(r){
+  const n = r.cards.length;
+  const cards = r.cards.map(c=>({...c,card:DECK[c.id]}));
+  const majors = cards.filter(c=>c.card.major).length;
+  const revs = cards.filter(c=>c.rev).length;
+  const suitCnt = [0,0,0,0]; cards.forEach(c=>{ if(!c.card.major) suitCnt[c.card.suit]++ });
+  const maxS = Math.max(...suitCnt);
+  const domSuit = maxS>=2 && suitCnt.filter(v=>v===maxS).length===1 ? suitCnt.indexOf(maxS) : -1;
+  const lines = [];
+  let answer = null;
+
+  if(r.spreadId==="yesno") answer = yesNo(r.cards[0]);
+
+  if(n>1){
+    if(majors/n>=0.5) lines.push(`메이저 아르카나가 <b>${majors}장</b>이나 나왔어요. 지금은 삶의 큰 흐름이 움직이는 중요한 시기예요.`);
+    else if(majors===0) lines.push(`모두 마이너 카드예요. 운명보다는 <b>일상의 선택과 노력</b>으로 충분히 바꿀 수 있는 일이에요.`);
+  }
+  if(domSuit>=0) lines.push(SUITS[domSuit].msg);
+  if(n>1){
+    if(revs===0) lines.push("모든 카드가 정방향! 에너지가 막힘없이 잘 흐르고 있어요.");
+    else if(revs/n>0.5) lines.push("역방향 카드가 많아요. 지금은 밀어붙이기보다 <b>잠시 돌아보고 정리할 때</b>예요.");
+  }
+  if(r.spreadId==="choice"){
+    const score = c=>(c.rev?-1:1) + (NEG.has(c.id)?-1.5:0) + (LUCKY_CARDS.has(c.id)?1:0) + (c.card.major?.3:0);
+    const a = score(cards[0]), b = score(cards[1]);
+    if(Math.abs(a-b)<0.5) lines.push(`「${esc(r.opts[0])}」와(과) 「${esc(r.opts[1])}」 모두 비슷한 기운이에요. 카드보다 <b>내 마음이 더 끌리는 쪽</b>을 골라도 좋아요.`);
+    else lines.push(`카드는 <b>「${esc(a>b?r.opts[0]:r.opts[1])}」</b> 쪽의 기운이 조금 더 밝다고 말해요.`);
+  }
+  if(n>1 && !["choice","relation"].includes(r.spreadId)){
+    const last = cards[n-1];
+    lines.push(last.rev || NEG.has(last.id)
+      ? `마지막 카드 <b>${last.card.name}</b>은(는) 조심하라는 신호예요. 조언 카드를 잘 새겨 두세요.`
+      : `마지막 카드 <b>${last.card.name}</b>이(가) 밝은 기운이라 앞으로의 흐름이 좋아요.`);
+  }
+  if(r.spreadId==="relation"){
+    const [a,b] = cards;
+    lines.push(a.rev===b.rev
+      ? "두 사람의 마음 카드 방향이 같아요. 서로 비슷한 마음을 품고 있어요."
+      : "두 사람의 마음 카드 방향이 달라요. 서로의 속도가 다를 수 있으니 천천히 맞춰 가요.");
+  }
+  const luck = cards.filter(c=>!c.rev && LUCKY_CARDS.has(c.id));
+  if(luck.length) lines.push(`✨ 행운의 카드 <b>${luck.map(c=>c.card.name).join(", ")}</b>이(가) 함께해요!`);
+  if(!lines.length){
+    const c = cards[0];
+    lines.push(c.rev ? `오늘은 <b>${c.card.rev.k.split("·")[0]}</b>에 주의하는 하루예요.` : `오늘의 키워드는 <b>${c.card.up.k.split("·")[0]}</b>이에요.`);
+  }
+
+  // 행운 포인트
+  let sum = cards.reduce((a,c)=>a + (c.card.major ? c.card.num : c.card.rank+1), 0);
+  while(sum>9) sum = String(sum).split("").reduce((a,d)=>a+ +d,0);
+  const luckyNum = sum===0 ? 7 : sum;
+  const luckyColor = domSuit>=0 ? SUITS[domSuit].color
+    : ["보라","금색","하양","주황","분홍"][cards.reduce((a,c)=>a+c.id,0)%5];
+  const ITEMS = ["연필","이어폰","물병","책갈피","손수건","초콜릿","작은 노트","머리끈","열쇠고리","좋아하는 노래"];
+  const luckyItem = ITEMS[cards.reduce((a,c)=>a*31+c.id+(c.rev?7:0),r.date%97)%ITEMS.length];
+  return {answer,lines,luckyNum,luckyColor,luckyItem};
+}
+
+function renderSummary(r){
+  const d = summaryData(r);
+  $("summaryBox").innerHTML = `
+    <div class="panel summary">
+      <h2>🔮 종합 해석</h2>
+      ${d.answer ? `<div class="answer">${d.answer[0]}</div><p class="center" style="margin:0 0 12px">${d.answer[1]}</p>` : ""}
+      <ul>${d.lines.map(l=>`<li>${l}</li>`).join("")}</ul>
+      <div class="lucky">
+        <div>행운의 숫자 <b>${d.luckyNum}</b></div>
+        <div>행운의 색 <b>${d.luckyColor}</b></div>
+        <div>행운의 물건 <b>${d.luckyItem}</b></div>
+      </div>
+      <div class="note">타로는 정답이 아니라 나를 돌아보는 거울이에요. 재미로 보고, 결정은 언제나 나 스스로! 🌙</div>
+    </div>`;
+  setTimeout(()=>$("summaryBox").scrollIntoView({behavior:"smooth",block:"nearest"}),100);
+}
+
+function readingText(r){
+  const sp = SPREADS.find(s=>s.id===r.spreadId);
+  const labels = posLabels(r);
+  const d = summaryData(r);
+  const strip = s=>s.replace(/<[^>]+>/g,"");
+  let t = `🔮 타로 결과 — ${sp.name}\n질문: ${r.q || "마음속 질문"}\n\n`;
+  r.cards.forEach((c,i)=>{
+    const card = DECK[c.id], m = c.rev?card.rev:card.up;
+    t += `${i+1}. [${labels[i]}] ${card.name} (${c.rev?"역방향":"정방향"})\n   ${m.k}\n   ${m.m}\n`;
+  });
+  t += `\n종합: ${d.answer ? d.answer[0]+" — " : ""}${d.lines.map(strip).join(" ")}\n`;
+  t += `행운의 숫자 ${d.luckyNum} · 색 ${d.luckyColor} · 물건 ${d.luckyItem}`;
+  return t;
+}
+$("btnCopy").addEventListener("click",async()=>{
+  const t = readingText(reading);
+  try{ await navigator.clipboard.writeText(t); toast("결과를 복사했어요") }
+  catch{
+    const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("결과를 복사했어요") }catch{ toast("복사하지 못했어요") }
+    ta.remove();
+  }
+});
+$("btnNew").addEventListener("click",()=>{
+  $("stepRead").classList.add("hidden");
+  $("stepAsk").classList.remove("hidden");
+  $("question").value = "";
+  renderHistory();
+  window.scrollTo({top:0,behavior:"smooth"});
+  $("question").focus();
+});
+
+/* ───────────────── 기록 ───────────────── */
+const HKEY = "tarot_history_v1";
+function loadHistory(){ try{ return JSON.parse(localStorage.getItem(HKEY)) || [] }catch{ return [] } }
+function saveHistory(r){
+  try{ const h = loadHistory(); h.unshift(r); localStorage.setItem(HKEY, JSON.stringify(h.slice(0,15))) }catch{}
+  renderHistory();
+}
+function renderHistory(){
+  const h = loadHistory();
+  $("historyBox").classList.toggle("hidden", !h.length);
+  $("historyList").innerHTML = h.map((r,i)=>{
+    const sp = SPREADS.find(s=>s.id===r.spreadId);
+    const names = r.cards.map(c=>DECK[c.id].name).join(", ");
+    return `<div class="hItem" data-i="${i}">
+      <div class="hq"><b>${esc(r.q || "마음속 질문")}</b> <span class="muted">· ${sp?sp.name:""} · ${names}</span></div>
+      <div class="hd">${new Date(r.date).toLocaleDateString("ko-KR",{month:"short",day:"numeric"})}</div>
+    </div>`;
+  }).join("");
+}
+$("historyList").addEventListener("click",e=>{
+  const it = e.target.closest(".hItem"); if(!it) return;
+  const r = loadHistory()[+it.dataset.i]; if(!r) return;
+  reading = r; showReading(r,true);
+});
+
+/* ───────────────── 기타 ───────────────── */
+let toastT;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"),1800);
+}
+
+// 별 배경
+(function stars(){
+  const cv = $("stars"), ctx = cv.getContext("2d");
+  let pts = [];
+  function size(){
+    const dpr = window.devicePixelRatio||1;
+    cv.width = innerWidth*dpr; cv.height = innerHeight*dpr;
+    cv.style.width = innerWidth+"px"; cv.style.height = innerHeight+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    pts = Array.from({length:Math.round(innerWidth*innerHeight/6000)},()=>({
+      x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.3+.2,p:Math.random()*6.28,s:Math.random()*.02+.005}));
+  }
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function draw(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for(const s of pts){
+      s.p += s.s;
+      ctx.globalAlpha = .35 + .65*Math.abs(Math.sin(s.p));
+      ctx.fillStyle = "#fff6d8";
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28); ctx.fill();
+    }
+    if(!still) requestAnimationFrame(draw);
+  }
+  size(); draw();
+  addEventListener("resize",()=>{ size(); if(still) draw() });
+})();
+
+renderSpreads();
+renderHistory();
+</script>
+</body>
+</html>
