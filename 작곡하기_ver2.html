@@ -478,6 +478,7 @@
         <option value="hold_piano">화음 스타일: 화음유지(피아노)</option>
         <option value="guitar_arp">화음 스타일: 어쿠스틱 기타</option>
         <option value="guitar_arpeggio">화음 스타일: 기타 아르페지오</option>
+        <option value="orchestra">화음 스타일: 오케스트라(현악)</option>
       </select>
       <select id="melodyInstSel" class="keymode-select">
         <option value="synth">멜로디 악기: 신스(기본)</option>
@@ -2669,8 +2670,10 @@ keymodeSel.addEventListener('change',()=>{
 //   아이유 밤편지 반주 느낌 요청. 근음(1) 치고 5·10도 화음 반복).
 // - guitar_arpeggio(표시 이름 '기타 아르페지오'): arpeggio와 같은 펼침화음 패턴이지만 피아노 대신
 //   기타 음색.
+// - orchestra(표시 이름 '오케스트라(현악)'): hold_piano와 같은 화음유지 패턴이지만 피아노 대신 첼로·
+//   비올라·바이올린 합주 지속음(orchestra 샘플) 음색.
 // (effectiveChordMode()가 마디별 mode를 언제 그대로 쓰고 언제 덮어쓰는지 결정함 — scheduleChords 참고)
-let chordStyle='arpeggio';   // 'arpeggio' | 'hold_piano' | 'guitar_arp' | 'guitar_arpeggio'
+let chordStyle='arpeggio';   // 'arpeggio' | 'hold_piano' | 'guitar_arp' | 'guitar_arpeggio' | 'orchestra'
 const chordStyleSel=document.getElementById('chordStyleSel');
 // 화음 스타일이 실제 악기 샘플을 쓰는 값으로 바뀌면 미리 그 악기 음원을 내려받기 시작함 —
 // startPlayback()도 재생 직전에 한 번 더 기다려주지만, 고르자마자 미리 받아 두면 재생 버튼을
@@ -2678,6 +2681,7 @@ const chordStyleSel=document.getElementById('chordStyleSel');
 function preloadForChordStyle(style){
   if(style==='hold_piano' || style==='arpeggio') loadInstrumentSamples('piano');
   if(style==='guitar_arp' || style==='guitar_arpeggio') loadInstrumentSamples('guitar');
+  if(style==='orchestra') loadInstrumentSamples('orchestra');
 }
 chordStyleSel.addEventListener('change',()=>{ chordStyle=chordStyleSel.value; preloadForChordStyle(chordStyle); });
 // 학생들이 직접 악기별(멜로디/화음/베이스/드럼) 음량 밸런스를 맞출 수 있게 한 슬라이더 4개(요청:
@@ -2950,7 +2954,7 @@ function applyStateObj(obj){
     band_guitar_arp:{st:'guitar_arpeggio', ds:'8beat', bs:'synth'},
   };
   const oldMapped=OLD_CHORD_STYLE_MAP[obj.st];
-  chordStyle = ['arpeggio','hold_piano','guitar_arp','guitar_arpeggio'].includes(obj.st)
+  chordStyle = ['arpeggio','hold_piano','guitar_arp','guitar_arpeggio','orchestra'].includes(obj.st)
     ? obj.st : (oldMapped ? oldMapped.st : 'arpeggio');
   if(chordStyleSel) chordStyleSel.value=chordStyle;
   preloadForChordStyle(chordStyle);
@@ -3360,7 +3364,15 @@ const SAMPLE_MIDI_URLS = {
     40:'samples/bassguitar/m40.mp3', 41:'samples/bassguitar/m41.mp3', 42:'samples/bassguitar/m42.mp3',
     43:'samples/bassguitar/m43.mp3', 44:'samples/bassguitar/m44.mp3', 45:'samples/bassguitar/m45.mp3',
     46:'samples/bassguitar/m46.mp3', 47:'samples/bassguitar/m47.mp3', 48:'samples/bassguitar/m48.mp3',
-    49:'samples/bassguitar/m49.mp3'}
+    49:'samples/bassguitar/m49.mp3'},
+  // 첼로(저음)→비올라(중음)→바이올린(고음) 세 섹션의 지속음(susVib) 샘플을 이어붙여 한 옥타브대
+  // 넓은 "현악 합주" 음색 하나로 만듦(요청: "오케스트라반주소리 가능해?" → 진짜 샘플로).
+  orchestra: {24:'samples/orchestra/m24.mp3', 28:'samples/orchestra/m28.mp3',
+    31:'samples/orchestra/m31.mp3', 35:'samples/orchestra/m35.mp3', 38:'samples/orchestra/m38.mp3',
+    41:'samples/orchestra/m41.mp3', 45:'samples/orchestra/m45.mp3', 48:'samples/orchestra/m48.mp3',
+    50:'samples/orchestra/m50.mp3', 53:'samples/orchestra/m53.mp3', 57:'samples/orchestra/m57.mp3',
+    60:'samples/orchestra/m60.mp3', 64:'samples/orchestra/m64.mp3', 67:'samples/orchestra/m67.mp3',
+    71:'samples/orchestra/m71.mp3', 74:'samples/orchestra/m74.mp3'}
 };
 // 출처(전부 자유 이용 라이선스):
 // - piano: Salamander Grand Piano, Alexander Holm, CC BY(출처 표시 조건부 자유 이용)
@@ -3376,6 +3388,12 @@ const SAMPLE_MIDI_URLS = {
 //   (bassNote/bassGuitarPluck)가 쓰던 음역(root/4, 낮으면 MIDI 24까지)은 이 음원 범위 밖이라
 //   최대 11반음이나 아래로 피치시프트해야 해서 먹먹해지므로, 이 경우만 한 옥타브 위(root/2)로
 //   옮겨 거의 시프트 없이 재생함.
+// - orchestra: VSCO-2-CE(Versilian Studios Chamber Orchestra 2, Community Edition), CC0 —
+//   Cello Section·Viola Section·Violin Section 각각의 susVib(비브라토 지속음) 샘플을 저음~고음
+//   순서로 이어붙여 한 옥타브대(MIDI 24~74)의 "현악 합주" 음색으로 씀. 원본은 8~9초짜리 긴 지속음
+//   이라, 3.3초로 자르고(화음 반주는 그보다 길게 안 끎) 살짝 페이드아웃, 모노로 다운믹스 후 피크를
+//   -1dB로 정규화해서(원본은 헤드룸이 넉넉해 그대로 쓰면 너무 작게 들림) 다른 샘플 악기와 비슷한
+//   음량대로 맞춤.
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
@@ -3483,6 +3501,13 @@ function chordTone(t,freq,dur,vol){
     tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
     tone(t,freq*2,Math.min(dur,0.6),vol*0.5,'sine',{bus, filterMul:2.0});
     pianoAttackClick(t,freq,vol);
+    return;
+  }
+  if(chordStyle==='orchestra'){
+    // 실제 현악 합주 샘플로 화음을 지속시킴. 로딩 중일 때만 organPedalTone(현처럼 음량 변화 없이
+    // 쭉 이어지는 합성음)으로 임시 대체.
+    if(playSampleNote('orchestra', t, freq, dur, vol*0.9, bus)) return;
+    organPedalTone(t,freq,dur,vol*0.8);
     return;
   }
   tone(t,freq,dur,vol,'triangle',{bus, filterMul:2.0});
@@ -3671,6 +3696,7 @@ function effectiveChordMode(c){
   if(chordStyle==='hold_piano') return 1;
   if(chordStyle==='guitar_arp') return 2;
   if(chordStyle==='guitar_arpeggio') return 2;
+  if(chordStyle==='orchestra') return 1;
   return c.mode;
 }
 function scheduleChords(start,beat){
@@ -4023,6 +4049,7 @@ async function startPlayback(countIn,useMet,btn){
   if(melodyInstrument!=='synth') neededLibs.add(melodyInstrument);
   if(chordStyle==='hold_piano' || chordStyle==='arpeggio') neededLibs.add('piano');
   if(chordStyle==='guitar_arp' || chordStyle==='guitar_arpeggio') neededLibs.add('guitar');
+  if(chordStyle==='orchestra') neededLibs.add('orchestra');
   if(bassStyle==='sample') neededLibs.add('bassguitar');
   const stillLoading=[...neededLibs].filter(n=>!sampleLibCache[n]);
   if(stillLoading.length){
