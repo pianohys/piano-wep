@@ -173,6 +173,8 @@
   .btn-clearall{background:#fff;color:#a8321a;border:2px solid #f0c9bd}
   .btn-clearall:hover{background:#fdece7}
   .btn-share{background:var(--ink);color:#fff}
+  .btn-tie{background:#fff;color:var(--ink);border:2px solid var(--soft)}
+  .btn-tie.active{background:var(--ink);color:#fff;border-color:var(--ink)}
   button:hover{filter:brightness(1.04)}
   .tempo{display:flex;align-items:center;gap:8px;font-size:14px;color:#4a4636}
   .tempo input[type=range]{accent-color:var(--coral)}
@@ -504,6 +506,7 @@
       <button class="btn-stop" id="stop">■ 정지</button>
       <button class="btn-clear" id="clear">음표 지우기</button>
       <button class="btn-clear" id="clearMeasure">한 마디 지우기</button>
+      <button class="btn-tie" id="tieModeBtn">🔗 붙임줄</button>
       <button class="btn-clearall" id="clearAllNotes">음표 전체 지우기</button>
       <button class="btn-clearall" id="clearAllLyrics">가사 전체 지우기</button>
       <button class="btn-share" id="share">🔗 공유 링크 복사</button>
@@ -976,6 +979,10 @@ let selected=null;
 let cursorIdx=null;       // 오선보에서 미리 클릭해 둔 칸(커서) — 그 다음 음표상자를 클릭하면 바로 그 칸에 놓임
 let deleteMode=false;     // when on, clicking a note deletes that note
 let measureEraseMode=false;   // when on, clicking anywhere in a measure clears that whole measure's notes
+// 붙임줄 모드 — 켜져 있을 때만 "여기 이을 수 있어요"라는 옅은 점선 힌트를 보여줌. 꺼져 있으면(평소
+// 상태) 이미 걸려 있는 붙임줄(진한 곡선)만 보이고, 같은 음높이가 우연히 이어질 때마다 힌트가 뜨는
+// 일은 없음 — 학생이 붙임줄을 쓸 생각이 없을 때 괜히 이상한 점선이 보여서 헷갈리지 않게 하려는 것.
+let tieMode=false;
 let lastSpace=0;          // debounce: Korean IME can fire the space key twice
 
 // build palette — a single 2-row table (header row of beat-value labels, body row of shapes) so
@@ -1051,6 +1058,7 @@ updatePalScrollBtns();
 function selectTile(id,el){
   if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
   if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+  exitTieMode();
   if(cursorIdx!=null){
     // 오선보에 커서(선택된 칸)가 있으면, 음표상자를 클릭한 즉시 그 칸에 놓는다 — 안 맞으면(마디를 넘어가는 등) 이유를 안내
     const idx=cursorIdx;
@@ -1691,6 +1699,12 @@ function toggleTie(rightIdx){
   else { tieData.add(rightIdx); setStatus('붙임줄로 이었어요 — 뒤 음표는 다시 치지 않고 앞 음표에 이어서 울려요.'); }
   render(rightIdx-1); render(rightIdx);
 }
+function exitTieMode(){
+  if(!tieMode) return;
+  tieMode=false;
+  document.getElementById('tieModeBtn').classList.remove('active');
+  renderAll();
+}
 // 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 작은 반원을
 // 양쪽에 하나씩 그려서 "여기서 이어진다"는 느낌만 줌(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니
 // 안전함). side='right'는 이 음표(왼쪽 음표)의 칸 오른쪽 끝에, side='left'는 다음 음표(오른쪽
@@ -1711,14 +1725,18 @@ function tieArcSVG(step,side,active,rightIdx){
 }
 // idx칸에 그릴 붙임줄 반쪽(들) — 이 칸이 어떤 음표의 마지막 칸이면서 다음 음표와 이을 수 있으면
 // 오른쪽 반쪽을, 이 칸 자체가 앞 음표와 이을 수 있는 음표 시작 칸이면 왼쪽 반쪽을 반환함(둘 다
-// 해당하면 둘 다). 붙임줄이 아직 안 걸려 있어도 걸 수 있는 자리면 옅은 점선으로 미리 보여줌.
+// 해당하면 둘 다). 이미 걸려 있는 붙임줄(진한 곡선)은 언제나 보여주지만, "여기 걸 수 있어요"라는
+// 옅은 점선 힌트는 붙임줄 모드(tieMode)일 때만 보여줌 — 안 그러면 같은 음높이가 우연히 이어질
+// 때마다(아주 흔함) 힌트가 떠서 붙임줄을 쓸 생각이 없는 학생들에게 이상하게 보일 수 있음.
 function tieHookHTML(idx){
   let h='';
   if(idx+1<SLOTS && tieEligible(idx+1)){
-    h+=tieArcSVG(stepsFor(tieLeftStart(idx+1))[0], 'right', tieActive(idx+1), idx+1);
+    const active=tieActive(idx+1);
+    if(active||tieMode) h+=tieArcSVG(stepsFor(tieLeftStart(idx+1))[0], 'right', active, idx+1);
   }
   if(tieEligible(idx)){
-    h+=tieArcSVG(stepsFor(idx)[0], 'left', tieActive(idx), idx);
+    const active=tieActive(idx);
+    if(active||tieMode) h+=tieArcSVG(stepsFor(idx)[0], 'left', active, idx);
   }
   return h;
 }
@@ -2557,6 +2575,7 @@ document.getElementById('clear').addEventListener('click',()=>{
   board.classList.toggle('erasing',deleteMode);   // swap the mouse cursor to an eraser while this is on
   if(deleteMode){
     if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitTieMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
     setStatus('🧹 지우개 모드예요. 지울 음표를 <b>클릭</b>하세요. (끝내려면 「음표 지우기」를 다시 누르세요)');
@@ -2568,10 +2587,23 @@ document.getElementById('clearMeasure').addEventListener('click',()=>{
   board.classList.toggle('measure-erasing',measureEraseMode);
   if(measureEraseMode){
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
+    exitTieMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
     setStatus('🧹 마디 지우기 모드예요. 지울 마디를 <b>클릭</b>하세요. (끝내려면 「한 마디 지우기」를 다시 누르세요)');
   } else setStatus('한 마디 지우기를 끝냈어요.');
+});
+document.getElementById('tieModeBtn').addEventListener('click',()=>{
+  tieMode=!tieMode;
+  document.getElementById('tieModeBtn').classList.toggle('active',tieMode);
+  if(tieMode){
+    if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
+    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
+    setCursor(null);
+    setStatus('🔗 붙임줄 모드예요. 같은 음높이 음표 두 개 사이의 점선을 <b>탭</b>하면 이어져요. (끝내려면 「붙임줄」을 다시 누르세요)');
+  } else { setStatus('붙임줄 모드를 끝냈어요.'); }
+  renderAll();
 });
 // window.confirm()/alert()/prompt()은 아이패드 홈 화면에 추가해 실행하는 "독립 실행형(standalone)"
 // 상태에서는 아무 반응 없이 조용히 씹혀요(브라우저 표시줄이 없는 웹앱 모드의 알려진 제약) —
