@@ -589,13 +589,13 @@
       <p class="popupSub">전주로 만들고 싶은 마디가 있는지(4마디 정도) 알려주세요. 맨 끝 4개 마디를 추천합니다.</p>
       <div class="recModeBtns">
         <button type="button" class="btn-record-mode" id="introYesBtn">🎼 맨 끝 4마디를 전주로 사용<span class="recModeSub" id="introYesSub">전주가 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요</span></button>
-        <button type="button" class="btn-record-mode" id="introCustomBtn">🎯 원하는 마디를 전주로 사용<span class="recModeSub">몇 번째 마디부터 몇 마디를 전주로 쓸지 직접 골라요</span></button>
+        <button type="button" class="btn-record-mode" id="introCustomBtn">🎯 원하는 마디를 전주로 사용<span class="recModeSub">몇 번째 마디부터 몇 번째 마디까지를 전주로 쓸지 직접 골라요</span></button>
         <button type="button" class="btn-record-mode" id="introNoBtn">🚫 전주 없이 바로 시작<span class="recModeSub">1번째 마디부터 바로 녹음이 시작돼요</span></button>
       </div>
       <div id="introCustomForm" style="display:none">
         <div class="introCustomRow">
           <label>시작 마디 <input type="text" id="introCustomStart" inputmode="numeric"></label>
-          <label>몇 마디 <input type="text" id="introCustomCount" inputmode="numeric"></label>
+          <label>끝 마디 <input type="text" id="introCustomEnd" inputmode="numeric"></label>
           <button type="button" class="btn-record-mode" id="introCustomGoBtn">이 마디들을 전주로 시작하기</button>
         </div>
         <p class="popupSub" id="introCustomHint" style="margin-top:8px"></p>
@@ -4567,9 +4567,9 @@ function showRecIntroChoice(){
   if(sub) sub.textContent = `${MEAS-introMax+1}~${MEAS}번째 마디(${introMax}마디)가 전주로 먼저 연주된 뒤 1번째 마디부터 녹음이 시작돼요`;
   const introCustomFormEl=document.getElementById('introCustomForm');
   if(introCustomFormEl) introCustomFormEl.style.display='none';
-  const startEl=document.getElementById('introCustomStart'), countEl=document.getElementById('introCustomCount');
+  const startEl=document.getElementById('introCustomStart'), endEl=document.getElementById('introCustomEnd');
   if(startEl) startEl.value = MEAS-introMax+1;   // 기본값도 "맨 끝 4마디"로 미리 채워두되, 직접 바꿀 수 있음
-  if(countEl) countEl.value = introMax;
+  if(endEl) endEl.value = MEAS;
   updateIntroCustomHint();
   setRecStatus('전주를 쓸지 골라주세요.');
 }
@@ -4643,13 +4643,16 @@ document.getElementById('introCustomBtn').addEventListener('click', ()=>{
 });
 document.getElementById('introCustomGoBtn').addEventListener('click', ()=>{
   const startRaw=+document.getElementById('introCustomStart').value;
-  const countRaw=+document.getElementById('introCustomCount').value;
+  const endRaw=+document.getElementById('introCustomEnd').value;
   // 뭘 입력하든 지금 악보(1~MEAS) 안으로 안전하게 맞춤 — 범위를 벗어나거나 숫자가 아니면 알아서 보정함.
+  // "몇 마디"(개수) 대신 "끝 마디"로 받는 이유: "5~8마디를 전주로" 식으로 마디 범위를 그대로 말하는
+  // 학생이 끝 마디에 8을 넣으면 기대한 그대로(5,6,7,8 총 4마디)가 되게 하기 위함 — 예전엔 이 칸이
+  // "몇 마디"(개수)라서, 여기 8을 넣으면 "5번째 마디부터 8개"(5~12마디)가 되어 버리는 문제가 있었음.
   let start=Number.isFinite(startRaw) ? Math.round(startRaw) : 1;
   start=Math.max(1, Math.min(MEAS, start));
-  let count=Number.isFinite(countRaw) ? Math.round(countRaw) : 1;
-  count=Math.max(1, Math.min(MEAS-start+1, count));
-  recIntroStart=start-1; recIntroCount=count;
+  let end=Number.isFinite(endRaw) ? Math.round(endRaw) : start;
+  end=Math.max(start, Math.min(MEAS, end));
+  recIntroStart=start-1; recIntroCount=end-start+1;
   beginRecordFlow('voice');
 });
 document.getElementById('micHelpRetry').addEventListener('click', ()=>{
