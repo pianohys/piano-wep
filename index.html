@@ -3251,10 +3251,12 @@ const SAMPLE_MIDI_URLS = {
 //   옮겨 거의 시프트 없이 재생함.
 // - orchestra: VSCO-2-CE(Versilian Studios Chamber Orchestra 2, Community Edition), CC0 —
 //   Cello Section·Viola Section·Violin Section 각각의 susVib(비브라토 지속음) 샘플을 저음~고음
-//   순서로 이어붙여 한 옥타브대(MIDI 24~74)의 "현악 합주" 음색으로 씀. 원본은 8~9초짜리 긴 지속음
-//   이라, 3.3초로 자르고(화음 반주는 그보다 길게 안 끎) 살짝 페이드아웃, 모노로 다운믹스 후 피크를
-//   -1dB로 정규화해서(원본은 헤드룸이 넉넉해 그대로 쓰면 너무 작게 들림) 다른 샘플 악기와 비슷한
-//   음량대로 맞춤.
+//   순서로 이어붙여 한 옥타브대(MIDI 24~74)의 "현악 합주" 음색으로 씀. 원본은 활을 서서히 눌러
+//   커지는(스웰) 주법이라 다 붙은 음량까지 2~3초나 걸려서, 그대로 쓰면 화음 하나가 끝나기도 전에
+//   소리가 다 안 커져 "시작이 딜레이된다"는 피드백을 받음 — 앞의 조용한 스웰 구간(0.7초)을 자른
+//   뒤 dynaudnorm(동적 정규화)으로 남은 스웰을 훨씬 빠르게 압축해서 대부분 0.2~0.3초 안에 제
+//   음량까지 올라오게 함. 그 뒤 3.3초로 자르고(화음 반주는 그보다 길게 안 끎) 살짝 페이드아웃,
+//   모노로 다운믹스 후 피크를 -1dB로 정규화해서 다른 샘플 악기와 비슷한 음량대로 맞춤.
 function midiToFreq(m){ return 440*Math.pow(2,(m-69)/12); }
 const sampleLibCache={}, sampleLibLoading={};
 function loadInstrumentSamples(name){
