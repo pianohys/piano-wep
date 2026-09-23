@@ -1681,22 +1681,26 @@ function exitMeasCopyPasteMode(){
   if(measCopyMode){ measCopyMode=false; document.getElementById('copyMeasureBtn').classList.remove('active'); }
   if(measPasteMode){ measPasteMode=false; document.getElementById('pasteMeasureBtn').classList.remove('active'); }
 }
-// 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 작은 반원을
-// 양쪽에 하나씩 그려서 "여기서 이어진다"는 느낌만 줌(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니
-// 안전함). side='right'는 이 음표(왼쪽 음표)의 칸 오른쪽 끝에, side='left'는 다음 음표(오른쪽
-// 음표)의 칸 왼쪽 끝에 그림 — 둘 중 어느 쪽을 눌러도 같은 rightIdx의 붙임줄이 켜짐/꺼짐.
+// 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 곡선을 양쪽에
+// 하나씩 그림(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니 안전함). 두 반쪽이 물결처럼 따로 노는
+// 게 아니라 한 줄로 이어져 보이도록, 칸 경계 쪽 끝은 항상 "수평으로" 만나게 함 — side='right'(왼쪽
+// 음표 쪽)는 음표머리에서 시작해 칸 오른쪽 끝(x=96)에서 살짝 들린 높이로 수평으로 도착하고,
+// side='left'(오른쪽 음표 쪽)는 칸 왼쪽 끝(x=0)의 바로 그 들린 높이에서 수평으로 출발해 음표머리로
+// 내려옴 — 경계에서 두 반쪽의 위치·기울기가 정확히 맞아떨어져 하나의 곡선처럼 보임.
 function tieArcSVG(step,side,active,rightIdx){
-  const y=stepY(step), dy=12*(-stemDir(step));
-  const x1 = side==='right' ? 58 : 2;
-  const x2 = side==='right' ? 94 : 38;
-  const mx=(x1+x2)/2;
-  const opacity=active?0.85:0.25;
-  const width=active?2.6:1.6;
-  const dash=active?'':' stroke-dasharray="3 3"';
-  const boxTop=(y+Math.min(0,dy)-14).toFixed(2), boxH=(Math.abs(dy)+28).toFixed(2);
+  const y=stepY(step);
+  const edgeY=y+14*(-stemDir(step));   // 칸 경계에서 도달할 "들린" 높이 — 스템 반대쪽으로 붙임줄이 향함
+  const opacity=active?0.9:0.35;
+  const width=active?2.4:1.6;
+  const dash=active?'':' stroke-dasharray="2 4"';
+  const color=active?INK:'#2A9D8F';   // 아직 안 건 상태(점선)는 teal로 눈에 띄게, 실제로 건 상태는 악보와 어울리는 잉크색으로
+  let d, rectX;
+  if(side==='right'){ d=`M46,${y.toFixed(2)} Q76,${edgeY.toFixed(2)} 96,${edgeY.toFixed(2)}`; rectX=38; }
+  else { d=`M0,${edgeY.toFixed(2)} Q20,${edgeY.toFixed(2)} 46,${y.toFixed(2)}`; rectX=0; }
+  const top=Math.min(y,edgeY)-12, bot=Math.max(y,edgeY)+12;
   return `<g class="tie-btn" data-idx="${rightIdx}">`
-    + `<rect x="${Math.min(x1,x2)-4}" y="${boxTop}" width="${Math.abs(x2-x1)+8}" height="${boxH}" fill="transparent" style="pointer-events:all;cursor:pointer"/>`
-    + `<path d="M${x1},${y.toFixed(2)} Q${mx},${(y+dy).toFixed(2)} ${x2},${y.toFixed(2)}" fill="none" stroke="${INK}" stroke-width="${width}"${dash} stroke-linecap="round" opacity="${opacity}" style="pointer-events:none"/>`
+    + `<rect x="${rectX}" y="${top.toFixed(2)}" width="58" height="${(bot-top).toFixed(2)}" fill="transparent" style="pointer-events:all;cursor:pointer"/>`
+    + `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}"${dash} stroke-linecap="round" opacity="${opacity}" style="pointer-events:none"/>`
     + `</g>`;
 }
 // idx칸에 그릴 붙임줄 반쪽(들) — 이 칸이 어떤 음표의 마지막 칸이면서 다음 음표와 이을 수 있으면
