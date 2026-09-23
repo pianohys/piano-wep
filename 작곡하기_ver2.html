@@ -1746,6 +1746,18 @@ function tieEligible(rightIdx){
   return lastOnsetInfo(leftStart).step===rightInfo.step;
 }
 function tieActive(rightIdx){ return tieData.has(rightIdx) && tieEligible(rightIdx); }
+// rightIdx에 새로 붙임줄을 걸면 세 음(이상) 연달아 이어진 체인이 만들어지는지 — 왼쪽 음표가 이미
+// 다른 음표에서 이어받고 있거나(자신이 가운데가 됨), 오른쪽 음표가 이미 그다음 음표로 이어지고
+// 있으면(자신이 가운데가 됨) 체인이 생기므로 막아야 함. 붙임줄은 항상 정확히 두 음표만 이어야 함.
+function wouldChainIfTied(rightIdx){
+  const leftStart=tieLeftStart(rightIdx);
+  if(leftStart==null) return false;
+  if(tieActive(leftStart)) return true;
+  const nid=slotData[rightIdx];
+  const rightNext=rightIdx+(nid==='_frac'?1:spanOf(nid));
+  if(rightNext<SLOTS && tieActive(rightNext)) return true;
+  return false;
+}
 // idx칸 온셋 onsetIdx 하나의 원래 길이(박) — 단순/packed-다중온셋/frac 공통.
 function onsetOwnDurationBeats(idx,onsetIdx){
   const id=slotData[idx];
@@ -1773,6 +1785,10 @@ function tieChainDurationBeats(startIdx,onsetIdx){
 function toggleTie(rightIdx){
   if(!tieEligible(rightIdx)){
     setStatus('붙임줄은 <b>같은 음높이</b>의 두 음이 쉼표 없이 바로 붙어 있을 때만 걸 수 있어요.');
+    return;
+  }
+  if(!tieData.has(rightIdx) && wouldChainIfTied(rightIdx)){
+    setStatus('붙임줄은 <b>두 음표씩만</b> 이을 수 있어요 — 앞이나 뒤 음표가 이미 다른 음표와 이어져 있어요.');
     return;
   }
   maybePushUndo();
@@ -1837,11 +1853,11 @@ function tieHookHTML(idx){
   let h='';
   if(idx+1<SLOTS && tieEligible(idx+1)){
     const active=tieActive(idx+1);
-    if(active||tieMode) h+=tieArcSVG(lastOnsetInfo(tieLeftStart(idx+1)).step, 'right', active, idx+1);
+    if(active||(tieMode && !wouldChainIfTied(idx+1))) h+=tieArcSVG(lastOnsetInfo(tieLeftStart(idx+1)).step, 'right', active, idx+1);
   }
   if(tieEligible(idx)){
     const active=tieActive(idx);
-    if(active||tieMode) h+=tieArcSVG(firstOnsetInfo(idx).step, 'left', active, idx);
+    if(active||(tieMode && !wouldChainIfTied(idx))) h+=tieArcSVG(firstOnsetInfo(idx).step, 'left', active, idx);
   }
   return h;
 }
