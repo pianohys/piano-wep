@@ -517,6 +517,8 @@
     <div class="savebar">
       <button id="addbar">➕ 1마디 추가</button>
       <button id="delbar">➖ 1마디</button>
+      <button class="btn-tie" id="copyMeasureBtn">📋 마디 복사</button>
+      <button class="btn-tie" id="pasteMeasureBtn">📥 마디 붙여넣기</button>
       <span class="savesep"></span>
       <button id="tsave">💾 임시저장</button>
       <button id="tload">📂 이어서 하기</button>
@@ -983,6 +985,8 @@ let measureEraseMode=false;   // when on, clicking anywhere in a measure clears 
 // 상태) 이미 걸려 있는 붙임줄(진한 곡선)만 보이고, 같은 음높이가 우연히 이어질 때마다 힌트가 뜨는
 // 일은 없음 — 학생이 붙임줄을 쓸 생각이 없을 때 괜히 이상한 점선이 보여서 헷갈리지 않게 하려는 것.
 let tieMode=false;
+let measCopyMode=false, measPasteMode=false;   // 마디 복사/붙여넣기 모드 — 한 마디의 음표·가사·화음을 통째로 다른 마디에 덮어씀
+let measClip=null;   // {n,p,f,a,l,c} — copyMeasureContents()가 채움
 let lastSpace=0;          // debounce: Korean IME can fire the space key twice
 
 // build palette — a single 2-row table (header row of beat-value labels, body row of shapes) so
@@ -1059,6 +1063,7 @@ function selectTile(id,el){
   if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
   if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
   exitTieMode();
+  exitMeasCopyPasteMode();
   if(cursorIdx!=null){
     // 오선보에 커서(선택된 칸)가 있으면, 음표상자를 클릭한 즉시 그 칸에 놓는다 — 안 맞으면(마디를 넘어가는 등) 이유를 안내
     const idx=cursorIdx;
@@ -1646,6 +1651,21 @@ board.addEventListener('keydown',e=>{
   } else if(e.key==='ArrowRight'){ const n=nextLyrc(c); if(n){e.preventDefault();n.focus();} }
     else if(e.key==='ArrowLeft'){ const p=prevLyrc(c); if(p){e.preventDefault();p.focus();} }
 });
+// 키보드로 음표 지우기 — 오선보에서 칸을 선택해 둔(cursorIdx) 상태에서 Delete/Backspace를 누르면
+// 지우개 모드로 따로 안 들어가도 바로 그 음표가 지워짐. 글자 입력 칸(가사, 학년/반/이름 등)에
+// 포커스가 있을 때나 팝업이 떠 있을 때는 원래 동작(글자 지우기 등)을 방해하지 않게 그냥 지나감.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Delete' && e.key!=='Backspace') return;
+  const t=e.target;
+  if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.tagName==='SELECT' || t.isContentEditable)) return;
+  if(document.querySelector('#confirmOverlay.show, #recordPopupOverlay.show, #reviewPopupOverlay.show, #countdownOverlay.show, #micHelpOverlay.show')) return;
+  if(chordPopupMi!=null) return;
+  if(cursorIdx==null) return;
+  if(slotData[cursorIdx]==null && heldFrom[cursorIdx]==null) return;
+  e.preventDefault();
+  clearSlot(cursorIdx);
+  setStatus('키보드로 음표를 지웠어요.');
+});
 
 
 // slot interactions
@@ -1657,41 +1677,80 @@ function rebuildHeld(){
     if(id){ const sp=spanOf(id); for(let k=1;k<sp && i+k<SLOTS;k++) heldFrom[i+k]=i; }
   }
 }
-// rightIdx 칸 바로 앞에 빈틈없이 붙어 있는 "단순 음표"(쉼표 아니고, 한 음만 나는)의 시작 idx —
-// 없으면 null. span>1인 긴 음표면 그 마지막 이어짐 칸(rightIdx-1)의 heldFrom이 시작 idx를 가리킴.
+// idx칸 "자기 내용"의 마지막으로 울리는 온셋 — {step, onsetIdx} | null(쉼표뿐이거나, 칸이 비어
+// 있거나, 마지막 자리가 쉼표라 붙임줄로 이을 자리가 없거나, dq처럼 온셋이 다른 칸에 걸쳐 있는
+// 콤보라 판단이 애매한 경우). 단순 음표(온셋 1개)든, 한 칸에 여러 온셋이 packed된 음표(8분 8분,
+// 16분 넷 등)든, 박자쪼갬(fracData)이든 다 다룸 — 마지막 자리가 진짜 소리 나는 음이어야 함(마지막이
+// 쉼표면 그 앞에서 이미 소리가 끊겨 있으니 붙임줄을 걸 수 없음).
+function lastOnsetInfo(idx){
+  const id=slotData[idx]; if(id==null) return null;
+  if(id==='_frac'){
+    const atoms=fracData[idx]||[]; if(!atoms.length) return null;
+    const last=atoms[atoms.length-1];
+    if(!FRAC_HASPITCH[last.id]) return null;
+    return {step:(last.pitch!=null?last.pitch:DEFAULT_STEP), onsetIdx:atoms.length-1};
+  }
+  const t=TYPE[id]; if(!t || t.cellGlyph || t.on.length===0) return null;
+  const steps=stepsFor(idx);
+  return {step:steps[steps.length-1], onsetIdx:t.on.length-1};
+}
+// idx칸에서 시작하는 음표의 첫 온셋 — {step, onsetIdx(=0)} | null. lastOnsetInfo와 마찬가지로
+// 단순/packed-다중온셋/frac 모두 다룸. 첫 자리가 쉼표면(frac에서 쉼표로 시작) 이을 수 없음.
+function firstOnsetInfo(idx){
+  const id=slotData[idx]; if(id==null) return null;
+  if(id==='_frac'){
+    const atoms=fracData[idx]||[]; if(!atoms.length || !FRAC_HASPITCH[atoms[0].id]) return null;
+    return {step:(atoms[0].pitch!=null?atoms[0].pitch:DEFAULT_STEP), onsetIdx:0};
+  }
+  const t=TYPE[id]; if(!t || t.cellGlyph || t.on.length===0) return null;
+  return {step:stepsFor(idx)[0], onsetIdx:0};
+}
+// rightIdx 칸 바로 앞에 빈틈없이 붙어 있는 음표의 시작 idx — 없으면 null. span>1인 긴 음표면 그
+// 마지막 이어짐 칸(rightIdx-1)의 heldFrom이 시작 idx를 가리킴.
 function tieLeftStart(rightIdx){
   if(rightIdx<=0) return null;
   const leftStart = (heldFrom[rightIdx-1]!=null) ? heldFrom[rightIdx-1] : (rightIdx-1);
-  const lid=slotData[leftStart];
-  if(!lid || lid==='_frac' || !TYPE[lid] || TYPE[lid].on.length!==1) return null;
-  if(leftStart+spanOf(lid)!==rightIdx) return null;   // 사이에 빈 칸 없이 정확히 맞닿아야 함
+  const lid=slotData[leftStart]; if(lid==null) return null;
+  const span = lid==='_frac' ? 1 : spanOf(lid);
+  if(leftStart+span!==rightIdx) return null;   // 사이에 빈 칸 없이 정확히 맞닿아야 함
+  if(!lastOnsetInfo(leftStart)) return null;
   return leftStart;
 }
-// rightIdx에서 시작하는 음표가, 바로 앞 음표와 붙임줄로 이을 수 있는 상태인지(둘 다 단순 음표 +
-// 같은 음높이) — 실제로 붙임줄이 걸려 있는지는 tieActive()가 따로 확인함.
+// rightIdx에서 시작하는 음표가, 바로 앞 음표와 붙임줄로 이을 수 있는 상태인지(둘 다 마지막/첫
+// 온셋이 실제로 소리 나고 같은 음높이) — 실제로 붙임줄이 걸려 있는지는 tieActive()가 따로 확인함.
 function tieEligible(rightIdx){
   const leftStart=tieLeftStart(rightIdx); if(leftStart==null) return false;
-  const rid=slotData[rightIdx];
-  if(!rid || rid==='_frac' || !TYPE[rid] || TYPE[rid].on.length!==1) return false;
-  return stepsFor(leftStart)[0]===stepsFor(rightIdx)[0];
+  const rightInfo=firstOnsetInfo(rightIdx); if(!rightInfo) return false;
+  return lastOnsetInfo(leftStart).step===rightInfo.step;
 }
 function tieActive(rightIdx){ return tieData.has(rightIdx) && tieEligible(rightIdx); }
-// startIdx의 단순 음표가 재생될 때 실제로 울려야 할 길이(박) — 뒤로 붙임줄이 몇 개 이어지든 다 더함.
-// 붙임줄이 없으면 자기 원래 길이 그대로.
-function tieChainDurationBeats(startIdx){
-  const id=slotData[startIdx];
-  let total=onsetDurations(id)[0];
-  let cursor=startIdx+spanOf(id);
+// idx칸 온셋 onsetIdx 하나의 원래 길이(박) — 단순/packed-다중온셋/frac 공통.
+function onsetOwnDurationBeats(idx,onsetIdx){
+  const id=slotData[idx];
+  if(id==='_frac') return FRAC_DUR[fracData[idx][onsetIdx].id];
+  return onsetDurations(id)[onsetIdx];
+}
+// startIdx칸의 onsetIdx번째 온셋(그 칸의 "마지막" 온셋이어야 호출됨)이 재생될 때 실제로 울려야 할
+// 길이(박) — 뒤로 붙임줄이 몇 개 이어지든(칸을 넘나들며) 다 더함. 이어받은 칸의 흡수된 온셋이 그
+// 칸의 마지막 온셋일 때만(=그 칸에 더 이상 딴 음이 없을 때만) 체인을 계속 이어감 — 그렇지 않으면
+// (예: 8분 8분에서 앞의 8분만 흡수됨) 남은 온셋(뒤의 8분)은 자기 몫대로 따로 울려야 하므로 거기서 멈춤.
+function tieChainDurationBeats(startIdx,onsetIdx){
+  let total=onsetOwnDurationBeats(startIdx,onsetIdx);
+  const id0=slotData[startIdx];
+  let cursor=startIdx+(id0==='_frac'?1:spanOf(id0));
   while(cursor<SLOTS && tieActive(cursor)){
+    const info=firstOnsetInfo(cursor); if(!info) break;
+    total+=onsetOwnDurationBeats(cursor,info.onsetIdx);
     const nid=slotData[cursor];
-    total+=onsetDurations(nid)[0];
-    cursor+=spanOf(nid);
+    const lastIdx = nid==='_frac' ? (fracData[cursor].length-1) : (TYPE[nid].on.length-1);
+    if(info.onsetIdx!==lastIdx) break;   // 그 칸에 아직 더 울려야 할 온셋이 남아있으면 체인은 여기까지
+    cursor += (nid==='_frac' ? 1 : spanOf(nid));
   }
   return total;
 }
 function toggleTie(rightIdx){
   if(!tieEligible(rightIdx)){
-    setStatus('붙임줄은 <b>같은 음높이</b>의 단순한 음표 두 개가 바로 붙어 있을 때만 걸 수 있어요.');
+    setStatus('붙임줄은 <b>같은 음높이</b>의 두 음이 쉼표 없이 바로 붙어 있을 때만 걸 수 있어요.');
     return;
   }
   maybePushUndo();
@@ -1704,6 +1763,10 @@ function exitTieMode(){
   tieMode=false;
   document.getElementById('tieModeBtn').classList.remove('active');
   renderAll();
+}
+function exitMeasCopyPasteMode(){
+  if(measCopyMode){ measCopyMode=false; document.getElementById('copyMeasureBtn').classList.remove('active'); }
+  if(measPasteMode){ measPasteMode=false; document.getElementById('pasteMeasureBtn').classList.remove('active'); }
 }
 // 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 작은 반원을
 // 양쪽에 하나씩 그려서 "여기서 이어진다"는 느낌만 줌(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니
@@ -1732,11 +1795,11 @@ function tieHookHTML(idx){
   let h='';
   if(idx+1<SLOTS && tieEligible(idx+1)){
     const active=tieActive(idx+1);
-    if(active||tieMode) h+=tieArcSVG(stepsFor(tieLeftStart(idx+1))[0], 'right', active, idx+1);
+    if(active||tieMode) h+=tieArcSVG(lastOnsetInfo(tieLeftStart(idx+1)).step, 'right', active, idx+1);
   }
   if(tieEligible(idx)){
     const active=tieActive(idx);
-    if(active||tieMode) h+=tieArcSVG(stepsFor(idx)[0], 'left', active, idx);
+    if(active||tieMode) h+=tieArcSVG(firstOnsetInfo(idx).step, 'left', active, idx);
   }
   return h;
 }
@@ -2014,6 +2077,18 @@ board.addEventListener('click',e=>{
     const measEl=e.target.closest('.measure');
     if(measEl) clearMeasureContents(+measEl.dataset.m);
     else setStatus('지울 마디를 <b>클릭</b>하세요.');
+    return;
+  }
+  if(measCopyMode){
+    const measEl=e.target.closest('.measure');
+    if(measEl) copyMeasureContents(+measEl.dataset.m);
+    else setStatus('복사할 마디를 <b>클릭</b>하세요.');
+    return;
+  }
+  if(measPasteMode){
+    const measEl=e.target.closest('.measure');
+    if(measEl) pasteMeasureContents(+measEl.dataset.m);
+    else setStatus('붙여넣을 마디를 <b>클릭</b>하세요.');
     return;
   }
   if(e.target.closest('.lyrc'))return;          // clicking a lyric box = type lyrics
@@ -2576,6 +2651,7 @@ document.getElementById('clear').addEventListener('click',()=>{
   if(deleteMode){
     if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
     exitTieMode();
+    exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
     setStatus('🧹 지우개 모드예요. 지울 음표를 <b>클릭</b>하세요. (끝내려면 「음표 지우기」를 다시 누르세요)');
@@ -2588,6 +2664,7 @@ document.getElementById('clearMeasure').addEventListener('click',()=>{
   if(measureEraseMode){
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
     exitTieMode();
+    exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
     setStatus('🧹 마디 지우기 모드예요. 지울 마디를 <b>클릭</b>하세요. (끝내려면 「한 마디 지우기」를 다시 누르세요)');
@@ -2599,11 +2676,38 @@ document.getElementById('tieModeBtn').addEventListener('click',()=>{
   if(tieMode){
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
     if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
     setStatus('🔗 붙임줄 모드예요. 같은 음높이 음표 두 개 사이의 점선을 <b>탭</b>하면 이어져요. (끝내려면 「붙임줄」을 다시 누르세요)');
   } else { setStatus('붙임줄 모드를 끝냈어요.'); }
   renderAll();
+});
+document.getElementById('copyMeasureBtn').addEventListener('click',()=>{
+  measCopyMode=!measCopyMode;
+  document.getElementById('copyMeasureBtn').classList.toggle('active',measCopyMode);
+  if(measCopyMode){
+    measPasteMode=false; document.getElementById('pasteMeasureBtn').classList.remove('active');
+    if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
+    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitTieMode();
+    selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
+    setCursor(null);
+    setStatus('복사할 마디를 <b>클릭</b>하세요. (끝내려면 「마디 복사」를 다시 누르세요)');
+  } else setStatus('마디 복사를 끝냈어요.');
+});
+document.getElementById('pasteMeasureBtn').addEventListener('click',()=>{
+  measPasteMode=!measPasteMode;
+  document.getElementById('pasteMeasureBtn').classList.toggle('active',measPasteMode);
+  if(measPasteMode){
+    measCopyMode=false; document.getElementById('copyMeasureBtn').classList.remove('active');
+    if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
+    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitTieMode();
+    selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
+    setCursor(null);
+    setStatus(measClip ? '붙여넣을 마디를 <b>클릭</b>하세요. (그 마디 내용을 통째로 덮어써요)' : '먼저 「📋 마디 복사」로 복사할 마디를 골라 주세요.');
+  } else setStatus('마디 붙여넣기를 끝냈어요.');
 });
 // window.confirm()/alert()/prompt()은 아이패드 홈 화면에 추가해 실행하는 "독립 실행형(standalone)"
 // 상태에서는 아무 반응 없이 조용히 씹혀요(브라우저 표시줄이 없는 웹앱 모드의 알려진 제약) —
@@ -2636,6 +2740,48 @@ function clearMeasureContents(m){
   });
   setStatus(`${m+1}번째 마디의 음표를 지웠어요. 가사는 그대로 남아 있어요.`);
 }
+// 마디 복사 — 한 마디의 음표·박자쪼갬(fracData)·임시표·가사·화음을 통째로 measClip에 담아 둠.
+function copyMeasureContents(m){
+  const base=m*BEATS;
+  const n=[], p=[], f={}, a={}, l={};
+  for(let b=0;b<BEATS;b++){
+    const idx=base+b;
+    n.push(slotData[idx]);
+    p.push(Array.isArray(pitchData[idx]) ? pitchData[idx].slice() : (pitchData[idx]==null?null:pitchData[idx]));
+    if(fracData[idx]) f[b]=JSON.parse(JSON.stringify(fracData[idx]));
+    for(let k=0;k<4;k++){
+      if(accData[idx+'_'+k]!=null) a[b+'_'+k]=accData[idx+'_'+k];
+      if(lyrChar[idx+'_'+k]!=null) l[b+'_'+k]=lyrChar[idx+'_'+k];
+    }
+  }
+  measClip={ n, p, f, a, l, c: chordData[m] ? JSON.parse(JSON.stringify(chordData[m])) : null };
+  setStatus(`${m+1}번째 마디를 복사했어요. 이제 「📥 마디 붙여넣기」로 붙여넣을 마디를 눌러 주세요.`);
+}
+// 마디 붙여넣기 — 대상 마디의 내용을 measClip으로 통째로 덮어씀(그 마디 붙임줄은 음이 달라지면
+// tieEligible()이 저절로 무시하므로 따로 손볼 필요 없음).
+function pasteMeasureContents(m){
+  if(!measClip){ setStatus('먼저 「📋 마디 복사」로 복사할 마디를 골라 주세요.'); return; }
+  maybePushUndo();
+  const base=m*BEATS;
+  for(let b=0;b<BEATS;b++){
+    const idx=base+b;
+    for(let k=0;k<4;k++){ delete accData[idx+'_'+k]; delete lyrChar[idx+'_'+k]; }
+    delete fracData[idx];
+    slotData[idx]=measClip.n[b];
+    pitchData[idx]=Array.isArray(measClip.p[b]) ? measClip.p[b].slice() : measClip.p[b];
+    if(measClip.f[b]) fracData[idx]=JSON.parse(JSON.stringify(measClip.f[b]));
+    for(let k=0;k<4;k++){
+      if(measClip.a[b+'_'+k]!=null) accData[idx+'_'+k]=measClip.a[b+'_'+k];
+      if(measClip.l[b+'_'+k]!=null) lyrChar[idx+'_'+k]=measClip.l[b+'_'+k];
+    }
+  }
+  chordData[m]=measClip.c ? JSON.parse(JSON.stringify(measClip.c)) : null;
+  order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+  rebuildHeld();
+  refreshChordTags();
+  renderAll();
+  setStatus(`복사한 마디를 ${m+1}번째 마디에 붙여넣었어요.`);
+}
 document.getElementById('clearAllNotes').addEventListener('click',()=>{
   const hasNotes = slotData.some(x=>x!=null);
   if(!hasNotes){ setStatus('이미 음표가 없어요.'); return; }
@@ -2643,6 +2789,7 @@ document.getElementById('clearAllNotes').addEventListener('click',()=>{
     pushUndo();
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
     if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitTieMode(); exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     slotData.fill(null); pitchData.fill(null);
     for(const k in fracData) delete fracData[k];
@@ -3805,22 +3952,28 @@ async function startPlayback(countIn,useMet,btn){
     const id=slotData[s];
     if(id==='_frac'){
       const atoms=fracData[s]||[]; let off=0;
+      const lastPitchedK=(()=>{ for(let k=atoms.length-1;k>=0;k--) if(FRAC_HASPITCH[atoms[k].id]) return k; return -1; })();
       atoms.forEach((a,k)=>{
         const dur=FRAC_DUR[a.id];
         if(FRAC_HASPITCH[a.id]){
-          const step=a.pitch!=null?a.pitch:DEFAULT_STEP, key=s+'_'+k;
-          hit(bt+off*beat, freqForStepAcc(step, effectiveAccForNote(key,step)), dur*beat);
+          const suppressed = k===0 && tieActive(s);   // 붙임줄로 이어받는 첫 온셋은 여기서 다시 소리 내지 않음
+          if(!suppressed){
+            const step=a.pitch!=null?a.pitch:DEFAULT_STEP, key=s+'_'+k;
+            const noteDur = (k===lastPitchedK) ? tieChainDurationBeats(s,k) : dur;   // 뒤로 붙임줄이 이어져 있으면 그만큼 늘림
+            hit(bt+off*beat, freqForStepAcc(step, effectiveAccForNote(key,step)), noteDur*beat);
+          }
         }
         off+=dur;
       });
     } else if(id){
       const hasPitch=TYPE[id].on.length>0;
-      const isTieTarget = TYPE[id].on.length===1 && tieActive(s);
-      if(hasPitch && !isTieTarget){   // 붙임줄로 이어받는 단순 음표는 여기서 다시 소리 내지 않음(앞 음표가 늘어난 길이로 이미 커버함)
-        const steps=stepsFor(s), durs=onsetDurations(id);
+      if(hasPitch){
+        const steps=stepsFor(s), durs=onsetDurations(id), lastOi=TYPE[id].on.length-1;
         TYPE[id].on.forEach((o,oi)=>{
+          const suppressed = oi===0 && tieActive(s);   // 붙임줄로 이어받는 첫 온셋은 여기서 다시 소리 내지 않음
+          if(suppressed) return;
           const key=accKeyForOnset(id,s,oi);
-          const dur = TYPE[id].on.length===1 ? tieChainDurationBeats(s) : durs[oi];   // 뒤로 붙임줄이 이어져 있으면 그만큼 늘림
+          const dur = (oi===lastOi) ? tieChainDurationBeats(s,oi) : durs[oi];   // 뒤로 붙임줄이 이어져 있으면 그만큼 늘림
           hit(bt+o*beat, freqForStepAcc(steps[oi], effectiveAccForNote(key,steps[oi])), dur*beat);
         });
       }
