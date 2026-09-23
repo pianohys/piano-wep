@@ -1711,17 +1711,30 @@ function exitMeasCopyPasteMode(){
 // 보였음(실제로는 서로 다른 두 개의 독립된 자리). 짧게 끊어 그리면 항상 정확히 "이 경계 하나"만
 // 가리키는 게 분명해짐. 클릭 영역(rect)은 정확한 탭을 돕기 위해 그림보다 조금 더 넓게 잡되, 가운데
 // 음표머리 쪽까지는 침범하지 않아 옆 경계의 클릭 영역과 절대 겹치지 않음.
-function tieArcSVG(step,side,active,rightIdx){
+//
+// noteX: 이 반쪽 곡선이 실제로 닿아야 하는 음표머리의 x좌표(0~96, 칸 안에서의 위치) — 8분+16분+16분
+// 같은 한 칸에 여러 온셋이 들어있는 묶음(packed) 음표는 XPOS 상 온셋마다 x좌표가 다 다른데(가운데
+// 46이 아님), 예전엔 무조건 46(보통 음표 하나짜리 칸의 중심)을 썼더니 곡선이 실제 음표머리를 빗나가
+// 옆의 다른 온셋 쪽으로 뻗어나가 "세 음이 걸린 것처럼" 보이는 문제가 있었음 — 반드시 실제 온셋
+// 위치를 받아서 그려야 함(이어지는 칸처럼 이 칸에 자기 음표가 없으면 tieOnsetX가 46으로 대체함).
+function tieOnsetX(idx,onsetIdx){
+  const id=slotData[idx];
+  if(id==='_frac'){ const xs=fracLayout(idx).xs; return xs[onsetIdx]!=null ? xs[onsetIdx] : 46; }
+  if(id!=null && XPOS[id] && XPOS[id][onsetIdx]!=null) return XPOS[id][onsetIdx];
+  return 46;
+}
+function tieArcSVG(noteX,step,side,active,rightIdx){
   const y=stepY(step);
   if(active){
     const edgeY=y+14*(-stemDir(step));
     const d = side==='right'
-      ? `M46,${y.toFixed(2)} Q76,${edgeY.toFixed(2)} 96,${edgeY.toFixed(2)}`
-      : `M0,${edgeY.toFixed(2)} Q20,${edgeY.toFixed(2)} 46,${y.toFixed(2)}`;
-    const rectX = side==='right' ? 38 : 0;
+      ? `M${noteX.toFixed(2)},${y.toFixed(2)} Q${((noteX+96)/2).toFixed(2)},${edgeY.toFixed(2)} 96,${edgeY.toFixed(2)}`
+      : `M0,${edgeY.toFixed(2)} Q${(noteX/2).toFixed(2)},${edgeY.toFixed(2)} ${noteX.toFixed(2)},${y.toFixed(2)}`;
+    const rectX = side==='right' ? Math.max(0,Math.min(noteX,38)) : 0;
+    const rectW = side==='right' ? (96-rectX) : Math.max(58,noteX+12);
     const top=Math.min(y,edgeY)-12, bot=Math.max(y,edgeY)+12;
     return `<g class="tie-btn" data-idx="${rightIdx}">`
-      + `<rect x="${rectX}" y="${top.toFixed(2)}" width="58" height="${(bot-top).toFixed(2)}" fill="transparent" style="pointer-events:all;cursor:pointer"/>`
+      + `<rect x="${rectX.toFixed(2)}" y="${top.toFixed(2)}" width="${rectW.toFixed(2)}" height="${(bot-top).toFixed(2)}" fill="transparent" style="pointer-events:all;cursor:pointer"/>`
       + `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round" opacity="0.9" style="pointer-events:none"/>`
       + `</g>`;
   }
@@ -1744,11 +1757,17 @@ function tieHookHTML(idx){
   let h='';
   if(idx+1<SLOTS && tieEligible(idx+1)){
     const active=tieActive(idx+1);
-    if(active||(tieMode && !wouldChainIfTied(idx+1))) h+=tieArcSVG(lastOnsetInfo(tieLeftStart(idx+1)).step, 'right', active, idx+1);
+    if(active||(tieMode && !wouldChainIfTied(idx+1))){
+      const info=lastOnsetInfo(tieLeftStart(idx+1));
+      h+=tieArcSVG(tieOnsetX(idx,info.onsetIdx), info.step, 'right', active, idx+1);
+    }
   }
   if(tieEligible(idx)){
     const active=tieActive(idx);
-    if(active||(tieMode && !wouldChainIfTied(idx))) h+=tieArcSVG(firstOnsetInfo(idx).step, 'left', active, idx);
+    if(active||(tieMode && !wouldChainIfTied(idx))){
+      const info=firstOnsetInfo(idx);
+      h+=tieArcSVG(tieOnsetX(idx,info.onsetIdx), info.step, 'left', active, idx);
+    }
   }
   return h;
 }
