@@ -179,7 +179,9 @@
   .note{font-size:12px;color:var(--muted);margin-top:14px;text-align:center}
 
   .history{margin-top:26px}
-  .history h2{font-size:18px;margin:0 0 10px}
+  .history h2{font-size:18px;margin:0}
+  .historyHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+  .btn.small{padding:7px 14px;font-size:13px}
   .hItem{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.2);
     margin-bottom:8px;cursor:pointer;border:1px solid transparent;font-size:14px}
   .hItem:hover{border-color:var(--panelLine)}
@@ -261,7 +263,10 @@
   </section>
 
   <section class="history hidden" id="historyBox">
-    <h2 class="serif">지난 타로 기록</h2>
+    <div class="historyHead">
+      <h2 class="serif">지난 타로 기록</h2>
+      <button class="btn ghost small" id="btnClearHistory">🗑️ 기록 지우기</button>
+    </div>
     <div id="historyList"></div>
   </section>
 </div>
@@ -763,6 +768,12 @@ function renderHistory(){
     </div>`;
   }).join("");
 }
+$("btnClearHistory").addEventListener("click",()=>{
+  if(!confirm("이 기기에 저장된 타로 기록을 모두 지울까요?\n지운 기록은 되돌릴 수 없어요.")) return;
+  try{ localStorage.removeItem(HKEY) }catch{}
+  renderHistory();
+  toast("기록을 모두 지웠어요");
+});
 $("historyList").addEventListener("click",e=>{
   const it = e.target.closest(".hItem"); if(!it) return;
   const r = loadHistory()[+it.dataset.i]; if(!r) return;
