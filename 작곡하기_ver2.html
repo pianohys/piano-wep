@@ -162,6 +162,10 @@
 
   /* controls */
   .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 0}
+  /* 악기별 음량 슬라이더 4개는 항상 한 줄에 놓이게(요청) — 폭이 좁은 화면에선 줄바꿈 대신
+     가로 스크롤로 넘기게 해서, 4개가 2줄로 쪼개져 보이는 일이 없게 함. */
+  #instrVolRow{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  #instrVolRow .tempo{flex:0 0 auto}
   button{font-family:inherit;font-size:15px;font-weight:700;border:none;border-radius:12px;
          padding:11px 18px;cursor:pointer;transition:transform .1s, filter .1s}
   button:active{transform:translateY(1px)}
@@ -3001,6 +3005,7 @@ function decodeState(s){
   }catch(e){ return false; }
 }
 document.getElementById('share').addEventListener('click',()=>{
+  if(ensureNotMidRecording('공유 링크를 복사')) return;
   const url=location.origin+location.pathname+'#d='+encodeState();
   history.replaceState(null,'',url);
   if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -3013,6 +3018,7 @@ document.getElementById('share').addEventListener('click',()=>{
 // ---------- save / temporary save ----------
 const SAVEKEY='rhythm-maker-save-v1';
 document.getElementById('tsave').addEventListener('click',()=>{
+  if(ensureNotMidRecording('임시저장')) return;
   try{ localStorage.setItem(SAVEKEY, encodeState()); setStatus('임시저장했어요. 다음에 열면 「📂 이어서 하기」로 불러올 수 있어요.'); }
   catch(_){ setStatus('이 브라우저에선 임시저장이 안 돼요. 「⬇️ 파일로 저장」을 이용해 주세요.'); }
 });
@@ -3073,6 +3079,7 @@ async function offerDownload(filename, data){
   }catch(_){ return {ok:false, code:'unavailable'}; }
 }
 document.getElementById('fsave').addEventListener('click',async ()=>{
+  if(ensureNotMidRecording('파일로 저장')) return;
   if(blockIfUnfinished('파일로 저장할')) return;
   const code=encodeState();
   const clone=document.documentElement.cloneNode(true);          // copy the whole page
@@ -3096,6 +3103,7 @@ document.getElementById('fsave').addEventListener('click',async ()=>{
   }
 });
 document.getElementById('printpdf').addEventListener('click',()=>{
+  if(ensureNotMidRecording('PDF·이미지로 저장')) return;
   if(blockIfUnfinished('PDF·이미지로 저장할')) return;
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   if(typeof hidePitchTag==='function') hidePitchTag();
@@ -3212,6 +3220,21 @@ document.getElementById('recordPopupClose').addEventListener('click', closeRecor
 // 제출(파일로 저장 / 음성 파일로 저장 / PDF·이미지로 저장) 직전에 항상 새로 검토해서, 4박을 다
 // 못 채운 마디가 있으면 그 자리에서 막음 — 「검토하기」를 따로 누르지 않았어도 최신 상태로 확인하고,
 // 검토 팝업과 오선보의 빨간 박스도 같이 새로고침해서 어디를 고쳐야 하는지 바로 보여줌.
+// 목소리 녹음 중엔(전주를 붙이려고) 악보를 잠깐 늘려둔 상태라서, 그 사이에 저장/공유를 누르면
+// "전주가 원곡 앞에 영구히 붙어버린" 파일이 나가버릴 수 있음 — 녹음이 끝나면 자동으로 원래대로
+// 되돌아오지만(finishRecording), 되돌아오기 *전에* 저장/공유를 누르는 경우까지 막아야 안전함.
+// 혹시라도(화면 잠금 등으로 타이머가 못 돌아) 되돌리기가 안 된 채로 recState만 idle로 남아있는
+// 드문 경우에도, 여기서 한 번 더 확인해서 있으면 저장 직전에 조용히 원래대로 되돌려 둠.
+function ensureNotMidRecording(actionLabel){
+  if(typeof recIntroRestoreSnap!=='undefined' && recIntroRestoreSnap && recState==='idle'){
+    applyStateObj(recIntroRestoreSnap); recIntroRestoreSnap=null;
+  }
+  if(typeof recState!=='undefined' && recState!=='idle'){
+    setStatus(`녹음 중에는 ${actionLabel} 수 없어요. 녹음을 마치거나 취소한 뒤 다시 시도해 주세요.`);
+    return true;
+  }
+  return false;
+}
 function blockIfUnfinished(actionLabel){
   const problems=reviewScore();
   if(problems.length===0) return false;
