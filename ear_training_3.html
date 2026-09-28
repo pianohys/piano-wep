@@ -320,11 +320,21 @@
 <script>
 (function(){
   const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+  // Apps Script가 콜드스타트나 혼잡으로 응답을 아예 안 주는 경우가 있는데, fetch에 타임아웃이 없으면
+  // 그 요청이 영영 안 끝나서 이걸 기다리는 loadDashboard()도 영영 안 끝나버림 — 그러면 "이전
+  // 불러오기가 끝나야 다음 새로고침을 받는다" 가드에 걸려 새로고침을 눌러도 아무 일도 안 일어나는
+  // 것처럼 보임. 일정 시간(12초) 안에 응답이 없으면 그 요청만 실패 처리해서 항상 다음 새로고침이 되게 함.
   async function storageRequest(action, params){
     const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
-    const res = await fetch(STORAGE_API_URL + '?' + qs);
-    if (!res.ok) throw new Error('storage request failed: ' + res.status);
-    return res.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch(STORAGE_API_URL + '?' + qs, { signal: controller.signal });
+      if (!res.ok) throw new Error('storage request failed: ' + res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
   }
   window.storage = {
     list: (prefix) => storageRequest('list', { prefix }),
@@ -832,12 +842,16 @@
   // 키를 하나씩 순서대로 기다리면(예전 방식) 아주 느려지고, 반대로 전부 한꺼번에 쏘면 Apps Script의
   // 동시 실행 제한에 걸려 몇 개는 실패해서 "데이터를 불러올 수 없어요"가 뜨기도 함 — 적당한 크기(8개)씩
   // 묶어 순서대로 병렬 처리해서 속도와 안정성을 같이 잡음.
-  async function runInBatches(items, batchSize, worker){
-    const out = [];
-    for(let i=0;i<items.length;i+=batchSize){
-      const batch = items.slice(i, i+batchSize);
-      out.push(...await Promise.all(batch.map(worker)));
+  async function runInBatches(items, concurrency, worker){
+    const out = new Array(items.length);
+    let next = 0;
+    async function runSlot(){
+      while(next < items.length){
+        const i = next++;
+        out[i] = await worker(items[i]);
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runSlot));
     return out;
   }
 

@@ -482,11 +482,22 @@
   // Google Sheets(Apps Script 웹앱)를 결과 저장소로 사용한다.
   const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
 
+  // Apps Script가 콜드스타트나 혼잡으로 응답을 아예 안 주는 경우가 있는데, fetch에 타임아웃이 없으면
+  // 그 요청이 영영 안 끝나서(resolve도 reject도 안 됨) 이걸 기다리는 loadDashboard()도 영영 안
+  // 끝나버림 — 그러면 "이전 불러오기가 끝나야 다음 새로고침을 받는다" 가드에 걸려 새로고침을 눌러도
+  // 정말 아무 일도 안 일어나는 것처럼 보임. 일정 시간(12초) 안에 응답이 없으면 그 요청만 실패
+  // 처리해서, 항상 loadDashboard()가 끝나고(dashLoading이 풀리고) 다음 새로고침이 되게 함.
   async function storageRequest(action, params){
     const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
-    const res = await fetch(STORAGE_API_URL + '?' + qs);
-    if (!res.ok) throw new Error('storage request failed: ' + res.status);
-    return res.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch(STORAGE_API_URL + '?' + qs, { signal: controller.signal });
+      if (!res.ok) throw new Error('storage request failed: ' + res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   window.storage = {
@@ -971,17 +982,23 @@
     if (dashInterval){ clearInterval(dashInterval); dashInterval = null; }
   }
 
-  // 저장소가 구글시트(Apps Script 웹앱)라서 요청 한 번 한 번이 (콜드스타트 포함) 꽤 느림 — 학생 수만큼
-  // 키를 하나씩 순서대로 기다리면(예전 방식) 60명이면 30초 넘게 걸릴 수 있어 "너무 느리다"는 피드백을
-  // 받음. 그렇다고 전부 한꺼번에 쏘면 Apps Script의 동시 실행 제한에 걸려 몇 개는 실패해서 "데이터를
-  // 불러올 수 없어요"가 뜨기도 함 — 그래서 적당한 크기(8개)씩 묶어 순서대로 병렬 처리해서 속도와
-  // 안정성을 같이 잡음.
-  async function runInBatches(items, batchSize, worker){
-    const out = [];
-    for (let i = 0; i < items.length; i += batchSize){
-      const batch = items.slice(i, i + batchSize);
-      out.push(...await Promise.all(batch.map(worker)));
+  // 저장소가 구글시트(Apps Script 웹앱)라서 요청 한 번 한 번이 (콜드스타트 포함) 꽤 느리고 응답
+  // 시간도 들쭉날쭉함 — 학생 수만큼 하나씩 순서대로 기다리면(예전 방식) 너무 느리고, 그렇다고 전부
+  // 한꺼번에 쏘면 Apps Script의 동시 실행 제한에 걸려 몇 개는 실패함. 동시에 최대 concurrency개까지만
+  // 요청을 유지하되, 8개씩 "묶음" 단위로 끊어 기다리는 대신(묶음 중 하나만 느려도 그 묶음 전체가
+  // 늦어져 다음 묶음 시작까지 밀림) 자리 하나가 끝나자마자 바로 다음 항목을 채워 넣는 방식(worker
+  // pool)으로 바꿔서, 느린 요청 하나가 다른 요청들의 진행을 막지 않게 함 — 응답 속도가 들쭉날쭉한
+  // 이런 백엔드에서 체감 속도가 더 안정적으로 빠름.
+  async function runInBatches(items, concurrency, worker){
+    const out = new Array(items.length);
+    let next = 0;
+    async function runSlot(){
+      while (next < items.length){
+        const i = next++;
+        out[i] = await worker(items[i]);
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runSlot));
     return out;
   }
 
