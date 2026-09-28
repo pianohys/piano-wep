@@ -417,8 +417,9 @@
     <div class="center-card">
       <h2>시험이 끝났어요</h2>
       <p class="result-score" id="resultScore">0<span>/24</span></p>
-      <p id="resultSub">선생님께 결과가 전송되었어요.</p>
+      <p id="resultSub">아래 버튼을 눌러 선생님께 결과를 제출해주세요.</p>
       <div class="role-buttons">
+        <button class="big-btn" id="btnSubmitExam">🙋 선생님께 제출하기</button>
         <button class="big-btn" id="btnBackToStart">처음 화면으로</button>
       </div>
     </div>
@@ -871,10 +872,27 @@
   }
 
   function finishExam(){
-    submitScore(quiz);
+    submitScore(quiz);   // 문제마다 자동저장되는 것과 별개로 조용히 한 번 더 저장해두는 안전망(화면엔 안 나타남)
     document.getElementById('resultScore').innerHTML = quiz.correctCount + '<span>/' + quiz.examDeck.length + '</span>';
+    const submitBtn = document.getElementById('btnSubmitExam');
+    submitBtn.disabled = false;
+    submitBtn.textContent = '🙋 선생님께 제출하기';
+    document.getElementById('resultSub').textContent = '아래 버튼을 눌러 선생님께 결과를 제출해주세요.';
     showScreen('screen-result');
   }
+
+  // 문제마다 자동으로 저장은 되지만(선생님 화면 실시간 진행률용), 학생이 "다 풀었다"고 확실히
+  // 확인하는 행동이 하나 있는 게 더 안심된다는 요청 — 이 버튼을 눌러야만 "제출 완료"로 표시되고,
+  // 그 시점 상태로 한 번 더 명시적으로 저장함(자동저장이 이미 다 됐어도 무해하게 덮어씀).
+  document.getElementById('btnSubmitExam').addEventListener('click', async () => {
+    const btn = document.getElementById('btnSubmitExam');
+    if (btn.disabled || !quiz) return;
+    btn.disabled = true;
+    btn.textContent = '제출하는 중...';
+    await submitScore(quiz);
+    btn.textContent = '✅ 제출 완료';
+    document.getElementById('resultSub').textContent = '선생님께 결과가 제출됐어요. 수고하셨어요!';
+  });
 
   resetBtn.addEventListener('click', () => {
     if (!quiz || quiz.locked) return;
