@@ -3783,8 +3783,16 @@ function chordSpans(){
     const c=chordData[mi]; if(!c) continue;
     const measStart=mi*BEATS;
     if(c.half){
-      if(c.half[0]) spans.push({start:measStart, dur:BEATS/2, chord:c.half[0]});
-      if(c.half[1]) spans.push({start:measStart+BEATS/2, dur:BEATS/2, chord:c.half[1]});
+      const h0=c.half[0], h1=c.half[1];
+      if(h0 && h1){
+        // 둘 다 채워져 있을 때만 진짜로 반마디씩 바뀜(요청: "두개넣으면 화음바뀌도록").
+        spans.push({start:measStart, dur:BEATS/2, chord:h0});
+        spans.push({start:measStart+BEATS/2, dur:BEATS/2, chord:h1});
+      } else if(h0 || h1){
+        // 나누기는 눌렀지만 아직 한쪽만 채워져 있으면, 그 하나가 마디 전체를 채움 — 반을 나눴다고
+        // 해서 나머지 반이 무음이 되면 안 됨(요청: "한번만 넣으면 한마디내내 그 화음").
+        spans.push({start:measStart, dur:BEATS, chord:h0||h1});
+      }
     } else {
       spans.push({start:measStart, dur:BEATS, chord:c});
     }
