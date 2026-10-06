@@ -716,14 +716,37 @@
     URL.revokeObjectURL(url);
   });
 
+  // 구글시트(Apps Script) 저장소는 키로 행을 찾아서 지우는 방식이라, 삭제 요청을 동시에 여러 개
+  // 보내면(병렬) 한 요청이 지우는 사이 다른 요청이 보고 있던 행 번호가 밀려서 자기 행을 못 찾아
+  // 그냥 실패해버림 — "기록 초기화를 눌러도 안 없어지는" 원인이었음(불러오기/get은 읽기만 하니
+  // 병렬이어도 안전하지만, 삭제는 시트 자체를 바꾸는 거라 안전하지 않음). 그래서 삭제는 반드시
+  // 하나씩 순서대로 보내고, 그래도 남은 게 있으면(일시적 오류 등) 다시 확인해서 지움.
+  async function clearAllRecordsForPrefix(prefix, onProgress){
+    for(let attempt=0; attempt<3; attempt++){
+      const res = await window.storage.list(prefix);
+      const keyNames = ((res && res.keys) || []).map(k=> typeof k==="string" ? k : k.key);
+      if(keyNames.length===0) return true;
+      if(onProgress) onProgress(`삭제 중… (${keyNames.length}개 남음)`);
+      for(const k of keyNames){
+        try{ await window.storage.delete(k); }catch(e){}
+      }
+    }
+    return false;
+  }
+
   document.getElementById("dashClearBtn").addEventListener("click", async ()=>{
     if(!confirm("기록을 모두 삭제할까요? 되돌릴 수 없어요.")) return;
+    const btn = document.getElementById("dashClearBtn");
+    const origText = btn.textContent;
+    btn.disabled = true;
+    let ok = true;
     try{
-      const res = await window.storage.list(APP_MODE+":");
-      const keyNames = ((res && res.keys) || []).map(k=> typeof k==="string" ? k : k.key);
-      await runInBatches(keyNames, 8, k => window.storage.delete(k).catch(()=>null));
-    }catch(e){ console.error(e); }
-    loadDashboard();
+      ok = await clearAllRecordsForPrefix(APP_MODE+":", (msg)=>{ btn.textContent = msg; });
+    }catch(e){ console.error(e); ok = false; }
+    btn.disabled = false;
+    btn.textContent = origText;
+    await loadDashboard();
+    if(!ok) alert("일부 기록이 지워지지 않았어요. 다시 한 번 눌러주세요.");
   });
 
   let dashInterval = null;
