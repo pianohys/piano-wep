@@ -778,7 +778,8 @@ document.getElementById('dash-clear-btn').addEventListener('click',async()=>{
   btn.disabled=false;
   btn.textContent=origText;
   await loadDashboard();
-  if(!ok) alert('일부 기록이 지워지지 않았어요. 다시 한 번 눌러주세요.');
+  if(ok) alert('기록이 모두 초기화됐어요.');
+  else alert('일부 기록이 지워지지 않았어요. 다시 한 번 눌러주세요.');
 });
 </script>
 </body>
