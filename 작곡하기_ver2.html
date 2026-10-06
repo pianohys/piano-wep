@@ -2243,14 +2243,21 @@ let pending=null, drag=null;
 // 아니므로 취소만 해도 원래대로 남아 있음).
 let activePointerIds=new Set();
 let lastPointerX=0, lastPointerY=0, autoScrollRAF=null;
+// 음표를 음표상자에서 끌 때뿐 아니라 임시표(#/b/♮)를 끌 때도 화면 가장자리에서 자동으로 스크롤되게
+// 함 — 곡이 길어서 임시표를 붙일 음표가 화면 밖에 있으면 예전엔(drag만 처리) 거기까지 끌고 갈 방법이
+// 없었음(요청: "곡이 긴경우 거기까지 끌어갈수없어").
 function autoScrollStep(){
-  if(!drag){ autoScrollRAF=null; return; }
+  if(!drag && !accDrag){ autoScrollRAF=null; return; }
   const EDGE=70, MAXSPD=16;
   const vh=window.innerHeight;
   let dy=0;
   if(lastPointerY < EDGE) dy = -MAXSPD*(1-lastPointerY/EDGE);
   else if(lastPointerY > vh-EDGE) dy = MAXSPD*(1-(vh-lastPointerY)/EDGE);
-  if(dy!==0){ window.scrollBy(0,dy); moveDrag(lastPointerX,lastPointerY); }
+  if(dy!==0){
+    window.scrollBy(0,dy);
+    if(drag) moveDrag(lastPointerX,lastPointerY);
+    else if(accDrag) moveAccDrag(lastPointerX,lastPointerY);
+  }
   autoScrollRAF=requestAnimationFrame(autoScrollStep);
 }
 function stopAutoScroll(){ if(autoScrollRAF){ cancelAnimationFrame(autoScrollRAF); autoScrollRAF=null; } }
@@ -2614,7 +2621,7 @@ document.addEventListener('pointermove',e=>{
     if(!autoScrollRAF) autoScrollRAF=requestAnimationFrame(autoScrollStep);
   }
   if(accPending && !accDrag && Math.hypot(e.clientX-accPending.x0, e.clientY-accPending.y0)>8){ startAccDrag(e.clientX,e.clientY); }
-  if(accDrag){ moveAccDrag(e.clientX,e.clientY); e.preventDefault(); }
+  if(accDrag){ moveAccDrag(e.clientX,e.clientY); e.preventDefault(); if(!autoScrollRAF) autoScrollRAF=requestAnimationFrame(autoScrollStep); }
 },{passive:false});
 function finish(e){ activePointerIds.delete(e.pointerId); if(drag){ endDrag(e.clientX,e.clientY); } if(accDrag){ endAccDrag(e.clientX,e.clientY); } pending=null; accPending=null; stopAutoScroll(); }
 document.addEventListener('pointerup',finish);
