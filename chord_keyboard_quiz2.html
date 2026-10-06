@@ -910,9 +910,10 @@
     if (btn.disabled || !quiz) return;
     btn.disabled = true;
     btn.textContent = '제출하는 중...';
+    document.getElementById('resultSub').textContent = '제출중이니 화면을 닫지 마세요.';
     await submitScore(quiz);
     btn.textContent = '✅ 제출 완료';
-    document.getElementById('resultSub').textContent = '선생님께 결과가 제출됐어요. 수고하셨어요!';
+    document.getElementById('resultSub').textContent = '제출이 끝났으니 닫아도 됩니다.';
   });
 
   resetBtn.addEventListener('click', () => {
