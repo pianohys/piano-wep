@@ -447,8 +447,8 @@
   <!-- TEACHER DASHBOARD -->
   <div class="screen" id="screen-teacher">
     <div class="tabs">
-      <button class="tab-btn" id="tabExam" data-tab="exam">시험 현황</button>
-      <button class="tab-btn active" id="tabPractice" data-tab="practice">연습 현황</button>
+      <button class="tab-btn active" id="tabExam" data-tab="exam">시험 현황</button>
+      <button class="tab-btn" id="tabPractice" data-tab="practice">연습 현황</button>
     </div>
     <div class="dash-panel">
       <div class="quick-check-row">
@@ -939,7 +939,7 @@
   confirmBtn.addEventListener('click', checkAnswer);
 
   // ---- teacher dashboard ----
-  let currentTab = 'practice';
+  let currentTab = 'exam';
   let dashInterval = null;
   const dashHead = document.getElementById('dashHead');
   const dashBody = document.getElementById('dashBody');
