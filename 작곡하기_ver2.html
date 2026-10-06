@@ -1094,14 +1094,17 @@ function selectTile(id,el){
   exitTieMode();
   exitMeasCopyPasteMode();
   if(cursorIdx!=null){
-    // 오선보에 커서(선택된 칸)가 있으면, 음표상자를 클릭한 즉시 그 칸에 놓는다 — 안 맞으면(마디를 넘어가는 등) 이유를 안내
+    // 오선보에 커서(선택된 칸)가 있으면, 음표상자를 클릭한 즉시 그 칸에 놓는다 — 안 맞으면(가사 글자
+    // 수가 안 맞는 등) 이유를 안내하고 커서는 그대로 둬서 바로 다른 리듬을 다시 골라볼 수 있게 함
+    // (예전엔 실패해도 커서가 풀려버려서, 그다음 맞는 리듬을 골라도 바로 안 놓이고 "악보를 눌러
+    // 놓으세요" 모드로 넘어가 버림 — 가사를 먼저 써둔 칸에서 처음에 안 맞는 리듬을 고르면 그 뒤로
+    // 계속 "음표가 안 놓이는" 것처럼 보이던 원인).
     const idx=cursorIdx;
-    setCursor(null);
-    if(heldFrom[idx]!=null){ setStatus('여기는 앞의 긴 음표가 이어지는 칸이에요. 앞 음표를 먼저 지워 주세요.'); return; }
-    if(isFracAtom(id)){
-      if(addFrac(idx,id)) setStatus(`<b>${TYPE[id].label}</b> 을(를) ${Math.floor(idx/BEATS)+1}째 마디에 놓았어요.`);
-    } else if(place(idx,id)){
+    if(heldFrom[idx]!=null){ setStatus('여기는 앞의 긴 음표가 이어지는 칸이에요. 앞 음표를 먼저 지워 주세요.'); setCursor(null); return; }
+    const ok = isFracAtom(id) ? addFrac(idx,id) : place(idx,id);
+    if(ok){
       setStatus(`<b>${TYPE[id].label}</b> 을(를) ${Math.floor(idx/BEATS)+1}째 마디에 놓았어요.`);
+      setCursor(null);
     }
     return;
   }
