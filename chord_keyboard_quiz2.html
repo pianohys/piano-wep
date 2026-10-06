@@ -292,7 +292,7 @@
 
   .dash-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .dash-toolbar .updated { font-size: 12.5px; color: var(--ink-soft); }
-  .dash-actions { display: flex; gap: 8px; }
+  .dash-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   /* 학생이 제출하자마자 교사가 전체 목록을 다 불러오지 않고도 그 학생만 바로 확인할 수 있는
      칸 — 반 전체를 불러오는 것보다 훨씬 빠름(그 학생 키만 딱 찾아서 불러옴). */
   .quick-check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -311,6 +311,7 @@
     border: none; background: var(--bg); color: var(--ink);
     padding: 7px 13px; border-radius: 8px; font-size: 13px;
     font-family: 'Inter', sans-serif; cursor: pointer;
+    display: inline-block; text-decoration: none; box-sizing: border-box;
   }
   .small-btn.danger { color: var(--wrong); }
 
@@ -465,6 +466,7 @@
       <div class="dash-toolbar">
         <span class="updated" id="dashUpdated">불러오는 중...</span>
         <div class="dash-actions">
+          <a class="small-btn" id="btnOpenSheet" href="https://docs.google.com/spreadsheets/d/1TVUIyEmpsXf5MitlYKw-KZkn8pk8jBGToK7NxqAXUrM/edit" target="_blank" rel="noopener">원본 시트 열기</a>
           <button class="small-btn" id="btnExport">엑셀로 내려받기</button>
           <button class="small-btn" id="btnRefresh">새로고침</button>
           <button class="small-btn danger" id="btnClearDash">기록 초기화</button>
