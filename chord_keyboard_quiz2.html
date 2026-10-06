@@ -487,12 +487,22 @@
   // 끝나버림 — 그러면 "이전 불러오기가 끝나야 다음 새로고침을 받는다" 가드에 걸려 새로고침을 눌러도
   // 정말 아무 일도 안 일어나는 것처럼 보임. 일정 시간(12초) 안에 응답이 없으면 그 요청만 실패
   // 처리해서, 항상 loadDashboard()가 끝나고(dashLoading이 풀리고) 다음 새로고침이 되게 함.
-  async function storageRequest(action, params){
-    const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+  //
+  // bypassCache: 시험현황 불러오기/채점 기록 저장/지우기 쪽 호출부는 모두 세 번째 인자로 true를
+  // 넘기고 있었는데(아래 window.storage.* 참고), 정작 이 함수는 그 값을 받기만 하고 안 썼음 — 그래서
+  // 매번 똑같은 URL(같은 prefix/key)로 나가는 list/get/delete 요청이 브라우저 HTTP 캐시에 걸리면,
+  // 서버에 실제로 새 기록이 생기거나 방금 지워졌어도 예전 캐시된 응답을 그대로 돌려받는 일이 있었음
+  // — "시험현황이 그때그때 다른자료가 나와"(캐시 히트/미스가 들쭉날쭉)와 "초기화해도 다음에 또
+  // 떠"(삭제 재시도가 캐시된 "성공" 응답만 다시 받고 실제로는 서버에 재요청을 안 보냄)의 원인이었음.
+  // 이제 bypassCache가 true면 fetch에 cache:'no-store'를 줘서 브라우저 캐시를 확실히 건너뛰고,
+  // 쿼리에 매번 바뀌는 타임스탬프(_ts)까지 붙여서 URL 자체도 매번 달라지게 해 중간 캐시(프록시 등)도
+  // 같이 우회함.
+  async function storageRequest(action, params, bypassCache){
+    const qs = new URLSearchParams(Object.assign({ action }, params, bypassCache ? { _ts: Date.now() + '_' + Math.random().toString(36).slice(2) } : {})).toString();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch(STORAGE_API_URL + '?' + qs, { signal: controller.signal });
+      const res = await fetch(STORAGE_API_URL + '?' + qs, { signal: controller.signal, cache: bypassCache ? 'no-store' : 'default' });
       if (!res.ok) throw new Error('storage request failed: ' + res.status);
       return await res.json();
     } finally {
@@ -501,10 +511,10 @@
   }
 
   window.storage = {
-    list: (prefix) => storageRequest('list', { prefix }),
-    get: (key) => storageRequest('get', { key }),
-    set: (key, value) => storageRequest('set', { key, value }),
-    delete: (key) => storageRequest('delete', { key })
+    list: (prefix, bypassCache) => storageRequest('list', { prefix }, bypassCache),
+    get: (key, bypassCache) => storageRequest('get', { key }, bypassCache),
+    set: (key, value, bypassCache) => storageRequest('set', { key, value }, bypassCache),
+    delete: (key, bypassCache) => storageRequest('delete', { key }, bypassCache)
   };
 
   // 학생이 다른 사람 이름으로 제출할 수도 있어서, 이 기기(브라우저)를 구분할 수 있는 랜덤 ID를 한 번만
