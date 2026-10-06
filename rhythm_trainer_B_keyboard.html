@@ -679,23 +679,43 @@ async function loadDashboard(){
   dashLoading=true;
   const body=document.getElementById('dash-body');
   try{
-    const res=await window.storage.list(APP_MODE+':');
-    const keyNames=((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
-    const gotList=await runInBatches(keyNames,8,k=>window.storage.get(k).catch(()=>null));
-    const rows=[];
-    gotList.forEach(got=>{ if(got&&got.value){ try{ rows.push(JSON.parse(got.value)); }catch(e){} } });
-    const numOr=v=>{const n=parseInt(v,10);return isNaN(n)?9999:n;};
-    rows.sort((a,b)=>
-      numOr(a.grade)-numOr(b.grade)||
-      numOr(a.klass)-numOr(b.klass)||
-      (a.name||'').localeCompare(b.name||'','ko')||
-      (a.attemptNo||1)-(b.attemptNo||1)
-    );
-    lastDashRows=rows;
-    renderDashRows(rows);
-  }catch(e){
-    lastDashRows=[];
-    body.innerHTML='<tr><td colspan="8" class="dash-empty">데이터를 불러올 수 없어요</td></tr>';
+    // 구글시트(Apps Script) 백엔드는 콜드스타트 등으로 가끔 느리거나 요청이 타임아웃돼서 실패하는데,
+    // 그때마다 바로 "데이터를 불러올 수 없어요"를 띄우면 실제로는 자료가 있는데도 잠깐의 네트워크
+    // 문제 때문에 너무 자주 그 메시지가 떴었음(요청: "자료를 불러올수없습니다가 너무 자주 떠"). 그래서
+    // 조용히 몇 번 더 재시도하고, 그래도 안 되면: 이전에 한 번이라도 불러온 적이 있으면 그 자료를
+    // 그대로 둔 채(화면을 비우지 않음) 넘어가고, 처음부터 한 번도 못 불러왔을 때만 "불러오지
+    // 못했다"는 걸 보여줌. "자료가 없어요"(renderDashRows)는 목록이 정말 비어 있을 때만 뜨는
+    // 완전히 다른 메시지라서 이 실패 메시지와 섞이지 않음.
+    let rows=null, lastErr=null;
+    for(let attempt=0; attempt<3; attempt++){
+      try{
+        const res=await window.storage.list(APP_MODE+':');
+        const keyNames=((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+        const gotList=await runInBatches(keyNames,8,k=>window.storage.get(k).catch(()=>null));
+        rows=[];
+        gotList.forEach(got=>{ if(got&&got.value){ try{ rows.push(JSON.parse(got.value)); }catch(e){} } });
+        break;
+      }catch(e){
+        lastErr=e;
+        if(attempt<2) await new Promise(r=>setTimeout(r,1000));
+      }
+    }
+    if(rows){
+      const numOr=v=>{const n=parseInt(v,10);return isNaN(n)?9999:n;};
+      rows.sort((a,b)=>
+        numOr(a.grade)-numOr(b.grade)||
+        numOr(a.klass)-numOr(b.klass)||
+        (a.name||'').localeCompare(b.name||'','ko')||
+        (a.attemptNo||1)-(b.attemptNo||1)
+      );
+      lastDashRows=rows;
+      renderDashRows(rows);
+    } else {
+      console.error('dashboard load failed', lastErr);
+      if(lastDashRows.length===0){
+        body.innerHTML='<tr><td colspan="8" class="dash-empty">자료를 불러오지 못했어요. 새로고침을 다시 눌러주세요.</td></tr>';
+      }
+    }
   }finally{
     dashLoading=false;
   }
