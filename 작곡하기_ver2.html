@@ -4033,6 +4033,18 @@ function scheduleBandLayer(start,beat){
   }
 }
 
+// 재생 중 지금 울리는 마디가 화면 밖으로 나가면(곡이 길면 흔한 일) 자동으로 그 마디가 보이게
+// 스크롤함(요청: "곡이길면 안보여"). 매 박마다가 아니라 마디가 바뀔 때만 확인하고, 이미 화면 안에
+// 충분히 보이면 괜히 다시 스크롤하지 않아서 재생 중 화면이 불필요하게 흔들리지 않게 함.
+function followPlayhead(slotIdx){
+  const mi=Math.floor(slotIdx/BEATS);
+  const measEl=document.querySelector(`.measure[data-m="${mi}"]`);
+  if(!measEl) return;
+  const r=measEl.getBoundingClientRect();
+  const topSafe=90;   // 위쪽 고정 툴바(.palSticky)에 가리지 않을 여유
+  if(r.top>=topSafe && r.bottom<=window.innerHeight) return;   // 이미 충분히 보이면 그대로 둠
+  measEl.scrollIntoView({behavior:'smooth', block:'center'});
+}
 // countIn: whether to click a lead-in measure before the music starts. useMet: whether the metronome
 // keeps clicking WHILE the music plays. The "메트로놈 없이 재생" button sets both false — pure playback.
 async function startPlayback(countIn,useMet,btn){
@@ -4119,6 +4131,7 @@ async function startPlayback(countIn,useMet,btn){
     timers.push(setTimeout(()=>{ if(!playing)return;
       board.querySelectorAll('.slot.playing').forEach(x=>x.classList.remove('playing'));
       slotEl.classList.add('playing');
+      if(s%BEATS===0) followPlayhead(s);   // 마디가 바뀔 때마다, 화면 밖으로 나갔으면 그 마디가 보이게 스크롤
     }, (bt-A.currentTime)*1000));
   }
   scheduleChords(start,beat);
