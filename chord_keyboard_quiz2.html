@@ -1060,13 +1060,40 @@
         try {
           const res = await window.storage.list(currentTab + ':', true);
           const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
-          const gotList = await runInBatches(keyNames, 8, k => window.storage.get(k, true).catch(() => null));
-          rows = [];
-          gotList.forEach(got => {
-            if (got && got.value){
-              try { rows.push(JSON.parse(got.value)); } catch(e){}
-            }
+          // 예전엔 학생 전원의 get()이 다 끝나야(가장 느린 한 명까지 기다려서) 화면에 한 번에 뿌렸는데,
+          // 그러면 학생 수가 많을수록 "자료가 너무 늦게 뜬다"고 느껴졌음(요청). 이제는 한 명씩 응답이
+          // 오는 대로 바로바로 표에 채워 넣어서(스트리밍), 제일 먼저 도착한 학생은 거의 즉시 보이고
+          // 느린 학생 한두 명 때문에 전체가 늦게 뜨는 일이 없게 함 — 다만 매 응답마다 표를 다시 그리면
+          // DOM이 흔들려 보이니 250ms 간격으로 묶어서(디바운스) 다시 그림.
+          const partial = [];
+          let resolvedCount = 0;
+          let renderTimer = null;
+          const sortedCopy = () => {
+            const numOr = v => { const n = parseInt(v, 10); return isNaN(n) ? 9999 : n; };
+            return partial.slice().sort((a, b) =>
+              numOr(a.grade) - numOr(b.grade) ||
+              numOr(a.klass) - numOr(b.klass) ||
+              (a.name || '').localeCompare(b.name || '', 'ko') ||
+              (a.attemptNo || 1) - (b.attemptNo || 1)
+            );
+          };
+          const scheduleProgressRender = () => {
+            if (renderTimer) return;
+            renderTimer = setTimeout(() => {
+              renderTimer = null;
+              renderDashRows(sortedCopy());
+              dashUpdated.textContent = `불러오는 중… (${resolvedCount}/${keyNames.length})`;
+            }, 250);
+          };
+          await runInBatches(keyNames, 8, async k => {
+            const got = await window.storage.get(k, true).catch(() => null);
+            resolvedCount++;
+            if (got && got.value){ try { partial.push(JSON.parse(got.value)); } catch(e){} }
+            if (keyNames.length > 0) scheduleProgressRender();
+            return got;
           });
+          if (renderTimer){ clearTimeout(renderTimer); renderTimer = null; }
+          rows = sortedCopy();
           break;
         } catch (e) {
           lastErr = e;
@@ -1074,13 +1101,6 @@
         }
       }
       if (rows){
-        const numOr = v => { const n = parseInt(v, 10); return isNaN(n) ? 9999 : n; };
-        rows.sort((a, b) =>
-          numOr(a.grade) - numOr(b.grade) ||
-          numOr(a.klass) - numOr(b.klass) ||
-          (a.name || '').localeCompare(b.name || '', 'ko') ||
-          (a.attemptNo || 1) - (b.attemptNo || 1)
-        );
         lastRows = rows;
         renderDashRows(rows);
         dashUpdated.textContent = rows.length + '명 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
