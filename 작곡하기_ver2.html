@@ -764,7 +764,9 @@ const TYPE=Object.fromEntries(TYPES.map(t=>[t.id,t]));
 const VH2=200;              // per-slot viewBox height on the staff (score) view
 const STAFF_BOTTOM_Y=135;   // y of the bottom line (E4) in that viewBox
 const STEP_PX=6;            // px per diatonic step (half a line-spacing)
-const MIN_STEP=-5, MAX_STEP=14, DEFAULT_STEP=4;   // G3 .. E6 (가온도 아래 솔 ~ 도 위 미), default = B4 (middle line)
+const MIN_STEP=-5, MAX_STEP=14, DEFAULT_STEP=2;   // G3 .. E6 (가온도 아래 솔 ~ 도 위 미), default = G4(솔, 아래에서 둘째 줄) —
+// 예전엔 B4(시)였는데, 학생들이 새 음표를 놓을 때 일부러 안 옮기면 그대로 시가 되는 경우가 많아서
+// 시가 과하게 자주 나오는 곡이 만들어지는 것처럼 느껴진다는 요청으로 솔로 바꿈.
 const STEP_NAME={'-5':'솔','-4':'라','-3':'시','-2':'도','-1':'레','0':'미','1':'파','2':'솔','3':'라','4':'시',
   '5':'도','6':'레','7':'미','8':'파','9':'솔','10':'라','11':'시','12':'도','13':'레','14':'미'};
 function stepY(s){ return STAFF_BOTTOM_Y - s*STEP_PX; }
