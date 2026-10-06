@@ -293,6 +293,14 @@
   .dash-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .dash-toolbar .updated { font-size: 12.5px; color: var(--ink-soft); }
   .dash-actions { display: flex; gap: 8px; }
+  /* 학생이 제출하자마자 교사가 전체 목록을 다 불러오지 않고도 그 학생만 바로 확인할 수 있는
+     칸 — 반 전체를 불러오는 것보다 훨씬 빠름(그 학생 키만 딱 찾아서 불러옴). */
+  .quick-check-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .quick-check-input {
+    flex: 1 1 200px; min-width: 160px; padding: 7px 10px; border: 1px solid var(--bg);
+    border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--ink);
+  }
+  .quick-check-status { font-size: 12.5px; color: var(--ink-soft); }
   .small-btn {
     border: none; background: var(--bg); color: var(--ink);
     padding: 7px 13px; border-radius: 8px; font-size: 13px;
@@ -443,6 +451,11 @@
       <button class="tab-btn" id="tabExam" data-tab="exam">시험 현황</button>
     </div>
     <div class="dash-panel">
+      <div class="quick-check-row">
+        <input type="text" id="quickCheckInput" class="quick-check-input" placeholder="학년-반-이름 (예: 2-4-김다헌)">
+        <button class="small-btn" id="quickCheckBtn">바로 확인</button>
+        <span class="quick-check-status" id="quickCheckStatus"></span>
+      </div>
       <div class="dash-toolbar">
         <span class="updated" id="dashUpdated">불러오는 중...</span>
         <div class="dash-actions">
@@ -940,6 +953,46 @@
       loadDashboard();
     });
   });
+  // 학생이 제출 버튼을 누르자마자 교사가 "진짜 들어갔는지" 바로 확인하고 다음 학생으로 넘어가고
+  // 싶은데, 반 전체(수십 명)를 다시 불러오는 새로고침은 몇 초가 걸려서 그 사이에 확인 못 하고
+  // 보내는 일이 있었음(요청). 반 전체 대신 그 학생 한 명의 키만 딱 짚어서(학년-반-이름을 그대로
+  // key의 prefix로 써서) 불러오면 요청이 1~2건뿐이라 훨씬 빠르게 확인할 수 있음. 찾은 결과는 이미
+  // 있는 상세보기 팝업(openDetail)을 그대로 재사용해서 보여줌.
+  async function quickCheckStudent(){
+    const input = document.getElementById('quickCheckInput');
+    const statusEl = document.getElementById('quickCheckStatus');
+    const raw = input.value.trim();
+    if (!raw){ statusEl.textContent = '학년-반-이름을 입력해주세요 (예: 2-4-김다헌)'; return; }
+    const btn = document.getElementById('quickCheckBtn');
+    btn.disabled = true;
+    statusEl.textContent = '확인하는 중…';
+    try {
+      const prefix = currentTab + ':' + raw;
+      const res = await window.storage.list(prefix, true, 6000);
+      const keyNames = ((res && res.keys) || []).map(k => typeof k === 'string' ? k : k.key);
+      if (keyNames.length === 0){
+        statusEl.textContent = `"${raw}" 제출 기록이 아직 없어요. 이름 표기가 맞는지도 확인해보세요.`;
+        return;
+      }
+      const gotList = await Promise.all(keyNames.map(k => window.storage.get(k, true, 6000).catch(() => null)));
+      const rows = [];
+      gotList.forEach(got => { if (got && got.value){ try { rows.push(JSON.parse(got.value)); } catch(e){} } });
+      if (rows.length === 0){
+        statusEl.textContent = '불러오지 못했어요. 다시 눌러주세요.';
+        return;
+      }
+      rows.sort((a, b) => (b.attemptNo || 1) - (a.attemptNo || 1));   // 가장 최근(마지막) 제출을 보여줌
+      statusEl.textContent = '';
+      openDetail(rows[0]);
+    } catch (e) {
+      statusEl.textContent = '확인 중 문제가 생겼어요. 다시 눌러주세요.';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('quickCheckBtn').addEventListener('click', quickCheckStudent);
+  document.getElementById('quickCheckInput').addEventListener('keydown', e => { if (e.key === 'Enter') quickCheckStudent(); });
+
   document.getElementById('btnRefresh').addEventListener('click', loadDashboard);
 
   document.getElementById('btnExport').addEventListener('click', () => {
