@@ -1260,46 +1260,94 @@ function diatonicChordCandidates(){
   }
   return cands;
 }
+// 마디(또는 반마디)에서 실제로 울리는 멜로디 음들을 보고, 가장 많이 겹치는 화음을 고름 — 이미 화음이
+// 채워진 자리는 절대 안 건드리고 빈 자리에만 들어감. 마디 전체가 비어 있으면 앞/뒤 2박이 서로 다른
+// 화음을 원할 때만 둘로 나눠 두 개를 추천하고, 그렇지 않으면 마디 전체에 하나만 추천함(요청:
+// "한마디에한개만 있어도될때는 한개만추천해주고"). 이미 반으로 나뉜 마디에서 한쪽만 비어 있으면
+// (요청: "이미 화음이 입력된 경우에도 ... 들어가도록") 그 빈 쪽만 그 반쪽의 멜로디에 맞춰 채움.
+function melodyWeightsInRange(startIdx, endIdx){
+  const weights=new Map();
+  let hasAnyNote=false;
+  const add=(pc,dur)=>{ if(pc==null) return; weights.set(pc,(weights.get(pc)||0)+dur); };
+  for(let idx=startIdx; idx<endIdx; idx++){
+    if(heldFrom[idx]!=null) continue;
+    const id=slotData[idx];
+    if(id==='_frac'){
+      const atoms=fracData[idx]||[];
+      atoms.forEach((a,k)=>{
+        if(!FRAC_HASPITCH[a.id]) return;
+        hasAnyNote=true;
+        const step=a.pitch!=null?a.pitch:DEFAULT_STEP;
+        const pc=stepAbsolutePC(step, effectiveAccForNote(idx+'_'+k,step));
+        add(pc, FRAC_DUR[a.id]);
+      });
+    } else if(id && TYPE[id].on.length>0){
+      hasAnyNote=true;
+      const steps=stepsFor(idx), durs=onsetDurations(id);
+      steps.forEach((step,oi)=>{
+        const pc=stepAbsolutePC(step, effectiveAccForNote(accKeyForOnset(id,idx,oi),step));
+        add(pc, durs[oi]||1);
+      });
+    }
+  }
+  return {weights, hasAnyNote};
+}
+function bestChordForWeights(weights, candidates){
+  let best=null, bestScore=-1;
+  candidates.forEach(c=>{
+    let score=0;
+    weights.forEach((w,pc)=>{ if(c.pcs.has(pc)) score+=w; });
+    if(score>bestScore){ bestScore=score; best=c; }
+  });
+  return {chord:best, score:bestScore};
+}
+function mergeWeights(a,b){
+  const out=new Map(a);
+  b.forEach((w,pc)=>out.set(pc, (out.get(pc)||0)+w));
+  return out;
+}
 function autoSuggestChords(){
   const candidates=diatonicChordCandidates();
   let filled=0, consideredButSkipped=0;
   for(let mi=0; mi<MEAS; mi++){
-    if(chordData[mi]) continue;
-    const base=mi*BEATS;
-    const weights=new Map();
-    let hasAnyNote=false;
-    const add=(pc,dur)=>{ if(pc==null) return; weights.set(pc,(weights.get(pc)||0)+dur); };
-    for(let b=0;b<BEATS;b++){
-      const idx=base+b;
-      if(heldFrom[idx]!=null) continue;
-      const id=slotData[idx];
-      if(id==='_frac'){
-        const atoms=fracData[idx]||[];
-        atoms.forEach((a,k)=>{
-          if(!FRAC_HASPITCH[a.id]) return;
-          hasAnyNote=true;
-          const step=a.pitch!=null?a.pitch:DEFAULT_STEP;
-          const pc=stepAbsolutePC(step, effectiveAccForNote(idx+'_'+k,step));
-          add(pc, FRAC_DUR[a.id]);
-        });
-      } else if(id && TYPE[id].on.length>0){
-        hasAnyNote=true;
-        const steps=stepsFor(idx), durs=onsetDurations(id);
-        steps.forEach((step,oi)=>{
-          const pc=stepAbsolutePC(step, effectiveAccForNote(accKeyForOnset(id,idx,oi),step));
-          add(pc, durs[oi]||1);
-        });
+    const cur=chordData[mi];
+    if(cur && !cur.half) continue;   // 마디 전체에 이미 화음이 있으면(나뉘지 않은 상태) 빈 자리가 없으니 건너뜀
+    const base=mi*BEATS, mid=base+BEATS/2, end=base+BEATS;
+    const half0=melodyWeightsInRange(base, mid), half1=melodyWeightsInRange(mid, end);
+    const need0=!cur || !cur.half[0], need1=!cur || !cur.half[1];
+    if(!need0 && !need1) continue;   // 이미 양쪽 다 채워져 있음
+
+    if(cur && cur.half){
+      // 이미 반으로 나뉜 마디 — 비어 있는 쪽만 그 반쪽의 멜로디에 맞춰 채우고, 채워진 쪽은 손대지 않음.
+      if(need0 && half0.hasAnyNote){
+        const best=bestChordForWeights(half0.weights, candidates);
+        if(best.chord && best.score>0){ setChordSlot(mi, 0, {root:best.chord.root, quality:best.chord.quality, mode:1}); filled++; }
+        else consideredButSkipped++;
+      }
+      if(need1 && half1.hasAnyNote){
+        const best=bestChordForWeights(half1.weights, candidates);
+        if(best.chord && best.score>0){ setChordSlot(mi, 1, {root:best.chord.root, quality:best.chord.quality, mode:1}); filled++; }
+        else consideredButSkipped++;
+      }
+      continue;
+    }
+
+    // 화음이 아예 없던 마디 — 앞/뒤 2박이 서로 다른 화음을 원하면 반으로 나눠서 두 개를 추천.
+    if(!half0.hasAnyNote && !half1.hasAnyNote) continue;
+    if(half0.hasAnyNote && half1.hasAnyNote){
+      const best0=bestChordForWeights(half0.weights, candidates);
+      const best1=bestChordForWeights(half1.weights, candidates);
+      if(best0.chord && best1.chord && best0.score>0 && best1.score>0 &&
+         (best0.chord.root!==best1.chord.root || best0.chord.quality!==best1.chord.quality)){
+        setChordSlot(mi, 0, {root:best0.chord.root, quality:best0.chord.quality, mode:1});
+        setChordSlot(mi, 1, {root:best1.chord.root, quality:best1.chord.quality, mode:1});
+        filled+=2;
+        continue;
       }
     }
-    if(!hasAnyNote) continue;
-    let best=null, bestScore=-1;
-    candidates.forEach(c=>{
-      let score=0;
-      weights.forEach((w,pc)=>{ if(c.pcs.has(pc)) score+=w; });
-      if(score>bestScore){ bestScore=score; best=c; }
-    });
-    if(!best || bestScore<=0){ consideredButSkipped++; continue; }
-    chordData[mi]={root:best.root, quality:best.quality, mode:1};
+    const whole=bestChordForWeights(mergeWeights(half0.weights, half1.weights), candidates);
+    if(!whole.chord || whole.score<=0){ consideredButSkipped++; continue; }   // 어떤 화음과도 안 겹치면 억지로 채우지 않음
+    chordData[mi]={root:whole.chord.root, quality:whole.chord.quality, mode:1};
     filled++;
   }
   return {filled, consideredButSkipped};
@@ -3320,14 +3368,23 @@ function showRecordPopup(){ document.getElementById('recordPopupOverlay').classL
 function closeRecordPopup(){ document.getElementById('recordPopupOverlay').classList.remove('show'); }
 document.getElementById('reviewBtn').addEventListener('click', ()=>{ renderReview(); showReviewPopup(); });
 document.getElementById('autoChordBtn').addEventListener('click',()=>{
-  const {filled, consideredButSkipped}=autoSuggestChords();
-  refreshChordTags();
-  if(filled>0){
-    setStatus(`${filled}개 마디에 어울리는 화음을 자동으로 넣었어요. (이미 화음이 있던 마디는 그대로 뒀어요) 마음에 안 들면 마디 위 화음표를 눌러서 언제든 바꿀 수 있어요.`);
-  } else if(consideredButSkipped>0){
-    setStatus('어울리는 화음을 찾지 못한 마디가 있어요 — 반음(임시표) 음이 많은 마디는 직접 화음을 골라 주세요.');
+  const runSuggest=()=>{
+    const {filled, consideredButSkipped}=autoSuggestChords();
+    refreshChordTags();
+    if(filled>0){
+      setStatus(`${filled}개의 화음을 자동으로 넣었어요. (이미 있던 화음은 그대로 뒀어요) 마음에 안 들면 마디 위 화음표를 눌러서 언제든 바꿀 수 있어요.`);
+    } else if(consideredButSkipped>0){
+      setStatus('어울리는 화음을 찾지 못한 자리가 있어요 — 반음(임시표) 음이 많은 마디는 직접 화음을 골라 주세요.');
+    } else {
+      setStatus('추천할 자리가 없어요 — 이미 다 화음이 있거나, 아직 음표가 없어요.');
+    }
+  };
+  // 이미 화음이 하나라도 있으면(마디 전체든 반마디만이든) 그 자리는 안 건드리고 빈 자리에만
+  // 들어간다는 걸 미리 알려줌(요청: "'비어있는곳에만 추천화음이 들어갑니다.'라는 말이 나오게").
+  if(chordData.some(c=>!!c)){
+    showConfirm('비어있는곳에만 추천화음이 들어갑니다. 계속할까요?', runSuggest);
   } else {
-    setStatus('추천할 마디가 없어요 — 이미 다 화음이 있거나, 아직 음표가 없어요.');
+    runSuggest();
   }
 });
 document.getElementById('reviewPopupClose').addEventListener('click', closeReviewPopup);
