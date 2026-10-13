@@ -4847,9 +4847,15 @@ function handleRecordClick(){
   if(recState==='recording'){ stopAll(); return; }   // 녹음 중에 다시 누르면 그 자리에서 정지(정지 버튼과 동일)
   if(recState==='starting') return;   // 마이크 권한을 기다리는 중 — 중복 클릭 무시
   if(playing) return;                 // 다른 재생이 진행 중이면 무시
-  // idle 상태에서 누르면 바로 녹음을 시작하지 않고, 먼저 팝업에서 방식(멜로디만/반주와함께)을 고르게 함.
-  showRecordPopup();
-  showRecModeChoice();
+  // idle 상태에서 누르면 바로 녹음을 시작하지 않고, 먼저 검토를 마쳤는지 확인부터 물어봄 —
+  // 여기서 "예"를 눌러도 실제로 아직 4박을 못 채운 마디가 있으면(=검토 결과 문제 있음)
+  // blockIfUnfinished가 그 자리에서 다시 막고 검토 팝업을 띄워서, 안내 문구("검토를 마치지
+  // 않으면 음원 저장이 되지 않습니다")가 빈말이 되지 않게 함.
+  showConfirm('검토를 마쳤나요? 검토를 마치지 않으면 음원 저장이 되지 않습니다.', ()=>{
+    if(blockIfUnfinished('음원으로 저장할')) return;
+    showRecordPopup();
+    showRecModeChoice();
+  });
 }
 // 「멜로디만 녹음하기」 또는 「반주와 함께 녹음하기」를 고른 뒤 실제로 녹음을 시작함.
 // mode==='voice'일 때만 마이크 권한이 필요하고, mode==='melody'는 바로 시작할 수 있음.
