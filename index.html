@@ -1933,7 +1933,20 @@ function tieHookHTML(idx){
   return h;
 }
 function clearReviewFlags(){ board.querySelectorAll('.measure.flagged').forEach(el=>el.classList.remove('flagged')); }
-function renderAll(){ clearReviewFlags(); for(let i=0;i<SLOTS;i++) render(i); }   // 악보가 바뀌면 예전 검토 표시(빨간 박스)는 지워서 다시 검토하도록 함
+// 한 칸(render(i))을 그리다 오류가 나도 거기서 전체가 멈추지 않게 함 — 예전엔 한 칸이라도 깨진
+// 데이터를 만나 throw하면 그 뒤 칸들은 아예 안 그려지고, place() 등 호출한 쪽도 그 자리에서 끊겨
+// return true;까지 못 가는 바람에 "음표를 놓았는데 화면엔 안 보이고, 그 뒤로는 뭘 눌러도 전혀
+// 반응 없음"처럼 보이는 문제가 있었음(한 칸의 깨진 저장 데이터가 사실상 화면 전체를 멈춰버림).
+function renderAll(){
+  clearReviewFlags();
+  for(let i=0;i<SLOTS;i++){
+    try{ render(i); }
+    catch(e){
+      const el=document.getElementById('jsErrorBanner');
+      if(el){ el.style.display='block'; el.textContent=`⚠️ ${i+1}번째 칸을 그리다 오류가 나서 그 칸만 건너뛰었어요. 이 화면을 캡처해서 알려주세요.\n${(e&&e.message)||e}`; }
+    }
+  }
+}
 
 // ---------- 되돌리기(undo) ----------
 // 음표/가사를 바꾸는 동작 직전 상태를 스냅샷으로 쌓아 두고, 「되돌리기」를 누르면 가장 최근
@@ -2971,7 +2984,10 @@ function applyStateObj(obj){
     slotData.push(id);
     let pv=null;
     const raw=obj.p?obj.p[i]:undefined;
-    if(raw!==undefined && raw!==''){
+    // id가 없는(빈) 칸은 음높이 데이터를 아예 안 믿음 — 예전에 음표를 지우거나 마디를 늘렸다 줄이던
+    // 과정에서 생긴 낡은 pitchData가 간혹 같이 저장돼 남아 있었는데(빈 칸인데 pitchData만 남은 경우),
+    // 이 어긋난 값이 나중에 그 칸에 다시 음표를 놓을 때 알 수 없는 오류로 이어지는 걸로 보여서 방어함.
+    if(id!=null && raw!==undefined && raw!==''){
       if(Array.isArray(raw)){
         pv=raw.map(v=>(v===''||v==null)?null:+v);
       } else {
