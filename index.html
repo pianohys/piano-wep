@@ -533,6 +533,7 @@
     <div class="savebar">
       <button id="addbar">➕ 1마디 추가</button>
       <button id="delbar">➖ 1마디</button>
+      <button id="delFrontBar">⏮️ 앞쪽 빈 마디 지우기</button>
       <button class="btn-tie" id="copyMeasureBtn">📋 마디 복사</button>
       <button class="btn-tie" id="pasteMeasureBtn">📥 마디 붙여넣기</button>
       <span class="savesep"></span>
@@ -1536,6 +1537,53 @@ function removeMeasures(){
   maybePushUndo();
   for(let i=cut; i<MEAS*BEATS; i++){ const oi=order.indexOf(i); if(oi>-1)order.splice(oi,1); for(let k=0;k<4;k++) delete lyrChar[i+'_'+k]; pitchData[i]=null; delete fracData[i]; }
   setMeasures(MEAS-1); setStatus(`${MEAS}마디로 줄였어요.`);
+}
+// 맨 앞쪽에 연달아 비어 있는(음표·가사·화음이 전혀 없는) 마디 수를 셈 — 전주 자리로 비워뒀다가
+// 결국 안 쓰게 된 마디들을 한 번에 지우는 기능에 씀.
+function isMeasureEmpty(m){
+  const base=m*BEATS;
+  for(let b=0;b<BEATS;b++){
+    const idx=base+b;
+    if(slotData[idx]!=null) return false;
+    for(let k=0;k<4;k++) if(lyrChar[idx+'_'+k]) return false;
+  }
+  return !chordData[m];
+}
+function leadingEmptyMeasureCount(){
+  let n=0;
+  for(let m=0;m<MEAS;m++){ if(!isMeasureEmpty(m)) break; n++; }
+  return n;
+}
+// 맨 앞쪽 빈 마디(들)를 한 번에 지우고 뒤 내용을 앞으로 당김 — 8마디보다 적게는 안 줄임(마디 추가/빼기와
+// 같은 최소 제한). addMeasures/removeMeasures는 한 번에 1마디씩만 다루는데, 이건 "전주로 비워뒀던
+// 앞쪽 여러 마디를 결국 안 쓰게 됐을 때" 한 칸씩 여러 번 누르지 않아도 되게 하려는 것.
+function removeLeadingEmptyMeasures(){
+  const emptyCount=leadingEmptyMeasureCount();
+  if(emptyCount===0){ setStatus('맨 앞 마디에 이미 음표·가사·화음이 있어서 지울 게 없어요.'); return; }
+  if(MEAS<=8){ setStatus('8마디보다 줄일 수 없어요.'); return; }
+  const n=Math.min(emptyCount, MEAS-8);
+  showConfirm(`맨 앞 ${n}마디(비어 있음)를 지우고 뒤 내용을 앞으로 당길까요?`, ()=>{
+    pushUndo();
+    const shift=n*BEATS;
+    for(let i=0;i<SLOTS-shift;i++){ slotData[i]=slotData[i+shift]; pitchData[i]=pitchData[i+shift]; }
+    const rekey=(obj)=>{
+      const next={};
+      for(const k in obj){
+        const us=k.lastIndexOf('_'); const idx=+k.slice(0,us), suffix=k.slice(us);
+        if(idx>=shift) next[(idx-shift)+suffix]=obj[k];
+      }
+      for(const k in obj) delete obj[k];
+      Object.assign(obj,next);
+    };
+    rekey(lyrChar); rekey(accData);
+    const nextFrac={}; for(const k in fracData){ const idx=+k; if(idx>=shift) nextFrac[idx-shift]=fracData[k]; }
+    for(const k in fracData) delete fracData[k]; Object.assign(fracData,nextFrac);
+    const nextTie=new Set(); tieData.forEach(idx=>{ if(idx>=shift) nextTie.add(idx-shift); }); tieData.clear(); nextTie.forEach(v=>tieData.add(v));
+    chordData.splice(0,n);
+    setMeasures(MEAS-n);
+    order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
+    setStatus(`맨 앞 ${n}마디를 지우고 뒤 내용을 앞으로 당겼어요.`);
+  });
 }
 buildBoard();
 
@@ -3255,6 +3303,7 @@ document.getElementById('fopen').addEventListener('change',e=>{
 });
 document.getElementById('addbar').addEventListener('click',addMeasures);
 document.getElementById('delbar').addEventListener('click',removeMeasures);
+document.getElementById('delFrontBar').addEventListener('click',removeLeadingEmptyMeasures);
 
 // ---------- 악보 검토하기: 시작한 마디마다 4박(BEATS)이 꼭 맞게 채워졌는지 확인 ----------
 function beatFracLabel(v){
