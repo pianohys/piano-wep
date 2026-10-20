@@ -1692,6 +1692,13 @@ board.addEventListener('compositionend',e=>{ const c=e.target.closest('.lyrc'); 
   },120);
 });
 board.addEventListener('input',e=>{ const c=e.target.closest('.lyrc'); if(!c)return;
+  // 아이패드 예측 입력(QuickType) 제안 단어를 탭하면 단어 뒤에 띄어쓰기가 자동으로 붙어 들어오는데,
+  // 이건 스페이스바를 직접 누른 게 아니라서 아래 keydown의 스페이스 가로채기(다음 칸으로 이동, 글자로는
+  // 안 남김)를 거치지 않고 글자칸 값에 그대로 섞여 들어옴. 이 앱은 한 박에 쓴 가사 "글자 수"로 거기
+  // 놓을 수 있는 음표(몇 개로 나뉜 음표인지)를 맞추는데, 안 보이는 이 띄어쓰기가 글자 수를 몰래 하나
+  // 늘려버려서 "분명히 2글자인데 음표가 안 놓인다"처럼 보이는 혼란의 원인이 됨 — 가사엔 원래 띄어쓰기가
+  // 들어갈 일이 없으니(단어 사이는 다음 칸으로 넘어가는 것으로 표현) 들어오는 족족 없앰.
+  if(/\s/.test(c.value)){ const pos=c.selectionStart; c.value=c.value.replace(/\s+/g,''); if(pos!=null) c.setSelectionRange(Math.max(0,pos-1),Math.max(0,pos-1)); }
   if(composing||e.isComposing||justComposed){ storeRaw(c); return; }   // Korean IME is handled in compositionend
   foldHangulInPlace(c);                // devices where composition never engaged: combine loose jamo ourselves
   if(hasNote(c)){
@@ -3001,6 +3008,10 @@ function applyStateObj(obj){
   }
   for(const k in lyrChar) delete lyrChar[k];
   Object.assign(lyrChar, obj.l||{});
+  // 예전에 예측 입력 제안 단어를 탭해서 띄어쓰기가 섞여 들어간 채로 저장된 파일(위 input 리스너의
+  // 방어가 생기기 전)을 열 때도 똑같이 "글자 수가 안 맞아 음표가 안 놓이는" 문제가 재발하지 않도록,
+  // 이미 저장된 가사에서도 안 보이는 띄어쓰기를 불러오는 시점에 걷어냄.
+  for(const k in lyrChar){ if(typeof lyrChar[k]==='string' && /\s/.test(lyrChar[k])) lyrChar[k]=lyrChar[k].replace(/\s+/g,''); }
   for(const k in fracData) delete fracData[k];
   Object.assign(fracData, obj.f||{});
   for(const k in accData) delete accData[k];
