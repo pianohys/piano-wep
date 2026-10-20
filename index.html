@@ -1659,7 +1659,11 @@ let composing=false, justComposed=false;
 // new compositionstart lands on the SAME box before the wait is over, we know it was just a
 // re-segmentation and cancel the pending split so typing keeps accumulating in that one box.
 let composeSettleTimer=null, composeSettleEl=null;
-function cancelComposeSettle(){ if(composeSettleTimer){ clearTimeout(composeSettleTimer); composeSettleTimer=null; composeSettleEl=null; } }
+// 스페이스를 눌렀을 때 마침 이 settle 대기 중이었다면(= 방금 "나"+"느"처럼 중간 재구성 상태로
+// compositionend가 떴지만, 받침이 더 올지 아직 확실치 않은 바로 그 120ms 사이) — 바로 아래 스페이스
+// 처리기 참고.
+let pendingSpaceAdvance=false;
+function cancelComposeSettle(){ if(composeSettleTimer){ clearTimeout(composeSettleTimer); composeSettleTimer=null; composeSettleEl=null; } pendingSpaceAdvance=false; }
 function finalizeComposedLyric(c){
   foldHangulInPlace(c);   // safety net: fold any stray loose jamo left over even from a real composition
   if(hasNote(c)){
@@ -1677,7 +1681,7 @@ function finalizeComposedLyric(c){
 board.addEventListener('compositionstart',e=>{
   const c=e.target.closest('.lyrc'); if(!c)return;
   composing=true;
-  if(composeSettleEl===c) cancelComposeSettle();   // same box resumed composing — it was just a mid-word re-segmentation
+  if(composeSettleEl===c) cancelComposeSettle();   // same box resumed composing — it was just a mid-word re-segmentation, so any space we were about to act on (pendingSpaceAdvance) is stale and gets cleared with it
 });
 // Korean IME keeps composing in the same box, so DON'T move focus here (that dropped syllables) —
 // and don't act immediately either; see the comment above composeSettleTimer.
@@ -1687,8 +1691,15 @@ board.addEventListener('compositionend',e=>{ const c=e.target.closest('.lyrc'); 
   composeSettleEl=c;
   composeSettleTimer=setTimeout(()=>{
     composeSettleTimer=null; composeSettleEl=null;
-    if(document.activeElement!==c) return;   // already handled elsewhere (e.g. focusout/space already ran)
+    if(document.activeElement!==c){ pendingSpaceAdvance=false; return; }   // already handled elsewhere (e.g. focusout already ran)
     finalizeComposedLyric(c);
+    if(pendingSpaceAdvance){
+      // 스페이스가 눌렸을 때 settle 대기 중이라 미뤄뒀던 "다음 칸으로 이동"을 이제 마저 함 —
+      // 음표가 있는 칸은 finalizeComposedLyric이 이미(살짝 지연 후) 다음 칸으로 넘겨주므로 중복으로
+      // 또 넘기지 않고, 아직 음표 없이 가사만 쓴 빈 칸일 때만 직접 다음 칸으로 넘어감.
+      pendingSpaceAdvance=false;
+      if(!hasNote(c)){ const n=nextLyrc(c); if(n) n.focus(); }
+    }
   },120);
 });
 board.addEventListener('input',e=>{ const c=e.target.closest('.lyrc'); if(!c)return;
@@ -1724,6 +1735,16 @@ board.addEventListener('keydown',e=>{
     // "나"가 옆에 중복으로 뜨는 문제가 생김. 아직 조합 중이면 여기서는 아무 것도 하지 않고, 이미
     // 지연 처리가 돼 있는 compositionend → finalizeComposedLyric 쪽에 커밋과 다음 칸 이동을 맡김.
     if(composing){ return; }
+    if(composeSettleTimer && composeSettleEl===c){
+      // 방금 이 칸에서 compositionend가 떴지만(composing은 이미 false) 아직 "정말 끝난 건지, 받침이
+      // 더 올지" 확인 중인 settle 대기(120ms) 한가운데 스페이스가 눌림 — 예: "나는"을 치는 도중
+      // 아직 받침 ㄴ이 안 붙어서 지금 값이 "나느"인 상태. 여기서 바로 지금 값을 확정해버리면 받침이
+      // 덜 붙은 채로 넘어가고, 뒤이어 도착하는 받침 글자는 이미 넘어간 다음 칸에 엉뚱하게 꽂혀서
+      // "나는"을 치고 스페이스를 눌렀더니 "나느"가 되고 ㄴ이 옆 칸에 따로 입력되는 문제가 생김.
+      // 그러니 지금 확정하지 말고, settle 타이머가 끝날 때 마저 처리하도록 미뤄둠.
+      pendingSpaceAdvance=true;
+      return;
+    }
     cancelComposeSettle();
     if(hasNote(c)) commitCell(c,true);
     else { storeRaw(c); const n=nextLyrc(c); if(n)n.focus(); }
