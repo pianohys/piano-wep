@@ -4553,8 +4553,10 @@ let recMicGain=null, recMusicDuck=null, recMicComp=null, recSyncDelay=null;   //
                                            // 뒤에 컴프레서(리미터 역할)를 하나 붙여 너무 큰 소리만
                                            // 부드럽게 눌러줌.
 // REC_MUSIC_DUCK: 0.18(약 -15dB)이 "목소리는 잘 들리는데 반주가 너무 작다"는 피드백으로 이어져서
-// 0.3(약 -10.5dB)로 완화함 — 목소리를 가릴 만큼 키우진 않으면서 반주가 확실히 들리게.
-const REC_MIC_BOOST=3.4, REC_MUSIC_DUCK=0.3;
+// 0.3(약 -10.5dB)으로 완화했었는데, 이번엔 반대로 "목소리가 너무 안 들린다"는 피드백이 와서
+// 반주를 0.24(약 -12.4dB)로 살짝 낮추는 대신 마이크(REC_MIC_BOOST)를 더 키워서 목소리를
+// 또렷하게 — 반주를 다시 원래만큼 낮추면 "반주가 너무 작다" 문제가 재발하므로 이 방법 선택.
+const REC_MIC_BOOST=4.2, REC_MUSIC_DUCK=0.24;
 function makeMicLimiter(A){
   const c=A.createDynamicsCompressor();
   c.threshold.value=-18; c.knee.value=12; c.ratio.value=8; c.attack.value=0.003; c.release.value=0.25;
