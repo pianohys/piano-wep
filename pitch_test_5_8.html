@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음감테스트 5~8단계 · 화음듣기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#211712; --bg-mid:#2c2018; --panel:#3a2b1f; --panel-light:#463424;
+    --ivory:#f3ead9; --ivory-dim:#cdc0a8; --brass:#c9a24b; --brass-bright:#e6c469;
+    --good:#7ea377; --bad:#b1503a; --wood-line: rgba(243,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(201,162,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(201,162,75,0.08), transparent 50%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg-mid));
+    color:var(--ivory);
+    font-family:'Noto Sans KR', sans-serif;
+    display:flex; justify-content:center; padding:32px 16px 60px;
+  }
+  .app{ width:100%; max-width:640px; }
+  header{ text-align:center; margin-bottom:22px; }
+  .eyebrow{ font-size:12px; letter-spacing:0.32em; color:var(--brass); text-transform:uppercase; margin-bottom:8px; font-weight:500; }
+  h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:26px; margin:0 0 10px; letter-spacing:-0.01em; }
+  .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
+  .desc b{color:var(--brass-bright);font-weight:700;}
+  .card{
+    background: linear-gradient(180deg, var(--panel), var(--bg-mid));
+    border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:26px 22px 28px; margin-top:20px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; inset:0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 40px);
+    pointer-events:none;
+  }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+  .center{ text-align:center; }
+  .big-emoji{ font-size:40px; margin-bottom:10px; }
+  .stage-title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:20px; color:var(--brass-bright); margin-bottom:8px; }
+  .stage-explain{ font-size:13.5px; line-height:1.8; color:var(--ivory-dim); margin:0 auto 20px; max-width:440px; }
+  .practice-tag{ display:inline-block; font-size:11.5px; font-weight:700; padding:4px 12px; border-radius:999px; background:rgba(201,162,75,0.18); color:var(--brass-bright); margin-bottom:10px; letter-spacing:0.02em; }
+  .scorebar{ display:flex; justify-content:center; gap:22px; font-size:13px; color:var(--ivory-dim); margin-bottom:16px; letter-spacing:0.02em; }
+  .scorebar b{ color:var(--brass-bright); font-weight:700; }
+  .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
+  .status.pulse{ animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
+  .progress-dots{ display:flex; justify-content:center; gap:8px; margin-bottom:14px; }
+  .progress-dots .dot{ width:12px; height:12px; border-radius:50%; border:2px solid var(--brass); background:transparent; font-size:0; }
+  .progress-dots .dot.ok{ background:var(--good); border-color:var(--good); }
+  .progress-dots .dot.bad{ background:var(--bad); border-color:var(--bad); }
+  .piano-wrap{ background:#0d0a07; border-radius:14px; padding:14px 10px 10px; box-shadow: inset 0 0 0 1px rgba(201,162,75,0.25), 0 10px 24px rgba(0,0,0,0.35); margin-bottom:16px; }
+  .piano-keys{ position:relative; width:100%; height:150px; }
+  .key{ position:absolute; top:0; cursor:pointer; transition: background 0.08s ease, transform 0.08s ease; }
+  .key.white{ height:100%; background:linear-gradient(180deg,#f8f1e4,#ece0cb); border:1px solid #1a130d; border-left:1px solid rgba(0,0,0,0.25); border-radius:0 0 7px 7px; z-index:1; }
+  .key.white:active{ background:#e2d5bc; }
+  .key.white.picked{ background:var(--brass-bright); border-color:var(--brass); }
+  .key.white.correct{ background:var(--good); border-color:var(--good); }
+  .key.white.wrong{ background:var(--bad); border-color:var(--bad); }
+  .key.black{ height:60%; background:linear-gradient(180deg,#2a1f16,#140e09); border:1px solid #000; border-radius:0 0 6px 6px; z-index:2; }
+  .key.black:active{ background:#000; }
+  .key.black.picked{ background:var(--brass-bright); }
+  .key.black.correct{ background:var(--good); }
+  .key.black.wrong{ background:var(--bad); }
+  .key.disabled{ pointer-events:none; opacity:0.55; }
+  .quality-btns{ display:flex; gap:14px; justify-content:center; margin-bottom:16px; }
+  .quality-btns button{ flex:1; max-width:160px; padding:20px 10px; font-size:16px; }
+  .feedback-text{ text-align:center; font-size:14px; font-weight:700; margin-top:4px; min-height:20px; }
+  .feedback-text.good{color:var(--good);}
+  .feedback-text.bad{color:var(--bad);}
+  .controls{ display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  button{
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
+    border-radius:999px; padding:11px 22px; border:1px solid rgba(201,162,75,0.4);
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    color:var(--ivory); cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing:0.01em;
+  }
+  button:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,0.3);}
+  button:active{transform:translateY(0);}
+  button.primary{ background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none; }
+  button:disabled{ opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+  .result-banner{ font-family:'Noto Serif KR', serif; font-size:22px; font-weight:700; margin:6px 0 10px; }
+  .result-banner.pass{ color:var(--good); }
+  .result-banner.fail{ color:var(--bad); }
+  .result-banner.grand{ color:var(--brass-bright); font-size:26px; }
+  .praise-list{ list-style:none; padding:0; margin:0 0 18px; font-size:14px; line-height:2; color:var(--brass-bright); }
+  footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); opacity:0.7; margin-top:22px; letter-spacing:0.01em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Pitch Test</div>
+    <h1>음감테스트 5~8단계 · 화음듣기</h1>
+    <div class="desc">
+      <b>화음</b>을 듣고 맞혀보세요. 5단계 장조·단조 → 6단계 2개 화음 → 7단계 3개 화음 → 8단계 3개 화음(♯·♭ 포함) 순서예요.<br>
+      각 단계는 연습문제 1개 → <b>5문제 중 1개까지만 틀려도 통과</b>! 2개 이상 틀리면 새 5문제로 다시 도전(최대 3번), 3번 다 실패하면 다음 단계로 넘어가요.
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="screen active" id="screen-start">
+      <div class="center">
+        <div class="big-emoji">🎧</div>
+        <div class="stage-title">시작할 준비 되셨나요?</div>
+        <p class="stage-explain">이어폰을 끼고 소리가 잘 들리는 상태에서 시작해주세요.<br>1~4단계를 통과하고 오셨다면 이어서 도전해보세요!</p>
+        <div class="controls"><button class="primary" id="startBtn">시작하기</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-intro">
+      <div class="center">
+        <div class="stage-title" id="introTitle"></div>
+        <p class="stage-explain" id="introExplain"></p>
+        <div class="controls"><button class="primary" id="introStartBtn">시작하기</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-quiz">
+      <div class="center" id="practiceTagWrap" style="display:none;"><span class="practice-tag">연습문제</span></div>
+      <div class="scorebar" id="scorebar">
+        <span>문제 <b id="qNum">1</b>/5</span>
+        <span>틀림 <b id="missNum">0</b>/1</span>
+        <span>시도 <b id="attemptNum">1</b>/3</span>
+      </div>
+      <div class="status" id="statusText">화음을 재생하는 중…</div>
+      <div class="progress-dots" id="progressDots"></div>
+      <div id="quizAnswerArea"></div>
+      <div class="feedback-text" id="feedbackText"></div>
+      <div class="controls">
+        <button id="replayBtn">🔊 다시 듣기</button>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-result">
+      <div class="center">
+        <div class="result-banner" id="resultBanner"></div>
+        <p class="stage-explain" id="resultSub"></p>
+        <div class="controls"><button class="primary" id="resultNextBtn">다음</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-final">
+      <div class="center">
+        <div class="big-emoji" id="finalEmoji">🏁</div>
+        <div class="result-banner" id="finalBanner">수고하셨어요!</div>
+        <ul class="praise-list" id="praiseList" style="display:none;"></ul>
+        <p class="stage-explain" id="finalMsg"></p>
+        <div class="controls"><button id="restartBtn">처음부터 다시</button></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Claude가 만든 음감테스트 · 이어폰 사용을 권장합니다</footer>
+</div>
+
+<script>
+// ---------- audio ----------
+let audioCtx = null;
+function ensureCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function freqFromMidi(midi){ return 440 * Math.pow(2, (midi-69)/12); }
+function scheduleTone(freq, startTime, duration){
+  const ctx = ensureCtx();
+  const osc = ctx.createOscillator(), osc2 = ctx.createOscillator();
+  const gain = ctx.createGain(), gain2 = ctx.createGain();
+  osc.type = "triangle"; osc.frequency.value = freq;
+  osc2.type = "sine"; osc2.frequency.value = freq * 2;
+  const peak = 0.5;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(peak, startTime + 0.015);
+  gain.gain.exponentialRampToValueAtTime(peak*0.35, startTime + 0.18);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  gain2.gain.setValueAtTime(0, startTime);
+  gain2.gain.linearRampToValueAtTime(peak*0.12, startTime + 0.015);
+  gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration*0.6);
+  osc.connect(gain).connect(ctx.destination);
+  osc2.connect(gain2).connect(ctx.destination);
+  osc.start(startTime); osc.stop(startTime + duration + 0.05);
+  osc2.start(startTime); osc2.stop(startTime + duration + 0.05);
+}
+function playClapBurst(startTime, volume){
+  const ctx = ensureCtx();
+  const dur = 0.045 + Math.random()*0.02;
+  const bufferSize = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++){ const env = Math.pow(1 - i/bufferSize, 3.2); data[i] = (Math.random()*2-1) * env; }
+  const noise = ctx.createBufferSource(); noise.buffer = buffer;
+  const bandpass = ctx.createBiquadFilter(); bandpass.type = "bandpass"; bandpass.frequency.value = 2200 + Math.random()*2200; bandpass.Q.value = 0.7 + Math.random()*0.6;
+  const highpass = ctx.createBiquadFilter(); highpass.type = "highpass"; highpass.frequency.value = 900;
+  const gain = ctx.createGain();
+  const peak = (volume !== undefined ? volume : 0.6) * (0.75 + Math.random()*0.5);
+  gain.gain.setValueAtTime(peak, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+  noise.connect(bandpass).connect(highpass).connect(gain).connect(ctx.destination);
+  noise.start(startTime); noise.stop(startTime + dur + 0.02);
+}
+function playSuccessSound(small){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.02;
+  const totalClaps = small ? 10 : 14, spread = small ? 0.4 : 0.55;
+  for(let i=0;i<totalClaps;i++){
+    const progress = i/totalClaps;
+    const t = now + progress*spread + (Math.random()-0.5)*0.03;
+    playClapBurst(t, 0.5 * (1 - progress*0.5));
+  }
+}
+function playFailSound(){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.02;
+  const wahs = [ {f0:320, f1:230, start:now, dur:0.26}, {f0:280, f1:170, start:now + 0.30, dur:0.42} ];
+  wahs.forEach(w=>{
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(w.f0, w.start);
+    osc.frequency.exponentialRampToValueAtTime(w.f1, w.start + w.dur);
+    gain.gain.setValueAtTime(0.0001, w.start);
+    gain.gain.exponentialRampToValueAtTime(0.22, w.start + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, w.start + w.dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(w.start); osc.stop(w.start + w.dur + 0.05);
+  });
+}
+function playFanfare(){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.05;
+  const arp = [523.25, 659.25, 783.99, 1046.50];
+  arp.forEach((f,i)=> scheduleTone(f, now + i*0.14, 0.5));
+  arp.forEach(f=> scheduleTone(f, now + arp.length*0.14 + 0.05, 0.9));
+}
+// 8단계까지 전부 통과했을 때만 울리는 아주 성대한 팡파레 — 상승 음계 + 큰 화음 + 박수.
+function playGrandFanfare(){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.05;
+  const run = [523.25,587.33,659.25,698.46,783.99,880.00,987.77,1046.50];
+  run.forEach((f,i)=> scheduleTone(f, now + i*0.11, 0.35));
+  const chordStart = now + run.length*0.11 + 0.08;
+  [523.25,659.25,783.99,1046.50,2093.00].forEach(f=> scheduleTone(f, chordStart, 1.5));
+  setTimeout(()=> playSuccessSound(false), (run.length*0.11+0.08)*1000 + 250);
+}
+
+// ---------- chord math ----------
+const BLACK_PCS = new Set([1,3,6,8,10]);
+function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
+const SCALE_MIDI = [60,62,64,65,67,69,71,72];
+const WHITE_SCALE_EXT = [60,62,64,65,67,69,71,72,74,76,77,79]; // C major, extended a bit for triad stacking
+
+function playScaleIntro(onDone){
+  const ctx = ensureCtx();
+  const noteDur = 0.3;
+  const now = ctx.currentTime + 0.05;
+  SCALE_MIDI.forEach((m,i)=> scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95));
+  setTimeout(onDone, SCALE_MIDI.length*noteDur*1000 + 300);
+}
+function playChordTogether(midis, dur, onDone){
+  const ctx = ensureCtx();
+  const now = ctx.currentTime + 0.05;
+  midis.forEach(m=> scheduleTone(freqFromMidi(m), now, dur));
+  if(onDone) setTimeout(onDone, dur*1000 + 250);
+}
+
+// 5단계: 장조/단조 후보 — 12개 근음 x {major,minor}
+const TRIAD_QUALITY_CANDS = [];
+for(let r=60; r<72; r++){
+  TRIAD_QUALITY_CANDS.push({root:r, quality:'major', midis:[r, r+4, r+7]});
+  TRIAD_QUALITY_CANDS.push({root:r, quality:'minor', midis:[r, r+3, r+7]});
+}
+// 6단계: 2개 화음(3도·4도 간격, 흰건반 기준)
+const CHORD2_CANDS = [];
+for(let i=0;i<WHITE_SCALE_EXT.length;i++){
+  [2,3].forEach(off=>{ if(i+off<WHITE_SCALE_EXT.length) CHORD2_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+off]]); });
+}
+// 7단계: 3개 화음(온음계 3화음, 흰건반 기준 — 근음 C D E F G A)
+const CHORD3_CANDS = [];
+for(let i=0;i<6;i++){ CHORD3_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+2], WHITE_SCALE_EXT[i+4]]); }
+// 8단계: 3개 화음(반음계 포함) — 12개 근음 x {major,minor}
+const CHORD3_CHROMA_CANDS = [];
+for(let r=60; r<70; r++){
+  CHORD3_CHROMA_CANDS.push([r, r+4, r+7]);
+  CHORD3_CHROMA_CANDS.push([r, r+3, r+7]);
+}
+
+function pickFrom(arr, recent){
+  const pool = arr.filter(x=> recent.indexOf(x) < 0);
+  const usable = pool.length ? pool : arr;
+  return usable[Math.floor(Math.random()*usable.length)];
+}
+
+// ---------- stages ----------
+const STAGES = [
+  { key:'s5', title:'5단계 · 장조 · 단조 맞히기',
+    explain:'화음을 들려드려요. 밝은 느낌의 장조인지, 어두운 느낌의 단조인지 맞혀보세요!',
+    kind:'quality' },
+  { key:'s6', title:'6단계 · 2개 화음 맞히기',
+    explain:'음계를 들려드린 뒤, 두 음이 동시에 울리는 화음을 들려드려요. 화음을 이루는 건반 두 개를 짚어보세요!',
+    kind:'notes', notes:2, kbLow:60, kbHigh:79 },
+  { key:'s7', title:'7단계 · 3개 화음 맞히기',
+    explain:'이번엔 세 음이 동시에 울리는 화음이에요. 화음을 이루는 건반 세 개를 짚어보세요!',
+    kind:'notes', notes:3, kbLow:60, kbHigh:79 },
+  { key:'s8', title:'8단계 · 3개 화음 맞히기 (♯ ♭ 포함)',
+    explain:'마지막 단계예요! 검은건반(♯·♭)이 섞인 세 음 화음을 듣고, 건반 세 개를 짚어보세요!',
+    kind:'notes', notes:3, kbLow:60, kbHigh:79 },
+];
+
+// ---------- state ----------
+let curStageIdx = 0, curStage = null;
+let isPractice = false, isAnswered = false;
+let curAnswerSet = null; // Set of midis (notes kind) or {quality} (quality kind)
+let pickedSet = null;
+let qIndex = 0, missCount = 0, attemptNum = 1;
+let recentCandidates = [];
+let anyStageGivenUp = false;
+let keyEls = {};
+
+const screens = {};
+['start','intro','quiz','result','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
+function showScreen(k){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[k].classList.add('active'); }
+
+function candidatesFor(stage){
+  if(stage.key==='s5') return TRIAD_QUALITY_CANDS;
+  if(stage.key==='s6') return CHORD2_CANDS;
+  if(stage.key==='s7') return CHORD3_CANDS;
+  return CHORD3_CHROMA_CANDS;
+}
+
+function buildKeyboard(low, high){
+  const container = document.getElementById('quizAnswerArea');
+  container.innerHTML = '<div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>';
+  const pianoKeys = document.getElementById('pianoKeys');
+  keyEls = {};
+  const keys = [];
+  for(let m=low; m<=high; m++) keys.push({ midi:m, black:isBlack(m) });
+  const whiteKeys = keys.filter(k=>!k.black);
+  const whiteWidth = 100/whiteKeys.length, blackWidth = whiteWidth*0.6;
+  let wi = 0;
+  keys.forEach(k=>{
+    if(!k.black){ k.left = wi*whiteWidth; k.width = whiteWidth; wi++; }
+    else { k.left = wi*whiteWidth - blackWidth/2; k.width = blackWidth; }
+  });
+  const whiteEls=[], blackEls=[];
+  keys.forEach(k=>{
+    const el = document.createElement('div');
+    el.className = 'key ' + (k.black?'black':'white');
+    el.style.left = k.left+'%'; el.style.width = k.width+'%';
+    el.addEventListener('click', ()=> onNoteClick(k.midi, el));
+    keyEls[k.midi] = el;
+    (k.black?blackEls:whiteEls).push(el);
+  });
+  whiteEls.forEach(el=>pianoKeys.appendChild(el));
+  blackEls.forEach(el=>pianoKeys.appendChild(el));
+}
+function resetKeyboardVisual(){ Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked','disabled'); }); }
+function lockKeyboard(){ Object.values(keyEls).forEach(el=> el.classList.add('disabled')); }
+
+function buildQualityButtons(){
+  const container = document.getElementById('quizAnswerArea');
+  container.innerHTML = '<div class="quality-btns"><button id="majorBtn">🌞 장조(Major)</button><button id="minorBtn">🌙 단조(minor)</button></div>';
+  document.getElementById('majorBtn').addEventListener('click', ()=> onQualityClick('major'));
+  document.getElementById('minorBtn').addEventListener('click', ()=> onQualityClick('minor'));
+}
+
+function updateDots(total, results){
+  const wrap = document.getElementById('progressDots');
+  wrap.innerHTML = '';
+  for(let i=0;i<total;i++){
+    const d = document.createElement('span');
+    d.className = 'dot' + (results[i]===true?' ok':results[i]===false?' bad':'');
+    wrap.appendChild(d);
+  }
+}
+function updateScorebar(){
+  document.getElementById('qNum').textContent = Math.min(qIndex+1,5);
+  document.getElementById('missNum').textContent = missCount;
+  document.getElementById('attemptNum').textContent = attemptNum;
+}
+
+function startStage(idx){
+  curStageIdx = idx; curStage = STAGES[idx];
+  document.getElementById('introTitle').textContent = curStage.title;
+  document.getElementById('introExplain').textContent = curStage.explain;
+  showScreen('intro');
+}
+document.getElementById('introStartBtn').addEventListener('click', ()=>{
+  recentCandidates = [];
+  beginPractice();
+});
+function setupAnswerUI(){
+  if(curStage.kind==='quality') buildQualityButtons();
+  else buildKeyboard(curStage.kbLow, curStage.kbHigh);
+}
+function beginPractice(){
+  isPractice = true;
+  document.getElementById('practiceTagWrap').style.display = '';
+  document.getElementById('scorebar').style.visibility = 'hidden';
+  document.getElementById('progressDots').style.visibility = 'hidden';
+  askOne();
+}
+function beginBatch(){
+  if(attemptNum > 3){ stageGiveUp(); return; }
+  isPractice = false; qIndex = 0; missCount = 0; pickedSet = null;
+  document.getElementById('practiceTagWrap').style.display = 'none';
+  document.getElementById('scorebar').style.visibility = '';
+  document.getElementById('progressDots').style.visibility = '';
+  updateScorebar();
+  updateDots(5, []);
+  askOne();
+}
+let batchResults = [];
+function askOne(){
+  showScreen('quiz');
+  setupAnswerUI();
+  isAnswered = false; pickedSet = new Set();
+  document.getElementById('feedbackText').textContent = '';
+  document.getElementById('feedbackText').className = 'feedback-text';
+  const st = document.getElementById('statusText');
+  st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
+  if(curStage.kind!=='quality') lockKeyboard();
+
+  const cand = pickFrom(candidatesFor(curStage), recentCandidates);
+  recentCandidates.push(cand); if(recentCandidates.length>4) recentCandidates.shift();
+  if(curStage.key==='s5'){
+    curAnswerSet = cand.quality;
+    setTimeout(()=>{ playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); }); }, 300);
+  } else {
+    curAnswerSet = new Set(cand);
+    playScaleIntro(()=>{
+      playChordTogether(cand, 1.3, ()=>{
+        st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚어보세요`; st.classList.remove('pulse');
+        resetKeyboardVisual();
+      });
+    });
+  }
+  window.__lastCand = cand;
+}
+document.getElementById('replayBtn').addEventListener('click', ()=>{
+  const cand = window.__lastCand; if(!cand) return;
+  const st = document.getElementById('statusText');
+  st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
+  if(curStage.key==='s5'){
+    playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); });
+  } else {
+    playScaleIntro(()=>{ playChordTogether(cand, 1.3, ()=>{ st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚어보세요`; st.classList.remove('pulse'); }); });
+  }
+});
+function onQualityClick(q){
+  if(isAnswered) return; isAnswered = true;
+  const correct = q === curAnswerSet;
+  finishAnswer(correct);
+}
+function onNoteClick(midi, el){
+  if(isAnswered) return;
+  if(pickedSet.has(midi)) return;
+  pickedSet.add(midi);
+  const inChord = curAnswerSet.has(midi);
+  el.classList.add(inChord ? 'picked' : 'wrong');
+  if(!inChord){
+    isAnswered = true;
+    // 정답 음들도 보여줌
+    curAnswerSet.forEach(m=>{ if(keyEls[m]) keyEls[m].classList.add('correct'); });
+    finishAnswer(false);
+    return;
+  }
+  if(pickedSet.size >= curAnswerSet.size){
+    isAnswered = true;
+    curAnswerSet.forEach(m=>{ if(keyEls[m]) keyEls[m].classList.add('correct'); });
+    finishAnswer(true);
+  }
+}
+function finishAnswer(correct){
+  const fb = document.getElementById('feedbackText');
+  if(correct){
+    fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
+    playSuccessSound(true);
+  } else {
+    fb.textContent = '아쉬워요, 정답은 따로 표시했어요.'; fb.classList.add('bad');
+    playFailSound();
+  }
+  if(isPractice){ setTimeout(beginBatch, 1600); return; }
+  if(!correct) missCount++;
+  batchResults = batchResults.slice(0, qIndex);
+  batchResults[qIndex] = correct;
+  updateDots(5, batchResults);
+  qIndex++;
+  updateScorebar();
+  if(qIndex >= 5){
+    setTimeout(()=>{
+      if(missCount <= 1) stagePass();
+      else { attemptNum++; setTimeout(beginBatch, 300); }
+    }, 1200);
+  } else {
+    setTimeout(askOne, 1400);
+  }
+}
+function stagePass(){
+  playFanfare();
+  document.getElementById('resultBanner').textContent = '🎉 통과!';
+  document.getElementById('resultBanner').className = 'result-banner pass';
+  document.getElementById('resultSub').textContent = `5문제 중 ${5-missCount}문제를 맞혔어요. 다음 단계로 가요!`;
+  showScreen('result');
+}
+function stageGiveUp(){
+  anyStageGivenUp = true;
+  playFailSound();
+  document.getElementById('resultBanner').textContent = '아쉬워요';
+  document.getElementById('resultBanner').className = 'result-banner fail';
+  document.getElementById('resultSub').textContent = '3번 도전했지만 아쉽게도 통과하지 못했어요. 다음 단계로 넘어갑니다.';
+  showScreen('result');
+}
+document.getElementById('resultNextBtn').addEventListener('click', ()=>{
+  const nextIdx = curStageIdx + 1;
+  attemptNum = 1;
+  if(nextIdx < STAGES.length){ startStage(nextIdx); return; }
+  // 모든 단계 끝 — 전부 깔끔히 통과했으면 성대한 팡파레
+  if(!anyStageGivenUp){
+    playGrandFanfare();
+    document.getElementById('finalEmoji').textContent = '🏆';
+    document.getElementById('finalBanner').textContent = '완벽해요! 음감테스트 올 클리어!';
+    document.getElementById('finalBanner').className = 'result-banner grand';
+    const praise = document.getElementById('praiseList');
+    praise.style.display = '';
+    praise.innerHTML = ['🌟 정말 대단해요!', '🎼 귀가 완전 음악 귀네요!', '👏 1단계부터 8단계까지 전부 통과!', '🏅 최고의 음감을 가졌어요!']
+      .map(t=>`<li>${t}</li>`).join('');
+    document.getElementById('finalMsg').textContent = '수고 많았어요. 정말 자랑스러워요!';
+  } else {
+    document.getElementById('finalEmoji').textContent = '🙂';
+    document.getElementById('finalBanner').textContent = '수고하셨어요!';
+    document.getElementById('finalBanner').className = 'result-banner';
+    document.getElementById('praiseList').style.display = 'none';
+    document.getElementById('finalMsg').textContent = '끝까지 도전해줘서 고마워요. 다음에 또 도전해보세요!';
+  }
+  showScreen('final');
+});
+document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); attemptNum=1; anyStageGivenUp=false; startStage(0); });
+document.getElementById('restartBtn').addEventListener('click', ()=>{ showScreen('start'); });
+</script>
+</body>
+</html>
