@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>음감테스트 3·4단계</title>
+<title>음감테스트 1~4단계</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -124,10 +124,10 @@
 <div class="app">
   <header>
     <div class="eyebrow">Pitch Test</div>
-    <h1>음감테스트 3·4단계</h1>
+    <h1>음감테스트 1~4단계</h1>
     <div class="desc">
-      <b>두 음을 이어서</b> 들려드려요. <b>3단계</b>는 흰건반 두 음, <b>4단계</b>는 검은건반(♯·♭)이 섞여 나와요.<br>
-      들린 순서대로 건반 두 개를 차례로 눌러보세요. 연습문제 1개 → <b>3문제 연속 정답</b>이면 통과! 틀려도 2번까지는 새 문제로 다시 도전할 수 있어요.
+      <b>한 음 듣기</b>와 <b>두 음 이어서 듣기</b>를 순서대로 진행해요. <b>1단계</b> 한 음(흰건반) → <b>2단계</b> 한 음(♯·♭ 포함) → <b>3단계</b> 두 음 이어서(흰건반) → <b>4단계</b> 두 음 이어서(♯·♭ 포함).<br>
+      각 단계는 연습문제 1개 → <b>3문제 연속 정답</b>이면 통과! 틀려도 2번까지는 새 문제로 다시 도전할 수 있어요.
     </div>
   </header>
 
@@ -136,7 +136,7 @@
       <div class="center">
         <div class="big-emoji">🎧</div>
         <div class="stage-title">시작할 준비 되셨나요?</div>
-        <p class="stage-explain">이어폰을 끼고 소리가 잘 들리는 상태에서 시작해주세요.<br>1·2단계를 통과하고 오셨다면 이어서 도전해보세요!</p>
+        <p class="stage-explain">이어폰을 끼고 소리가 잘 들리는 상태에서 시작해주세요.</p>
         <div class="controls"><button class="primary" id="startBtn">시작하기</button></div>
       </div>
     </div>
@@ -156,7 +156,7 @@
         <span>틀림 <b id="missNum">0</b>/2</span>
       </div>
       <div class="status" id="statusText">음을 재생하는 중…</div>
-      <div class="progress-dots"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
+      <div class="progress-dots" id="dotsWrap"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
       <div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>
       <div class="feedback-text" id="feedbackText"></div>
       <div class="controls">
@@ -256,7 +256,7 @@ function getDeviceId(){
 }
 const DEVICE_ID = getDeviceId();
 const TEACHER_PIN = '2580';
-const APP_MODE = 'pitch34';
+const APP_MODE = 'pitch14';
 function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
 function pad3(n){ return String(n).padStart(3,'0'); }
 async function nextAttemptNo(mode, storageId){
@@ -346,18 +346,19 @@ function playFailSound(){
     osc.start(w.start); osc.stop(w.start + w.dur + 0.05);
   });
 }
+// 단계를 통과했을 때만 울리는 축하 팡파레 — 상승 아르페지오 + 마지막 화음.
 function playFanfare(){
   const ctx = ensureCtx(); const now = ctx.currentTime + 0.05;
-  const arp = [523.25, 659.25, 783.99, 1046.50];
+  const arp = [523.25, 659.25, 783.99, 1046.50]; // C5 E5 G5 C6
   arp.forEach((f,i)=> scheduleTone(f, now + i*0.14, 0.5));
   arp.forEach(f=> scheduleTone(f, now + arp.length*0.14 + 0.05, 0.9));
 }
 
-// ---------- note pools ----------
+// ---------- note pools (MIDI-based) ----------
 const BLACK_PCS = new Set([1,3,6,8,10]);
-const SCALE_MIDI = [60,62,64,65,67,69,71,72];
-const STAGE_POOL_WHITE = [60,62,64,65,67,69,71,72];
-const STAGE_POOL_CHROMA = [60,61,62,63,64,65,66,67,68,69,70,71,72];
+const SCALE_MIDI = [60,62,64,65,67,69,71,72]; // C major, one octave
+const POOL_WHITE = [60,62,64,65,67,69,71,72]; // 흰건반만
+const POOL_CHROMA = [60,61,62,63,64,65,66,67,68,69,70,71,72]; // 반음계(검은건반 포함)
 function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
 const SOLFEGE_PC = {0:'도',2:'레',4:'미',5:'파',7:'솔',9:'라',11:'시',1:'도#',3:'레#',6:'파#',8:'솔#',10:'라#'};
 function solfegeLabel(midi){
@@ -365,6 +366,37 @@ function solfegeLabel(midi){
   return SOLFEGE_PC[pc] + (midi>=72 ? '’' : '');
 }
 
+// ---- 1·2단계(한 음) 용 ----
+function pickNoteFor(stage, recent){
+  const pool = stage.pool.filter(m=> recent.indexOf(m) < 0);
+  const usable = pool.length ? pool : stage.pool;
+  if(!stage.biasBlack) return usable[Math.floor(Math.random()*usable.length)];
+  // 2단계: 3문제 중 2문제 이상 ♯·♭ 포함 — 검은건반 쪽을 더 자주 뽑음(약 2/3)
+  const blacks = usable.filter(isBlack), whites = usable.filter(m=>!isBlack(m));
+  if(blacks.length && (Math.random() < 0.66 || !whites.length)) return blacks[Math.floor(Math.random()*blacks.length)];
+  if(whites.length) return whites[Math.floor(Math.random()*whites.length)];
+  return usable[Math.floor(Math.random()*usable.length)];
+}
+function playScaleThenNote(onReady, targetMidi){
+  const ctx = ensureCtx();
+  const noteDur = 0.34;
+  const now = ctx.currentTime + 0.05;
+  SCALE_MIDI.forEach((m,i)=>{
+    scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95);
+    setTimeout(()=>{
+      const el = keyEls[m]; if(!el) return;
+      el.classList.add('scaleNote');
+      setTimeout(()=> el.classList.remove('scaleNote'), noteDur*1000*0.85);
+    }, i*noteDur*1000 + 50);
+  });
+  const scaleMs = SCALE_MIDI.length * noteDur * 1000;
+  setTimeout(()=>{
+    scheduleTone(freqFromMidi(targetMidi), ensureCtx().currentTime + 0.05, 1.0);
+    setTimeout(onReady, 1150);
+  }, scaleMs + 400);
+}
+
+// ---- 3·4단계(두 음 이어서) 용 ----
 // 두 음 쌍을 고름 — biasBlack이면 적어도 한 음은 검은건반이 되도록 유도(가능하면 둘 다)
 function pickPairFor(stage, recentPairKeys){
   const pool = stage.pool;
@@ -412,9 +444,13 @@ function playPair(pair, onReady){
 
 // ---------- stages ----------
 const STAGES = [
-  { key:'s3', title:'3단계 · 두 음 이어서 듣기', pool:STAGE_POOL_WHITE, biasBlack:false,
+  { key:'s1', type:'single', title:'1단계 · 한 음 듣기', pool:POOL_WHITE, biasBlack:false,
+    explain:'도레미파솔라시도 음계를 먼저 들려드린 뒤, 그중 한 음을 다시 들려드려요. 들린 음을 건반에서 짚어보세요!' },
+  { key:'s2', type:'single', title:'2단계 · 한 음 듣기 (♯ ♭ 포함)', pool:POOL_CHROMA, biasBlack:true,
+    explain:'이번엔 검은건반(♯·♭) 음도 섞여 나와요. 음계를 들려드린 뒤 한 음을 들려드리면, 그 음을 건반에서 짚어보세요!' },
+  { key:'s3', type:'pair', title:'3단계 · 두 음 이어서 듣기', pool:POOL_WHITE, biasBlack:false,
     explain:'음계를 먼저 들려드린 뒤, 두 음을 순서대로 이어서 들려드려요. 들린 순서 그대로 건반을 두 번 짚어보세요!' },
-  { key:'s4', title:'4단계 · 두 음 이어서 듣기 (♯ ♭ 포함)', pool:STAGE_POOL_CHROMA, biasBlack:true,
+  { key:'s4', type:'pair', title:'4단계 · 두 음 이어서 듣기 (♯ ♭ 포함)', pool:POOL_CHROMA, biasBlack:true,
     explain:'이번엔 검은건반(♯·♭) 음도 섞여서 두 음이 이어져요. 들린 순서 그대로 건반을 두 번 짚어보세요!' },
 ];
 const KB_LOW = 60, KB_HIGH = 72;
@@ -423,15 +459,19 @@ const KB_LOW = 60, KB_HIGH = 72;
 let curStageIdx = 0, curStage = null;
 let stagePassLog = [];
 let isPractice = false, isAnswered = false;
-let curPair = null, pickedFirst = null, streak = 0, misses = 0, recentPairKeys = [];
+let streak = 0, misses = 0;
+let curTargetMidi = null, recent = [];
+let curPair = null, pickedFirst = null, recentPairKeys = [];
 let keyEls = {};
 let replayCount = 0;
 const MAX_REPLAY = 3;
 
+// ---------- screens ----------
 const screens = {};
 ['start','intro','quiz','result','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
 function showScreen(k){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[k].classList.add('active'); }
 
+// ---------- keyboard ----------
 function buildKeyboard(){
   const container = document.getElementById('pianoKeys');
   container.innerHTML = ''; keyEls = {};
@@ -468,6 +508,7 @@ function updateDots(){
   document.getElementById('dot2').classList.toggle('filled', false);
 }
 
+// ---------- stage flow ----------
 function startStage(idx){
   curStageIdx = idx; curStage = STAGES[idx];
   document.getElementById('introTitle').textContent = curStage.title;
@@ -479,13 +520,13 @@ document.getElementById('introStartBtn').addEventListener('click', ()=>{
   beginPractice();
 });
 function beginPractice(){
-  isPractice = true; streak = 0; misses = 0; recentPairKeys = [];
+  isPractice = true; streak = 0; misses = 0; recent = []; recentPairKeys = []; pickedFirst = null;
   document.getElementById('practiceTagWrap').style.display = '';
   document.getElementById('scorebar').style.visibility = 'hidden';
   askQuestion();
 }
 function beginReal(){
-  isPractice = false; streak = 0; misses = 0; recentPairKeys = [];
+  isPractice = false; streak = 0; misses = 0; recent = []; recentPairKeys = []; pickedFirst = null;
   document.getElementById('practiceTagWrap').style.display = 'none';
   document.getElementById('scorebar').style.visibility = '';
   updateScorebar();
@@ -502,28 +543,42 @@ function askQuestion(){
   replayCount = 0;
   const replayBtn = document.getElementById('replayBtn');
   replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기';
-  updateDots();
+  document.getElementById('dotsWrap').style.display = curStage.type==='pair' ? '' : 'none';
+  if(curStage.type==='pair') updateDots();
   document.getElementById('feedbackText').textContent = '';
   document.getElementById('feedbackText').className = 'feedback-text';
   const st = document.getElementById('statusText');
   st.textContent = '음을 재생하는 중…'; st.classList.add('pulse');
   lockKeyboard();
-  curPair = pickPairFor(curStage, recentPairKeys);
-  recentPairKeys.push(curPair[0]+'_'+curPair[1]); if(recentPairKeys.length>4) recentPairKeys.shift();
-  playPair(curPair, ()=>{
-    st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse');
-    resetKeyboardVisual();
-  });
+  if(curStage.type==='pair'){
+    curPair = pickPairFor(curStage, recentPairKeys);
+    recentPairKeys.push(curPair[0]+'_'+curPair[1]); if(recentPairKeys.length>4) recentPairKeys.shift();
+    playPair(curPair, ()=>{
+      st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse');
+      resetKeyboardVisual();
+    });
+  } else {
+    curTargetMidi = pickNoteFor(curStage, recent);
+    recent.push(curTargetMidi); if(recent.length>4) recent.shift();
+    playScaleThenNote(()=>{
+      st.textContent = '건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse');
+      resetKeyboardVisual();
+    }, curTargetMidi);
+  }
 }
 document.getElementById('replayBtn').addEventListener('click', ()=>{
-  if(!curPair) return;
+  if(curStage.type==='pair'){ if(!curPair) return; } else { if(curTargetMidi==null) return; }
   if(replayCount >= MAX_REPLAY) return;
   replayCount++;
   const replayBtn = document.getElementById('replayBtn');
   if(replayCount >= MAX_REPLAY) replayBtn.disabled = true;
   const st = document.getElementById('statusText');
   st.textContent = '음을 재생하는 중…'; st.classList.add('pulse');
-  playPair(curPair, ()=>{ st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse'); });
+  if(curStage.type==='pair'){
+    playPair(curPair, ()=>{ st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse'); });
+  } else {
+    playScaleThenNote(()=>{ st.textContent = '건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse'); }, curTargetMidi);
+  }
 });
 function announceStart(){
   showScreen('quiz');
@@ -535,6 +590,34 @@ function announceStart(){
   setTimeout(beginReal, 1200);
 }
 function onKeyClick(midi, el){
+  if(curStage.type==='pair') return onKeyClickPair(midi, el);
+  return onKeyClickSingle(midi, el);
+}
+function onKeyClickSingle(midi, el){
+  if(isAnswered || curTargetMidi==null) return;
+  isAnswered = true;
+  const fb = document.getElementById('feedbackText');
+  if(midi === curTargetMidi){
+    el.classList.add('correct');
+    fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
+    playSuccessSound();
+    if(isPractice){ setTimeout(announceStart, 1300); return; }
+    streak++; updateScorebar();
+    if(streak>=3){ setTimeout(stagePass, 900); return; }
+    setTimeout(askQuestion, 1100);
+  } else {
+    el.classList.add('wrong');
+    if(keyEls[curTargetMidi]) keyEls[curTargetMidi].classList.add('correct');
+    fb.textContent = '아쉬워요, 다른 음이었어요.'; fb.classList.add('bad');
+    playFailSound();
+    if(isPractice){ setTimeout(announceStart, 1600); return; }
+    misses++; streak = 0; updateScorebar();
+    if(misses>=3){ setTimeout(stageFail, 1200); return; }
+    if(misses===2) fb.textContent += ' 이제는 마지막 기회예요!';
+    setTimeout(askQuestion, 1600);
+  }
+}
+function onKeyClickPair(midi, el){
   if(isAnswered || !curPair) return;
   const fb = document.getElementById('feedbackText');
   if(pickedFirst == null){
@@ -548,7 +631,7 @@ function onKeyClick(midi, el){
       el.classList.add('wrong');
       if(keyEls[curPair[0]]) keyEls[curPair[0]].classList.add('correct');
       fb.textContent = '아쉬워요, 첫 음이 달랐어요.'; fb.classList.add('bad');
-      handleWrong();
+      handlePairWrong();
     }
     return;
   }
@@ -566,10 +649,10 @@ function onKeyClick(midi, el){
     el.classList.add('wrong');
     if(keyEls[curPair[1]]) keyEls[curPair[1]].classList.add('correct');
     fb.textContent = '아쉬워요, 두 번째 음이 달랐어요.'; fb.classList.add('bad');
-    handleWrong();
+    handlePairWrong();
   }
 }
-function handleWrong(){
+function handlePairWrong(){
   playFailSound();
   if(isPractice){ setTimeout(announceStart, 1700); return; }
   misses++; streak = 0; updateScorebar();
@@ -596,20 +679,20 @@ function stageFail(){
 document.getElementById('resultNextBtn').addEventListener('click', ()=>{
   const nextIdx = curStageIdx + 1;
   if(nextIdx < STAGES.length){ startStage(nextIdx); return; }
-  // 4단계까지 끝남 — 4단계 결과(통과/실패)에 따라 다른 안내
-  const stage4Passed = streak >= 3;
+  // 4단계까지 끝남 — 마지막 단계(4단계) 결과에 따라 5단계 안내를 다르게
+  const stage4Passed = stagePassLog[stagePassLog.length-1] === true;
   if(stage4Passed){
     document.getElementById('finalEmoji').textContent = '🎉';
-    document.getElementById('finalMsg').innerHTML = '성공하면 <b>5단계</b>로 이동하세요!';
+    document.getElementById('finalMsg').innerHTML = '성공했어요! <b>5단계</b>로 이동해서 계속 도전해보세요!';
   } else {
     document.getElementById('finalEmoji').textContent = '🙂';
-    document.getElementById('finalMsg').innerHTML = '실패하면 여기서 마무리해도 되고, <b>5단계</b>에 도전해도 됩니다.';
+    document.getElementById('finalMsg').innerHTML = '여기서 마무리해도 되고, <b>5단계</b>에 도전해도 됩니다.';
   }
   const total = STAGES.length, passed = stagePassLog.filter(Boolean).length;
   document.getElementById('finalPassSummary').textContent = `${total}단계 중 ${passed}개의 단계를 통과했습니다.`;
   showScreen('final');
 });
-document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); startStage(0); });
+document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); stagePassLog=[]; startStage(0); });
 document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
   const grade = document.getElementById('gateGrade').value.trim();
   const name = document.getElementById('gateName').value.trim();
