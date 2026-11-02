@@ -4403,7 +4403,7 @@ let recStream=null, recSourceNode=null, recProcessor=null, recSilentGain=null, r
 // 브라우저에서는 예전처럼 직접 PCM을 모아 WAV로 만듦(recMode='pcm').
 let recMode='pcm', recMR=null, recMRChunks=[], recMRMime=null, recExt='wav';
 let recDest=null, recMicSource=null;   // the mixing node that combines the mic with the accompaniment for recording
-let recMicGain=null, recMusicDuck=null, recMicComp=null, recSyncDelay=null;   // 녹음 믹스에서만 쓰는 보정: 마이크는 많이
+let recMicGain=null, recMusicDuck=null, recMelodyDuck=null, recMicComp=null, recSyncDelay=null;   // 녹음 믹스에서만 쓰는 보정: 마이크는 많이
                                            // 키우고 반주는 크게 낮춰서 노래가 반주 소리에 묻히지 않게
                                            // 함 (스피커로 나가는 실제 재생 음량에는 영향 없음 — 이
                                            // 게인들은 recDest로만 연결됨). 마이크를 이만큼 키우면
@@ -4416,7 +4416,9 @@ let recMicGain=null, recMusicDuck=null, recMicComp=null, recSyncDelay=null;   //
 // 또렷하게 — 반주를 다시 원래만큼 낮추면 "반주가 너무 작다" 문제가 재발하므로 이 방법 선택.
 // 그래도 목소리가 작다는 요청으로 REC_MIC_BOOST를 4.2 → 5.2 → 6.5로 계속 키움(리미터가 있어
 // 더 키워도 소리가 찢어지진 않음).
-const REC_MIC_BOOST=6.5, REC_MUSIC_DUCK=0.24;
+// REC_MELODY_DUCK: 멜로디는 노래와 음역이 겹쳐서 특히 목소리를 가리기 쉽다는 요청으로, 화음/드럼/
+// 베이스(REC_MUSIC_DUCK)보다 멜로디만 더 낮춤.
+const REC_MIC_BOOST=6.5, REC_MUSIC_DUCK=0.24, REC_MELODY_DUCK=0.14;
 function makeMicLimiter(A){
   const c=A.createDynamicsCompressor();
   c.threshold.value=-18; c.knee.value=12; c.ratio.value=8; c.attack.value=0.003; c.release.value=0.25;
@@ -4482,14 +4484,16 @@ async function startMicCapture(){
     recMicGain.connect(recMicComp);
     recMicComp.connect(recDest);
     recMusicDuck=A.createGain(); recMusicDuck.gain.value=REC_MUSIC_DUCK;
-    getMusicBus().connect(recMusicDuck);
+    recMelodyDuck=A.createGain(); recMelodyDuck.gain.value=REC_MELODY_DUCK;
+    getMusicBus().connect(recMelodyDuck);   // 멜로디는 따로 더 낮춤 — 노래 음역과 겹쳐 가장 거슬림
     getChordBus().connect(recMusicDuck);
     getDrumBus().connect(recMusicDuck);   // 드럼이 켜져 있을 때 드럼도 녹음에 같이 담기게 함(꺼져 있으면 이 버스엔 소리가 없어 영향 없음)
     getBassBus().connect(recMusicDuck);   // 베이스도 마찬가지로 같이 담김
     recSyncDelay=A.createDelay(1.0); recSyncDelay.delayTime.value=recSyncDelaySeconds(A);
     recMusicDuck.connect(recSyncDelay);
+    recMelodyDuck.connect(recSyncDelay);
     recSyncDelay.connect(recDest);
-  }catch(_){ recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMicComp=null; recSyncDelay=null; }
+  }catch(_){ recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMelodyDuck=null; recMicComp=null; recSyncDelay=null; }
   const outStream = recDest ? recDest.stream : recStream;
   recMRMime=pickMRMime();
   if(recMRMime){
@@ -4555,15 +4559,19 @@ function stopMicCapture(){
   if(recMicGain){ try{recMicGain.disconnect();}catch(_){ } }
   if(recMicComp){ try{recMicComp.disconnect();}catch(_){ } }
   if(recMusicDuck){ try{recMusicDuck.disconnect();}catch(_){ } }
+  if(recMelodyDuck){ try{recMelodyDuck.disconnect();}catch(_){ } }
   if(recSyncDelay){ try{recSyncDelay.disconnect();}catch(_){ } }
+  // musicBus는 모드에 따라 recMusicDuck(멜로디만 녹음 모드) 또는 recMelodyDuck(반주와 함께 모드) 중
+  // 하나에 연결돼 있었으므로 둘 다 시도 — 연결 안 된 쪽은 disconnect가 그냥 조용히 무시됨(try/catch).
   if(musicBus && recMusicDuck){ try{musicBus.disconnect(recMusicDuck);}catch(_){ } }   // stop feeding the melody into this
                                                                               // (now finished) recording mix — leaves
                                                                               // musicBus's normal connection to the
                                                                               // speakers alone, so playback still works
+  if(musicBus && recMelodyDuck){ try{musicBus.disconnect(recMelodyDuck);}catch(_){ } }
   if(chordBus && recMusicDuck){ try{chordBus.disconnect(recMusicDuck);}catch(_){ } }
   if(drumBus && recMusicDuck){ try{drumBus.disconnect(recMusicDuck);}catch(_){ } }
   if(bassBus && recMusicDuck){ try{bassBus.disconnect(recMusicDuck);}catch(_){ } }
-  recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMicComp=null; recSyncDelay=null;
+  recDest=null; recMicSource=null; recMicGain=null; recMusicDuck=null; recMelodyDuck=null; recMicComp=null; recSyncDelay=null;
   if(recStream){ recStream.getTracks().forEach(t=>t.stop()); }
   // 아이폰/아이패드 사파리는 마이크를 한 번 쓰고 나면(getUserMedia/MediaRecorder), 같은
   // AudioContext를 계속 쓸 경우 소리 나가는 경로가 꼬여서 그 뒤로 "▶ 재생"을 눌러도 소리가 전혀
