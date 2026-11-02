@@ -30,7 +30,6 @@
   h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:26px; margin:0 0 10px; letter-spacing:-0.01em; }
   .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
   .desc b{color:var(--brass-bright);font-weight:700;}
-  .current-stage{ display:inline-block; font-size:13px; font-weight:700; color:var(--brass-bright); background:rgba(201,162,75,0.15); border:1px solid rgba(201,162,75,0.35); border-radius:999px; padding:6px 16px; margin-bottom:12px; letter-spacing:0.01em; }
   .card{
     background: linear-gradient(180deg, var(--panel), var(--bg-mid));
     border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:26px 22px 28px; margin-top:20px;
@@ -125,8 +124,7 @@
 <div class="app">
   <header>
     <div class="eyebrow">Pitch Test</div>
-    <h1>음감테스트 1~4단계</h1>
-    <div class="current-stage" id="currentStageBadge" style="display:none;"></div>
+    <h1 id="mainTitle">음감테스트 1~4단계</h1>
     <div class="desc">
       <b>한 음 듣기</b>와 <b>두 음 이어서 듣기</b>를 순서대로 진행해요. <b>1단계</b> 한 음(흰건반) → <b>2단계</b> 한 음(♯·♭ 포함) → <b>3단계</b> 두 음 이어서(흰건반) → <b>4단계</b> 두 음 이어서(♯·♭ 포함).<br>
       각 단계는 연습문제 1개 → <b>3문제 연속 정답</b>이면 통과! 틀려도 2번까지는 새 문제로 다시 도전할 수 있어요.
@@ -513,13 +511,12 @@ function updateDots(){
 }
 
 // ---------- stage flow ----------
+const APP_TITLE = document.getElementById('mainTitle').textContent;
 function startStage(idx){
   curStageIdx = idx; curStage = STAGES[idx];
   document.getElementById('introTitle').textContent = curStage.title;
   document.getElementById('introExplain').textContent = curStage.explain;
-  const badge = document.getElementById('currentStageBadge');
-  badge.textContent = '진행 중 · ' + curStage.title;
-  badge.style.display = '';
+  document.getElementById('mainTitle').textContent = curStage.title;
   showScreen('intro');
 }
 document.getElementById('introStartBtn').addEventListener('click', ()=>{
@@ -697,7 +694,7 @@ document.getElementById('resultNextBtn').addEventListener('click', ()=>{
   }
   const total = STAGES.length, passed = stagePassLog.filter(Boolean).length;
   document.getElementById('finalPassSummary').textContent = `${total}단계 중 ${passed}개의 단계를 통과했습니다.`;
-  document.getElementById('currentStageBadge').style.display = 'none';
+  document.getElementById('mainTitle').textContent = APP_TITLE;
   showScreen('final');
 });
 document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); stagePassLog=[]; startStage(0); });
@@ -722,7 +719,7 @@ document.getElementById('restartBtn').addEventListener('click', ()=>{
   document.getElementById('gateError').textContent = '';
   document.getElementById('nameGateForm').style.display = '';
   document.getElementById('gateDone').style.display = 'none';
-  document.getElementById('currentStageBadge').style.display = 'none';
+  document.getElementById('mainTitle').textContent = APP_TITLE;
   showScreen('start');
 });
 
