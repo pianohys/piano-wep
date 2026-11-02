@@ -30,6 +30,7 @@
   h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:26px; margin:0 0 10px; letter-spacing:-0.01em; }
   .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
   .desc b{color:var(--brass-bright);font-weight:700;}
+  .current-stage{ display:inline-block; font-size:13px; font-weight:700; color:var(--brass-bright); background:rgba(201,162,75,0.15); border:1px solid rgba(201,162,75,0.35); border-radius:999px; padding:6px 16px; margin-bottom:12px; letter-spacing:0.01em; }
   .card{
     background: linear-gradient(180deg, var(--panel), var(--bg-mid));
     border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:26px 22px 28px; margin-top:20px;
@@ -74,8 +75,8 @@
   .key.black.scaleNote{ background:#5f87b3; }
   .key.disabled{ pointer-events:none; opacity:0.55; }
   .key.disabled.scaleNote{ opacity:1; }
+  .key.black.disabled{ opacity:1; }
   .key .label{ position:absolute; bottom:5px; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:rgba(30,20,10,0.55); pointer-events:none; user-select:none; }
-  .key.black .label{ bottom:3px; font-size:9px; color:rgba(255,255,255,0.6); }
   .quality-btns{ display:flex; gap:14px; justify-content:center; margin-bottom:16px; }
   .quality-btns button{ flex:1; max-width:160px; padding:20px 10px; font-size:16px; }
   .feedback-text{ text-align:center; font-size:14px; font-weight:700; margin-top:4px; min-height:20px; }
@@ -130,6 +131,7 @@
   <header>
     <div class="eyebrow">Pitch Test</div>
     <h1>음감테스트 5~8단계 · 화음듣기</h1>
+    <div class="current-stage" id="currentStageBadge" style="display:none;"></div>
     <div class="desc">
       <b>화음</b>을 듣고 맞혀보세요. 5단계 장조·단조 → 6단계 2개 화음 → 7단계 3개 화음 → 8단계 3개 화음(♯·♭ 포함) 순서예요.<br>
       각 단계는 연습문제 1개 → <b>5문제 중 1개까지만 틀려도 통과</b>! 2개 이상 틀리면 새 5문제로 다시 도전(최대 3번), 3번 다 실패하면 다음 단계로 넘어가요.
@@ -489,9 +491,11 @@ function buildKeyboard(low, high){
     el.className = 'key ' + (k.black?'black':'white');
     el.style.left = k.left+'%'; el.style.width = k.width+'%';
     el.addEventListener('click', ()=> onNoteClick(k.midi, el));
-    const lbl = document.createElement('span');
-    lbl.className = 'label'; lbl.textContent = solfegeLabel(k.midi);
-    el.appendChild(lbl);
+    if(!k.black){
+      const lbl = document.createElement('span');
+      lbl.className = 'label'; lbl.textContent = solfegeLabel(k.midi);
+      el.appendChild(lbl);
+    }
     keyEls[k.midi] = el;
     (k.black?blackEls:whiteEls).push(el);
   });
@@ -527,6 +531,9 @@ function startStage(idx){
   curStageIdx = idx; curStage = STAGES[idx];
   document.getElementById('introTitle').textContent = curStage.title;
   document.getElementById('introExplain').textContent = curStage.explain;
+  const badge = document.getElementById('currentStageBadge');
+  badge.textContent = '진행 중 · ' + curStage.title;
+  badge.style.display = '';
   showScreen('intro');
 }
 document.getElementById('introStartBtn').addEventListener('click', ()=>{
@@ -714,6 +721,7 @@ document.getElementById('resultNextBtn').addEventListener('click', ()=>{
   }
   const total = STAGES.length, passed = stagePassLog.filter(Boolean).length;
   document.getElementById('finalPassSummary').textContent = `${total}단계 중 ${passed}개의 단계를 통과했습니다.`;
+  document.getElementById('currentStageBadge').style.display = 'none';
   showScreen('final');
 });
 document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); attemptNum=1; anyStageGivenUp=false; stagePassLog=[]; startStage(0); });
@@ -738,6 +746,7 @@ document.getElementById('restartBtn').addEventListener('click', ()=>{
   document.getElementById('gateError').textContent = '';
   document.getElementById('nameGateForm').style.display = '';
   document.getElementById('gateDone').style.display = 'none';
+  document.getElementById('currentStageBadge').style.display = 'none';
   showScreen('start');
 });
 
