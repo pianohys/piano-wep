@@ -53,10 +53,6 @@
   .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
   .status.pulse{ animation:pulse 1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
-  .progress-dots{ display:flex; justify-content:center; gap:8px; margin-bottom:14px; }
-  .progress-dots .dot{ width:12px; height:12px; border-radius:50%; border:2px solid var(--brass); background:transparent; font-size:0; }
-  .progress-dots .dot.ok{ background:var(--good); border-color:var(--good); }
-  .progress-dots .dot.bad{ background:var(--bad); border-color:var(--bad); }
   .piano-wrap{ background:#0d0a07; border-radius:14px; padding:14px 10px 10px; box-shadow: inset 0 0 0 1px rgba(201,162,75,0.25), 0 10px 24px rgba(0,0,0,0.35); margin-bottom:16px; }
   .piano-keys{ position:relative; width:100%; height:150px; }
   .key{ position:absolute; top:0; cursor:pointer; transition: background 0.08s ease, transform 0.08s ease; }
@@ -132,7 +128,7 @@
     <h1 id="mainTitle">음감테스트 5~8단계 · 화음듣기</h1>
     <div class="desc">
       <b>화음</b>을 듣고 맞혀보세요. 5단계 장조·단조 → 6단계 2개 화음 → 7단계 3개 화음 → 8단계 3개 화음(♯·♭ 포함) 순서예요.<br>
-      각 단계는 연습문제 1개 → <b>5문제 중 1개까지만 틀려도 통과</b>! 2개 이상 틀리면 새 5문제로 다시 도전(최대 3번), 3번 다 실패하면 다음 단계로 넘어가요.
+      각 단계는 연습문제 1개 → <b>3문제 연속 정답</b>이면 통과! 틀려도 2번까지는 새 문제로 다시 도전할 수 있어요. 3번째 틀리면 다음 단계로 넘어가요.
     </div>
   </header>
 
@@ -157,12 +153,10 @@
     <div class="screen" id="screen-quiz">
       <div class="center" id="practiceTagWrap" style="display:none;"><span class="practice-tag">연습문제</span></div>
       <div class="scorebar" id="scorebar">
-        <span>문제 <b id="qNum">1</b>/5</span>
-        <span>틀림 <b id="missNum">0</b>/1</span>
-        <span>시도 <b id="attemptNum">1</b>/3</span>
+        <span>연속 <b id="streakNum">0</b>/3</span>
+        <span>틀림 <b id="missNum">0</b>/2</span>
       </div>
       <div class="status" id="statusText">화음을 재생하는 중…</div>
-      <div class="progress-dots" id="progressDots"></div>
       <div id="quizAnswerArea"></div>
       <div class="feedback-text" id="feedbackText"></div>
       <div class="controls">
@@ -451,9 +445,9 @@ let stagePassLog = [];
 let isPractice = false, isAnswered = false;
 let curAnswerSet = null; // Set of midis (notes kind) or {quality} (quality kind)
 let pickedSet = null;
-let qIndex = 0, missCount = 0, attemptNum = 1;
+let streak = 0, misses = 0;
 let recentCandidates = [];
-let anyStageGivenUp = false;
+let anyStageFailed = false;
 let keyEls = {};
 let replayCount = 0;
 const MAX_REPLAY = 3;
@@ -510,19 +504,9 @@ function buildQualityButtons(){
   document.getElementById('minorBtn').addEventListener('click', ()=> onQualityClick('minor'));
 }
 
-function updateDots(total, results){
-  const wrap = document.getElementById('progressDots');
-  wrap.innerHTML = '';
-  for(let i=0;i<total;i++){
-    const d = document.createElement('span');
-    d.className = 'dot' + (results[i]===true?' ok':results[i]===false?' bad':'');
-    wrap.appendChild(d);
-  }
-}
 function updateScorebar(){
-  document.getElementById('qNum').textContent = Math.min(qIndex+1,5);
-  document.getElementById('missNum').textContent = missCount;
-  document.getElementById('attemptNum').textContent = attemptNum;
+  document.getElementById('streakNum').textContent = streak;
+  document.getElementById('missNum').textContent = misses;
 }
 
 const APP_TITLE = document.getElementById('mainTitle').textContent;
@@ -542,23 +526,18 @@ function setupAnswerUI(){
   else buildKeyboard(curStage.kbLow, curStage.kbHigh);
 }
 function beginPractice(){
-  isPractice = true;
+  isPractice = true; streak = 0; misses = 0; pickedSet = null;
   document.getElementById('practiceTagWrap').style.display = '';
   document.getElementById('scorebar').style.visibility = 'hidden';
-  document.getElementById('progressDots').style.visibility = 'hidden';
   askOne();
 }
-function beginBatch(){
-  if(attemptNum > 3){ stageGiveUp(); return; }
-  isPractice = false; qIndex = 0; missCount = 0; pickedSet = null;
+function beginReal(){
+  isPractice = false; streak = 0; misses = 0; pickedSet = null;
   document.getElementById('practiceTagWrap').style.display = 'none';
   document.getElementById('scorebar').style.visibility = '';
-  document.getElementById('progressDots').style.visibility = '';
   updateScorebar();
-  updateDots(5, []);
   askOne();
 }
-let batchResults = [];
 function askOne(){
   showScreen('quiz');
   setupAnswerUI();
@@ -613,7 +592,7 @@ function announceStart(){
   document.getElementById('feedbackText').className = 'feedback-text';
   const st = document.getElementById('statusText');
   st.textContent = '연습 끝! 이제 시작하겠습니다 🙂'; st.classList.remove('pulse');
-  setTimeout(beginBatch, 1200);
+  setTimeout(beginReal, 1200);
 }
 function onQualityClick(q){
   if(isAnswered) return; isAnswered = true;
@@ -657,24 +636,18 @@ function finishAnswer(correct){
   if(correct){
     fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
     playSuccessSound(true);
+    if(isPractice){ setTimeout(announceStart, 1600); return; }
+    streak++; updateScorebar();
+    if(streak>=3){ setTimeout(stagePass, 900); return; }
+    setTimeout(askOne, 1400);
   } else {
     fb.textContent = '아쉬워요, 정답은 따로 표시했어요.'; fb.classList.add('bad');
     playFailSound();
-  }
-  if(isPractice){ setTimeout(announceStart, 1600); return; }
-  if(!correct){ missCount++; if(missCount===1) fb.textContent += ' 이제부터는 한 번만 더 틀리면 이번 판은 통과하지 못해요!'; }
-  batchResults = batchResults.slice(0, qIndex);
-  batchResults[qIndex] = correct;
-  updateDots(5, batchResults);
-  qIndex++;
-  updateScorebar();
-  if(qIndex >= 5){
-    setTimeout(()=>{
-      if(missCount <= 1) stagePass();
-      else { attemptNum++; setTimeout(beginBatch, 300); }
-    }, 1200);
-  } else {
-    setTimeout(askOne, 1400);
+    if(isPractice){ setTimeout(announceStart, 1600); return; }
+    misses++; streak = 0; updateScorebar();
+    if(misses>=3){ setTimeout(stageFail, 1400); return; }
+    if(misses===2) fb.textContent += ' 이제는 마지막 기회예요!';
+    setTimeout(askOne, 1700);
   }
 }
 function stagePass(){
@@ -682,24 +655,23 @@ function stagePass(){
   stagePassLog.push(true);
   document.getElementById('resultBanner').textContent = '🎉 통과!';
   document.getElementById('resultBanner').className = 'result-banner pass';
-  document.getElementById('resultSub').textContent = `5문제 중 ${5-missCount}문제를 맞혔어요. 다음 단계로 가요!`;
+  document.getElementById('resultSub').textContent = '3문제 연속으로 맞혔어요. 정말 잘하네요!';
   showScreen('result');
 }
-function stageGiveUp(){
-  anyStageGivenUp = true;
+function stageFail(){
+  anyStageFailed = true;
   stagePassLog.push(false);
   playFailSound();
   document.getElementById('resultBanner').textContent = '아쉬워요';
   document.getElementById('resultBanner').className = 'result-banner fail';
-  document.getElementById('resultSub').textContent = '3번 도전했지만 아쉽게도 통과하지 못했어요. 다음 단계로 넘어갑니다.';
+  document.getElementById('resultSub').textContent = '아쉽지만 실패입니다. 다음 단계로 넘어갑니다.';
   showScreen('result');
 }
 document.getElementById('resultNextBtn').addEventListener('click', ()=>{
   const nextIdx = curStageIdx + 1;
-  attemptNum = 1;
   if(nextIdx < STAGES.length){ startStage(nextIdx); return; }
   // 모든 단계 끝 — 전부 깔끔히 통과했으면 성대한 팡파레
-  if(!anyStageGivenUp){
+  if(!anyStageFailed){
     playGrandFanfare();
     document.getElementById('finalEmoji').textContent = '🏆';
     document.getElementById('finalBanner').textContent = '완벽해요! 음감테스트 올 클리어!';
@@ -721,7 +693,7 @@ document.getElementById('resultNextBtn').addEventListener('click', ()=>{
   document.getElementById('mainTitle').textContent = APP_TITLE;
   showScreen('final');
 });
-document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); attemptNum=1; anyStageGivenUp=false; stagePassLog=[]; startStage(0); });
+document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); anyStageFailed=false; stagePassLog=[]; startStage(0); });
 document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
   const grade = document.getElementById('gateGrade').value.trim();
   const name = document.getElementById('gateName').value.trim();
