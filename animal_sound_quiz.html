@@ -333,6 +333,11 @@ document.getElementById('playBtn').addEventListener('click', ()=>{
   st.textContent = '소리를 재생하는 중…'; st.classList.add('pulse');
   playAnimalSound(curAnimal, ()=>{ st.textContent = '어떤 동물의 소리일까요?'; st.classList.remove('pulse'); });
 });
+function goToNext(){
+  qIdx++;
+  if(qIdx >= order.length){ showFinal(); return; }
+  askQuestion();
+}
 function onAnswer(opt, btn){
   if(isAnswered) return;
   isAnswered = true;
@@ -343,16 +348,16 @@ function onAnswer(opt, btn){
     if(b===btn) b.classList.add(correct?'correct':'wrong');
     else if(b.textContent===curAnimal.name) b.classList.add('correct');
   });
-  if(correct){ score++; fb.textContent = '정답이에요! 🎯'; fb.classList.add('good'); }
-  else{ fb.textContent = `아쉬워요, 정답은 '${curAnimal.name}'였어요.`; fb.classList.add('bad'); }
-  document.getElementById('scoreNum').textContent = score;
-  document.getElementById('nextBtn').style.display = '';
+  if(correct){
+    score++; fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
+    document.getElementById('scoreNum').textContent = score;
+    document.getElementById('nextBtn').style.display = '';
+  } else {
+    fb.textContent = `아쉬워요, 정답은 '${curAnimal.name}'였어요.`; fb.classList.add('bad');
+    setTimeout(goToNext, 1800);   // 틀리면 다음 문제 버튼 없이 바로 다음 문제로 넘어감
+  }
 }
-document.getElementById('nextBtn').addEventListener('click', ()=>{
-  qIdx++;
-  if(qIdx >= order.length){ showFinal(); return; }
-  askQuestion();
-});
+document.getElementById('nextBtn').addEventListener('click', goToNext);
 function showFinal(){
   const total = order.length;
   let emoji, msg;
