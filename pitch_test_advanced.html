@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음감테스트 · 고급</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#211712; --bg-mid:#2c2018; --panel:#3a2b1f; --panel-light:#463424;
+    --ivory:#f3ead9; --ivory-dim:#cdc0a8; --brass:#c9a24b; --brass-bright:#e6c469;
+    --good:#7ea377; --bad:#b1503a; --wood-line: rgba(243,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(201,162,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(201,162,75,0.08), transparent 50%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg-mid));
+    color:var(--ivory);
+    font-family:'Noto Sans KR', sans-serif;
+    display:flex; justify-content:center; padding:32px 16px 60px;
+  }
+  .app{ width:100%; max-width:640px; }
+  header{ text-align:center; margin-bottom:22px; }
+  .eyebrow{ font-size:12px; letter-spacing:0.32em; color:var(--brass); text-transform:uppercase; margin-bottom:8px; font-weight:500; }
+  h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:26px; margin:0 0 10px; letter-spacing:-0.01em; }
+  .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
+  .desc b{color:var(--brass-bright);font-weight:700;}
+  .card{
+    background: linear-gradient(180deg, var(--panel), var(--bg-mid));
+    border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:26px 22px 28px; margin-top:20px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; inset:0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 40px);
+    pointer-events:none;
+  }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+  .center{ text-align:center; }
+  .big-emoji{ font-size:40px; margin-bottom:10px; }
+  .stage-title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:20px; color:var(--brass-bright); margin-bottom:8px; }
+  .stage-explain{ font-size:13.5px; line-height:1.8; color:var(--ivory-dim); margin:0 auto 20px; max-width:440px; }
+  .scorebar{ display:flex; justify-content:center; gap:22px; font-size:13px; color:var(--ivory-dim); margin-bottom:16px; letter-spacing:0.02em; }
+  .scorebar b{ color:var(--brass-bright); font-weight:700; }
+  .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
+  .status.pulse{ animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
+  .piano-wrap{ background:#0d0a07; border-radius:14px; padding:14px 10px 10px; box-shadow: inset 0 0 0 1px rgba(201,162,75,0.25), 0 10px 24px rgba(0,0,0,0.35); margin-bottom:16px; }
+  .piano-keys{ position:relative; width:100%; height:150px; }
+  .key{ position:absolute; top:0; cursor:pointer; transition: background 0.08s ease, transform 0.08s ease; }
+  .key.white{ height:100%; background:linear-gradient(180deg,#f8f1e4,#ece0cb); border:1px solid #1a130d; border-left:1px solid rgba(0,0,0,0.25); border-radius:0 0 7px 7px; z-index:1; }
+  .key.white:active{ background:#e2d5bc; }
+  .key.white.picked{ background:var(--brass-bright); border-color:var(--brass); }
+  .key.white.correct{ background:var(--good); border-color:var(--good); }
+  .key.white.wrong{ background:var(--bad); border-color:var(--bad); }
+  .key.white.scaleNote{ background:#8fb3d9; border-color:#5f87b3; }
+  .key.black{ height:60%; background:linear-gradient(180deg,#2a1f16,#140e09); border:1px solid #000; border-radius:0 0 6px 6px; z-index:2; }
+  .key.black:active{ background:#000; }
+  .key.black.picked{ background:var(--brass-bright); }
+  .key.black.correct{ background:var(--good); }
+  .key.black.wrong{ background:var(--bad); }
+  .key.black.scaleNote{ background:#5f87b3; }
+  .key.disabled{ pointer-events:none; opacity:0.55; }
+  .key.disabled.scaleNote{ opacity:1; }
+  .key.black.disabled{ opacity:1; }
+  .key .label{ position:absolute; bottom:5px; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:rgba(30,20,10,0.55); pointer-events:none; user-select:none; }
+  .quality-btns{ display:flex; gap:14px; justify-content:center; margin-bottom:16px; }
+  .quality-btns button{ flex:1; max-width:160px; padding:20px 10px; font-size:16px; }
+  .feedback-text{ text-align:center; font-size:14px; font-weight:700; margin-top:4px; min-height:20px; }
+  .feedback-text.good{color:var(--good);}
+  .feedback-text.bad{color:var(--bad);}
+  .controls{ display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .replay-note{ text-align:center; font-size:11.5px; color:var(--ivory-dim); margin:6px 0 0; opacity:0.8; }
+  button{
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
+    border-radius:999px; padding:11px 22px; border:1px solid rgba(201,162,75,0.4);
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    color:var(--ivory); cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing:0.01em;
+  }
+  button:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,0.3);}
+  button:active{transform:translateY(0);}
+  button.primary{ background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none; }
+  button:disabled{ opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+  .result-banner{ font-family:'Noto Serif KR', serif; font-size:24px; font-weight:700; margin:6px 0 10px; color:var(--brass-bright); }
+  footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); opacity:0.7; margin-top:22px; letter-spacing:0.01em; }
+
+  /* ---- name gate (final screen) ---- */
+  .setup-fields{ display:flex; flex-direction:column; gap:10px; margin:14px 0; max-width:280px; margin-left:auto; margin-right:auto; }
+  .setup-input{ width:100%; padding:12px 14px; font-size:15px; border-radius:10px; border:1px solid rgba(201,162,75,0.35); background:rgba(0,0,0,0.25); color:var(--ivory); font-family:'Noto Sans KR', sans-serif; text-align:center; }
+  .setup-input::placeholder{ color:var(--ivory-dim); opacity:0.75; }
+  .setup-input:focus{ outline:none; border-color:var(--brass-bright); }
+  .setup-error{ color:var(--bad); font-size:13px; min-height:18px; margin:2px 0 0; }
+
+  /* ---- teacher overlays ---- */
+  .teacher-overlay{ position:fixed; inset:0; z-index:9999; background:rgba(10,7,4,0.72); display:none; align-items:center; justify-content:center; padding:20px; }
+  .teacher-overlay.open{ display:flex; }
+  .teacher-card{ background: linear-gradient(180deg, var(--panel), var(--bg-mid)); border:1px solid rgba(201,162,75,0.3); border-radius:18px; padding:26px 24px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.55); }
+  .teacher-dash{ max-width:640px; text-align:left; max-height:86vh; display:flex; flex-direction:column; }
+  .teacher-dash-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+  .teacher-dash-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .small-btn{ font-size:12.5px; padding:7px 13px; border-radius:999px; }
+  .small-btn.danger{ color:#ff8a70; border-color:rgba(177,80,58,0.55); }
+  .dash-body-scroll{ overflow-y:auto; flex:1; }
+  .teacher-dash table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .teacher-dash th, .teacher-dash td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--wood-line); }
+  .teacher-dash th{ color:var(--ivory-dim); font-weight:700; font-size:11.5px; }
+  .teacher-dash td.num{ font-variant-numeric:tabular-nums; }
+  .teacher-dash .empty-row td{ text-align:center; color:var(--ivory-dim); padding:24px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Pitch Test · Advanced</div>
+    <h1 id="mainTitle">음감테스트 · 고급</h1>
+    <div class="desc">
+      장조·단조, 2개 화음, 3개 화음 문제가 섞여서 나와요. 총 <b>10문제</b>, 한 문제당 <b>10점</b>, <b>100점 만점</b>이에요.
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="screen active" id="screen-start">
+      <div class="center">
+        <div class="big-emoji">🎧</div>
+        <div class="stage-title">시작할 준비 되셨나요?</div>
+        <p class="stage-explain">이어폰을 끼고 소리가 잘 들리는 상태에서 시작해주세요.</p>
+        <div class="controls"><button class="primary" id="startBtn">시작하기</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-quiz">
+      <div class="scorebar" id="scorebar">
+        <span>문제 <b id="qNum">1</b>/10</span>
+        <span>점수 <b id="scoreNum">0</b>점</span>
+      </div>
+      <div class="status" id="statusText">화음을 재생하는 중…</div>
+      <div id="quizAnswerArea"></div>
+      <div class="feedback-text" id="feedbackText"></div>
+      <div class="controls">
+        <button class="primary" id="confirmNoteBtn" style="display:none;" disabled>확인 ✅</button>
+        <button id="replayBtn">🔊 다시 듣기</button>
+      </div>
+      <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
+    </div>
+
+    <div class="screen" id="screen-final">
+      <div class="center">
+        <div class="big-emoji">🏁</div>
+        <div class="result-banner" id="finalScoreBanner"></div>
+        <div class="setup-fields" id="nameGateForm">
+          <input class="setup-input" id="gateGrade" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+          <input class="setup-input" id="gateName" type="text" placeholder="이름 (예: 홍길동)" maxlength="20">
+          <p class="setup-error" id="gateError"></p>
+          <div class="controls"><button class="primary" id="gateSubmitBtn">제출하기</button></div>
+        </div>
+        <p class="stage-explain" id="gateDone" style="display:none; color:var(--good); font-weight:700;"></p>
+        <div class="controls"><button id="restartBtn">처음부터 다시</button></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Claude가 만든 음감테스트 · 이어폰 사용을 권장합니다</footer>
+</div>
+
+<div class="teacher-overlay" id="teacherAuthOverlay">
+  <div class="teacher-card">
+    <div class="stage-title" style="font-size:19px;">선생님 확인</div>
+    <p style="color:var(--ivory-dim); font-size:13px; margin:0 0 16px;">비밀번호를 입력하면 학생 현황을 볼 수 있어요.</p>
+    <input class="setup-input" id="teacherPinInput" type="password" inputmode="numeric" placeholder="비밀번호" maxlength="12" style="margin-bottom:10px;">
+    <p class="setup-error" id="teacherPinError"></p>
+    <div class="controls"><button class="primary" id="teacherPinSubmit">확인</button></div>
+  </div>
+</div>
+
+<div class="teacher-overlay" id="teacherDashOverlay">
+  <div class="teacher-card teacher-dash">
+    <div class="teacher-dash-toolbar">
+      <span id="dashUpdated" style="font-size:12.5px; color:var(--ivory-dim);">불러오는 중...</span>
+      <div class="teacher-dash-actions">
+        <button class="small-btn" id="dashRefreshBtn">새로고침</button>
+        <button class="small-btn" id="dashExportBtn">엑셀로 내려받기</button>
+        <button class="small-btn danger" id="dashClearBtn">기록 초기화</button>
+        <button class="small-btn" id="dashCloseBtn">닫기</button>
+      </div>
+    </div>
+    <div class="dash-body-scroll">
+      <table>
+        <thead><tr><th>학년</th><th>이름</th><th>회차</th><th>점수</th><th>만점</th><th>제출시각</th></tr></thead>
+        <tbody id="dashBody"><tr class="empty-row"><td colspan="6">불러오는 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- storage / teacher dashboard ----------
+const STORAGE_API_URL = 'https://script.google.com/macros/s/AKfycbyOeVTGbU1UDMvM87VEShX708a-mRxDGv3BiU_4rfRxmiSWAs9BuxKQjPpe4s2mIyHG/exec';
+async function storageRequest(action, params){
+  const qs = new URLSearchParams(Object.assign({ action }, params)).toString();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(STORAGE_API_URL + '?' + qs, { signal: controller.signal });
+    if (!res.ok) throw new Error('storage request failed: ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+window.storage = {
+  list: (prefix) => storageRequest('list', { prefix }),
+  get: (key) => storageRequest('get', { key }),
+  set: (key, value) => storageRequest('set', { key, value }),
+  delete: (key) => storageRequest('delete', { key })
+};
+function getDeviceId(){
+  try{
+    let id = localStorage.getItem('claudeToolsDeviceId');
+    if(!id){
+      id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem('claudeToolsDeviceId', id);
+    }
+    return id;
+  }catch(_){ return null; }
+}
+const DEVICE_ID = getDeviceId();
+const TEACHER_PIN = '2580';
+const APP_MODE = 'pitchAdv';
+function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
+function pad3(n){ return String(n).padStart(3,'0'); }
+async function nextAttemptNo(mode, storageId){
+  try{
+    const res = await window.storage.list(mode+':'+storageId+':');
+    const keyNames = ((res&&res.keys)||[]).map(k=>typeof k==='string'?k:k.key);
+    let max=0;
+    keyNames.forEach(k=>{ const n=parseInt(k.split(':').pop(),10); if(!isNaN(n)&&n>max)max=n; });
+    return max+1;
+  }catch(e){ return 1; }
+}
+async function submitRecord(grade, name, score, total){
+  try{
+    const storageId = sanitizeToken(grade)+'-'+sanitizeToken(name);
+    const attemptNo = await nextAttemptNo(APP_MODE, storageId);
+    const key = APP_MODE+':'+storageId+':'+pad3(attemptNo);
+    const value = JSON.stringify({ grade, name, deviceId:DEVICE_ID, attemptNo, passed:score, total, updatedAt:Date.now() });
+    await window.storage.set(key, value);
+  }catch(e){ console.error('score submit failed', e); }
+}
+
+// ---------- audio ----------
+let audioCtx = null;
+function ensureCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function freqFromMidi(midi){ return 440 * Math.pow(2, (midi-69)/12); }
+function scheduleTone(freq, startTime, duration){
+  const ctx = ensureCtx();
+  const osc = ctx.createOscillator(), osc2 = ctx.createOscillator();
+  const gain = ctx.createGain(), gain2 = ctx.createGain();
+  osc.type = "triangle"; osc.frequency.value = freq;
+  osc2.type = "sine"; osc2.frequency.value = freq * 2;
+  const peak = 0.5;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(peak, startTime + 0.015);
+  gain.gain.exponentialRampToValueAtTime(peak*0.35, startTime + 0.18);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  gain2.gain.setValueAtTime(0, startTime);
+  gain2.gain.linearRampToValueAtTime(peak*0.12, startTime + 0.015);
+  gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration*0.6);
+  osc.connect(gain).connect(ctx.destination);
+  osc2.connect(gain2).connect(ctx.destination);
+  osc.start(startTime); osc.stop(startTime + duration + 0.05);
+  osc2.start(startTime); osc2.stop(startTime + duration + 0.05);
+}
+function playClapBurst(startTime, volume){
+  const ctx = ensureCtx();
+  const dur = 0.045 + Math.random()*0.02;
+  const bufferSize = Math.floor(ctx.sampleRate * dur);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++){ const env = Math.pow(1 - i/bufferSize, 3.2); data[i] = (Math.random()*2-1) * env; }
+  const noise = ctx.createBufferSource(); noise.buffer = buffer;
+  const bandpass = ctx.createBiquadFilter(); bandpass.type = "bandpass"; bandpass.frequency.value = 2200 + Math.random()*2200; bandpass.Q.value = 0.7 + Math.random()*0.6;
+  const highpass = ctx.createBiquadFilter(); highpass.type = "highpass"; highpass.frequency.value = 900;
+  const gain = ctx.createGain();
+  const peak = (volume !== undefined ? volume : 0.6) * (0.75 + Math.random()*0.5);
+  gain.gain.setValueAtTime(peak, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+  noise.connect(bandpass).connect(highpass).connect(gain).connect(ctx.destination);
+  noise.start(startTime); noise.stop(startTime + dur + 0.02);
+}
+function playSuccessSound(small){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.02;
+  const totalClaps = small ? 10 : 14, spread = small ? 0.4 : 0.55;
+  for(let i=0;i<totalClaps;i++){
+    const progress = i/totalClaps;
+    const t = now + progress*spread + (Math.random()-0.5)*0.03;
+    playClapBurst(t, 0.5 * (1 - progress*0.5));
+  }
+}
+function playFailSound(){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.02;
+  const wahs = [ {f0:320, f1:230, start:now, dur:0.26}, {f0:280, f1:170, start:now + 0.30, dur:0.42} ];
+  wahs.forEach(w=>{
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(w.f0, w.start);
+    osc.frequency.exponentialRampToValueAtTime(w.f1, w.start + w.dur);
+    gain.gain.setValueAtTime(0.0001, w.start);
+    gain.gain.exponentialRampToValueAtTime(0.22, w.start + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, w.start + w.dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(w.start); osc.stop(w.start + w.dur + 0.05);
+  });
+}
+function playFanfare(){
+  const ctx = ensureCtx(); const now = ctx.currentTime + 0.05;
+  const arp = [523.25, 659.25, 783.99, 1046.50];
+  arp.forEach((f,i)=> scheduleTone(f, now + i*0.14, 0.5));
+  arp.forEach(f=> scheduleTone(f, now + arp.length*0.14 + 0.05, 0.9));
+}
+
+// ---------- chord math ----------
+const BLACK_PCS = new Set([1,3,6,8,10]);
+function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
+const SCALE_MIDI = [60,62,64,65,67,69,71,72];
+const WHITE_SCALE_EXT = [60,62,64,65,67,69,71,72,74,76,77,79];
+const SOLFEGE_PC = {0:'도',2:'레',4:'미',5:'파',7:'솔',9:'라',11:'시',1:'도#',3:'레#',6:'파#',8:'솔#',10:'라#'};
+function solfegeLabel(midi){
+  const pc = ((midi%12)+12)%12;
+  return SOLFEGE_PC[pc] + (midi>=72 ? '’' : '');
+}
+function playScaleIntro(onDone){
+  const ctx = ensureCtx();
+  const noteDur = 0.3;
+  const now = ctx.currentTime + 0.05;
+  SCALE_MIDI.forEach((m,i)=>{
+    scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95);
+    setTimeout(()=>{
+      const el = keyEls[m]; if(!el) return;
+      el.classList.add('scaleNote');
+      setTimeout(()=> el.classList.remove('scaleNote'), noteDur*1000*0.85);
+    }, i*noteDur*1000 + 50);
+  });
+  setTimeout(onDone, SCALE_MIDI.length*noteDur*1000 + 300);
+}
+function playChordTogether(midis, dur, onDone){
+  const ctx = ensureCtx();
+  const now = ctx.currentTime + 0.05;
+  midis.forEach(m=> scheduleTone(freqFromMidi(m), now, dur));
+  if(onDone) setTimeout(onDone, dur*1000 + 250);
+}
+const TRIAD_QUALITY_CANDS = [];
+for(let r=60; r<72; r++){
+  TRIAD_QUALITY_CANDS.push({root:r, quality:'major', midis:[r, r+4, r+7]});
+  TRIAD_QUALITY_CANDS.push({root:r, quality:'minor', midis:[r, r+3, r+7]});
+}
+const CHORD2_CANDS = [];
+for(let i=0;i<WHITE_SCALE_EXT.length;i++){
+  [2,3].forEach(off=>{ if(i+off<WHITE_SCALE_EXT.length) CHORD2_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+off]]); });
+}
+const CHORD3_CANDS = [];
+for(let i=0;i<6;i++){ CHORD3_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+2], WHITE_SCALE_EXT[i+4]]); }
+const CHORD3_CHROMA_CANDS = [];
+for(let r=60; r<70; r++){
+  CHORD3_CHROMA_CANDS.push([r, r+4, r+7]);
+  CHORD3_CHROMA_CANDS.push([r, r+3, r+7]);
+}
+function pickFrom(arr, recent){
+  const pool = arr.filter(x=> recent.indexOf(x) < 0);
+  const usable = pool.length ? pool : arr;
+  return usable[Math.floor(Math.random()*usable.length)];
+}
+
+// ---------- question plan: 5단계 2문제, 6단계 3문제, 7단계 3문제, 8단계 2문제 = 10문제, 순서 랜덤 ----------
+const STAGE_DEFS = {
+  s5: { key:'s5', type:'quality' },
+  s6: { key:'s6', type:'notes', notes:2, kbLow:60, kbHigh:79 },
+  s7: { key:'s7', type:'notes', notes:3, kbLow:60, kbHigh:79 },
+  s8: { key:'s8', type:'notes', notes:3, kbLow:60, kbHigh:79 },
+};
+const QUESTION_TEMPLATE = [
+  ...Array(2).fill(STAGE_DEFS.s5),
+  ...Array(3).fill(STAGE_DEFS.s6),
+  ...Array(3).fill(STAGE_DEFS.s7),
+  ...Array(2).fill(STAGE_DEFS.s8),
+];
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function candidatesFor(stage){
+  if(stage.key==='s5') return TRIAD_QUALITY_CANDS;
+  if(stage.key==='s6') return CHORD2_CANDS;
+  if(stage.key==='s7') return CHORD3_CANDS;
+  return CHORD3_CHROMA_CANDS;
+}
+
+// ---------- state ----------
+let order = [], qIdx = 0, score = 0, isAnswered = false, curStage = null;
+let curAnswerSet = null, pickedSet = null, recentCandidates = [];
+let keyEls = {};
+let replayCount = 0;
+const MAX_REPLAY = 1;
+
+const screens = {};
+['start','quiz','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
+function showScreen(k){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[k].classList.add('active'); }
+
+function buildKeyboard(low, high){
+  const container = document.getElementById('quizAnswerArea');
+  container.innerHTML = '<div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>';
+  const pianoKeys = document.getElementById('pianoKeys');
+  keyEls = {};
+  const keys = [];
+  for(let m=low; m<=high; m++) keys.push({ midi:m, black:isBlack(m) });
+  const whiteKeys = keys.filter(k=>!k.black);
+  const whiteWidth = 100/whiteKeys.length, blackWidth = whiteWidth*0.6;
+  let wi = 0;
+  keys.forEach(k=>{
+    if(!k.black){ k.left = wi*whiteWidth; k.width = whiteWidth; wi++; }
+    else { k.left = wi*whiteWidth - blackWidth/2; k.width = blackWidth; }
+  });
+  const whiteEls=[], blackEls=[];
+  keys.forEach(k=>{
+    const el = document.createElement('div');
+    el.className = 'key ' + (k.black?'black':'white');
+    el.style.left = k.left+'%'; el.style.width = k.width+'%';
+    el.addEventListener('click', ()=> onNoteClick(k.midi, el));
+    if(!k.black){
+      const lbl = document.createElement('span');
+      lbl.className = 'label'; lbl.textContent = solfegeLabel(k.midi);
+      el.appendChild(lbl);
+    }
+    keyEls[k.midi] = el;
+    (k.black?blackEls:whiteEls).push(el);
+  });
+  whiteEls.forEach(el=>pianoKeys.appendChild(el));
+  blackEls.forEach(el=>pianoKeys.appendChild(el));
+}
+function resetKeyboardVisual(){ Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked','disabled','scaleNote'); }); }
+function lockKeyboard(){ Object.values(keyEls).forEach(el=> el.classList.add('disabled')); }
+function buildQualityButtons(){
+  const container = document.getElementById('quizAnswerArea');
+  container.innerHTML = '<div class="quality-btns"><button id="majorBtn">🌞 장조(Major)</button><button id="minorBtn">🌙 단조(minor)</button></div>';
+  keyEls = {};
+  document.getElementById('majorBtn').addEventListener('click', ()=> onQualityClick('major'));
+  document.getElementById('minorBtn').addEventListener('click', ()=> onQualityClick('minor'));
+}
+function setupAnswerUI(){
+  if(curStage.type==='quality') buildQualityButtons();
+  else buildKeyboard(curStage.kbLow, curStage.kbHigh);
+}
+function updateScoreUI(){
+  document.getElementById('qNum').textContent = Math.min(qIdx+1, order.length);
+  document.getElementById('scoreNum').textContent = score;
+}
+
+function askQuestion(){
+  showScreen('quiz');
+  curStage = order[qIdx];
+  setupAnswerUI();
+  isAnswered = false; pickedSet = new Set();
+  replayCount = 0;
+  const replayBtn = document.getElementById('replayBtn');
+  replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기'; replayBtn.style.display = '';
+  document.getElementById('replayNote').style.display = '';
+  const confirmBtn = document.getElementById('confirmNoteBtn');
+  confirmBtn.style.display = curStage.type==='notes' ? '' : 'none';
+  confirmBtn.disabled = true;
+  document.getElementById('feedbackText').textContent = '';
+  document.getElementById('feedbackText').className = 'feedback-text';
+  updateScoreUI();
+  const st = document.getElementById('statusText');
+  st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
+  if(curStage.type!=='quality') lockKeyboard();
+
+  const cand = pickFrom(candidatesFor(curStage), recentCandidates);
+  recentCandidates.push(cand); if(recentCandidates.length>4) recentCandidates.shift();
+  if(curStage.type==='quality'){
+    curAnswerSet = cand.quality;
+    setTimeout(()=>{ playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); }); }, 300);
+  } else {
+    curAnswerSet = new Set(cand);
+    playScaleIntro(()=>{
+      playChordTogether(cand, 1.3, ()=>{
+        st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚고 확인을 눌러보세요`; st.classList.remove('pulse');
+        resetKeyboardVisual();
+      });
+    });
+  }
+  window.__lastCand = cand;
+}
+document.getElementById('replayBtn').addEventListener('click', ()=>{
+  const cand = window.__lastCand; if(!cand) return;
+  if(replayCount >= MAX_REPLAY) return;
+  replayCount++;
+  const replayBtn = document.getElementById('replayBtn');
+  if(replayCount >= MAX_REPLAY) replayBtn.disabled = true;
+  const st = document.getElementById('statusText');
+  st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
+  if(curStage.type==='quality'){
+    playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); });
+  } else {
+    playScaleIntro(()=>{ playChordTogether(cand, 1.3, ()=>{ st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚고 확인을 눌러보세요`; st.classList.remove('pulse'); }); });
+  }
+});
+function nextQuestion(){
+  qIdx++;
+  if(qIdx >= order.length){ showFinal(); return; }
+  askQuestion();
+}
+function onQualityClick(q){
+  if(isAnswered) return; isAnswered = true;
+  finishAnswer(q === curAnswerSet);
+}
+function onNoteClick(midi, el){
+  if(isAnswered) return;
+  if(pickedSet.has(midi)){
+    pickedSet.delete(midi);
+    el.classList.remove('picked');
+    updateConfirmBtn();
+    return;
+  }
+  if(pickedSet.size >= curStage.notes) return;
+  pickedSet.add(midi);
+  el.classList.add('picked');
+  updateConfirmBtn();
+}
+function updateConfirmBtn(){
+  document.getElementById('confirmNoteBtn').disabled = pickedSet.size !== curStage.notes;
+}
+function onConfirmNotes(){
+  if(isAnswered) return;
+  if(pickedSet.size !== curStage.notes) return;
+  isAnswered = true;
+  document.getElementById('confirmNoteBtn').disabled = true;
+  const correct = [...pickedSet].every(m=> curAnswerSet.has(m));
+  pickedSet.forEach(m=>{
+    const el = keyEls[m]; if(!el) return;
+    el.classList.remove('picked');
+    el.classList.add(curAnswerSet.has(m) ? 'correct' : 'wrong');
+  });
+  curAnswerSet.forEach(m=>{ if(keyEls[m] && !keyEls[m].classList.contains('wrong')) keyEls[m].classList.add('correct'); });
+  lockKeyboard();
+  finishAnswer(correct);
+}
+document.getElementById('confirmNoteBtn').addEventListener('click', onConfirmNotes);
+function finishAnswer(correct){
+  const fb = document.getElementById('feedbackText');
+  if(correct){
+    fb.textContent = '정답이에요! 🎯 (+10점)'; fb.classList.add('good');
+    playSuccessSound(true); score += 10;
+  } else {
+    fb.textContent = '아쉬워요, 정답은 따로 표시했어요.'; fb.classList.add('bad');
+    playFailSound();
+  }
+  updateScoreUI();
+  setTimeout(nextQuestion, correct ? 1200 : 1700);
+}
+function showFinal(){
+  playFanfare();
+  document.getElementById('finalScoreBanner').textContent = `100점 중 ${score}점을 받았어요!`;
+  document.getElementById('nameGateForm').style.display = '';
+  document.getElementById('gateDone').style.display = 'none';
+  document.getElementById('gateGrade').value = '';
+  document.getElementById('gateName').value = '';
+  document.getElementById('gateError').textContent = '';
+  showScreen('final');
+}
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  ensureCtx();
+  order = shuffle(QUESTION_TEMPLATE);
+  qIdx = 0; score = 0; recentCandidates = [];
+  askQuestion();
+});
+document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
+  const grade = document.getElementById('gateGrade').value.trim();
+  const name = document.getElementById('gateName').value.trim();
+  const err = document.getElementById('gateError');
+  if(!grade || !name){ err.textContent = '학년과 이름을 모두 입력해주세요.'; return; }
+  err.textContent = '';
+  const btn = document.getElementById('gateSubmitBtn');
+  btn.disabled = true; btn.textContent = '제출 중…';
+  await submitRecord(grade, name, score, 100);
+  btn.disabled = false; btn.textContent = '제출하기';
+  document.getElementById('nameGateForm').style.display = 'none';
+  document.getElementById('gateDone').textContent = `${name}님, ${score}점! 축하합니다! 이 화면을 진행자에게 보여주세요.`;
+  document.getElementById('gateDone').style.display = '';
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  showScreen('start');
+});
+
+// ---------- teacher dashboard ----------
+let titleTaps = 0, titleTapTimer = null;
+document.querySelector('h1').addEventListener('click', ()=>{
+  titleTaps++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(()=>{ titleTaps = 0; }, 1500);
+  if(titleTaps >= 5){
+    titleTaps = 0;
+    document.getElementById('teacherPinInput').value = '';
+    document.getElementById('teacherPinError').textContent = '';
+    document.getElementById('teacherAuthOverlay').classList.add('open');
+  }
+});
+function submitTeacherPin(){
+  const val = document.getElementById('teacherPinInput').value.trim();
+  if(val === TEACHER_PIN){
+    document.getElementById('teacherAuthOverlay').classList.remove('open');
+    document.getElementById('teacherDashOverlay').classList.add('open');
+    loadDashboard();
+    startDashboardPolling();
+  } else {
+    document.getElementById('teacherPinError').textContent = '비밀번호가 올바르지 않아요.';
+  }
+}
+document.getElementById('teacherPinSubmit').addEventListener('click', submitTeacherPin);
+document.getElementById('teacherPinInput').addEventListener('keydown', e=>{ if(e.key === 'Enter') submitTeacherPin(); });
+document.getElementById('dashCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('teacherDashOverlay').classList.remove('open');
+  stopDashboardPolling();
+});
+document.getElementById('dashRefreshBtn').addEventListener('click', loadDashboard);
+document.getElementById('dashExportBtn').addEventListener('click', ()=>{
+  if(lastDashRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
+  const header = ['학년','이름','회차','점수','만점','제출시각'];
+  const csvRows = lastDashRows.map(r=> [r.grade||'', r.name||'', r.attemptNo||1, r.passed, r.total, r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '']);
+  const esc = v=>{ const s=String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const csv = [header, ...csvRows].map(row=> row.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = APP_MODE + '_기록_' + stamp + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+async function clearAllRecordsForPrefix(prefix, onProgress){
+  for(let attempt=0; attempt<3; attempt++){
+    const res = await window.storage.list(prefix);
+    const keyNames = ((res && res.keys) || []).map(k=> typeof k==='string' ? k : k.key);
+    if(keyNames.length===0) return true;
+    if(onProgress) onProgress(`삭제 중… (${keyNames.length}개 남음)`);
+    for(const k of keyNames){ try{ await window.storage.delete(k); }catch(e){} }
+  }
+  return false;
+}
+document.getElementById('dashClearBtn').addEventListener('click', async ()=>{
+  if(!confirm('기록을 모두 삭제할까요? 되돌릴 수 없어요.')) return;
+  const btn = document.getElementById('dashClearBtn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  let ok = true;
+  try{ ok = await clearAllRecordsForPrefix(APP_MODE+':', (msg)=>{ btn.textContent = msg; }); }
+  catch(e){ console.error(e); ok = false; }
+  btn.disabled = false; btn.textContent = origText;
+  await loadDashboard();
+  if(ok) alert('기록이 모두 초기화됐어요.');
+  else alert('일부 기록이 지워지지 않았어요. 다시 한 번 눌러주세요.');
+});
+let dashInterval = null;
+function startDashboardPolling(){ stopDashboardPolling(); dashInterval = setInterval(loadDashboard, 4000); }
+function stopDashboardPolling(){ if(dashInterval){ clearInterval(dashInterval); dashInterval = null; } }
+async function runInBatches(items, concurrency, worker){
+  const out = new Array(items.length);
+  let next = 0;
+  async function runSlot(){ while(next < items.length){ const i = next++; out[i] = await worker(items[i]); } }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runSlot));
+  return out;
+}
+let lastDashRows = [];
+let dashLoading = false;
+async function loadDashboard(){
+  if(dashLoading) return;
+  dashLoading = true;
+  const dashBody = document.getElementById('dashBody');
+  const dashUpdated = document.getElementById('dashUpdated');
+  try{
+    let rows=null, lastErr=null;
+    for(let attempt=0; attempt<3; attempt++){
+      try{
+        const res = await window.storage.list(APP_MODE+':');
+        const keyNames = ((res && res.keys) || []).map(k=> typeof k==='string' ? k : k.key);
+        const gotList = await runInBatches(keyNames, 8, k => window.storage.get(k).catch(()=>null));
+        rows = [];
+        gotList.forEach(got=>{ if(got && got.value){ try{ rows.push(JSON.parse(got.value)); }catch(e){} } });
+        break;
+      }catch(e){ lastErr = e; if(attempt<2) await new Promise(r=>setTimeout(r,1000)); }
+    }
+    if(rows){
+      const numOr = v=>{ const n=parseInt(v,10); return isNaN(n) ? 9999 : n; };
+      rows.sort((a,b)=> numOr(a.grade)-numOr(b.grade) || (a.name||'').localeCompare(b.name||'','ko') || (a.attemptNo||1)-(b.attemptNo||1));
+      lastDashRows = rows;
+      renderDashRows(rows);
+      dashUpdated.textContent = rows.length + '명 · ' + new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }) + ' 기준';
+    } else {
+      console.error('dashboard load failed', lastErr);
+      if(lastDashRows.length>0){ dashUpdated.textContent = '새로고침 실패 — 이전 자료를 보여주고 있어요'; }
+      else { dashUpdated.textContent = '불러오지 못했어요'; dashBody.innerHTML = '<tr class="empty-row"><td colspan="6">자료를 불러오지 못했어요. 새로고침을 다시 눌러주세요.</td></tr>'; }
+    }
+  }finally{ dashLoading = false; }
+}
+function findSuspiciousNames(rows){
+  const namesByDevice = {};
+  rows.forEach(r=>{ if(!r.deviceId) return; if(!namesByDevice[r.deviceId]) namesByDevice[r.deviceId] = new Set(); namesByDevice[r.deviceId].add(r.name || '이름없음'); });
+  const suspicious = new Set();
+  rows.forEach(r=>{ if(r.deviceId && namesByDevice[r.deviceId].size > 1) suspicious.add(r); });
+  return suspicious;
+}
+function renderDashRows(rows){
+  const dashBody = document.getElementById('dashBody');
+  if(rows.length === 0){ dashBody.innerHTML = '<tr class="empty-row"><td colspan="6">아직 제출한 학생이 없어요</td></tr>'; return; }
+  const suspicious = findSuspiciousNames(rows);
+  dashBody.innerHTML = '';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    const gradeTd = document.createElement('td'); gradeTd.className = 'num'; gradeTd.textContent = r.grade || '-';
+    const nameTd = document.createElement('td'); nameTd.textContent = r.name || '이름없음';
+    if(suspicious.has(r)){
+      const warnEl = document.createElement('span');
+      warnEl.textContent = ' ⚠️ 같은 기기, 다른 이름';
+      warnEl.style.color = '#ff8a70'; warnEl.style.fontSize = '11.5px';
+      warnEl.title = '이 기기(브라우저)로 다른 이름이 제출된 적이 있어요.';
+      nameTd.appendChild(warnEl);
+    }
+    const attemptTd = document.createElement('td'); attemptTd.className = 'num'; attemptTd.textContent = (r.attemptNo||1) + '차';
+    const passedTd = document.createElement('td'); passedTd.className = 'num'; passedTd.textContent = r.passed;
+    const totalTd = document.createElement('td'); totalTd.className = 'num'; totalTd.textContent = r.total;
+    const timeTd = document.createElement('td'); timeTd.className = 'num'; timeTd.textContent = r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '-';
+    tr.appendChild(gradeTd); tr.appendChild(nameTd); tr.appendChild(attemptTd); tr.appendChild(passedTd); tr.appendChild(totalTd); tr.appendChild(timeTd);
+    dashBody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>

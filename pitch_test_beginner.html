@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>음감테스트 1~8단계</title>
+<title>음감테스트 · 초급</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -47,7 +47,6 @@
   .big-emoji{ font-size:40px; margin-bottom:10px; }
   .stage-title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:20px; color:var(--brass-bright); margin-bottom:8px; }
   .stage-explain{ font-size:13.5px; line-height:1.8; color:var(--ivory-dim); margin:0 auto 20px; max-width:440px; }
-  .practice-tag{ display:inline-block; font-size:11.5px; font-weight:700; padding:4px 12px; border-radius:999px; background:rgba(201,162,75,0.18); color:var(--brass-bright); margin-bottom:10px; letter-spacing:0.02em; }
   .scorebar{ display:flex; justify-content:center; gap:22px; font-size:13px; color:var(--ivory-dim); margin-bottom:16px; letter-spacing:0.02em; }
   .scorebar b{ color:var(--brass-bright); font-weight:700; }
   .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
@@ -57,19 +56,17 @@
   .progress-dots .dot{ width:14px; height:14px; border-radius:50%; border:2px solid var(--brass); background:transparent; font-size:0; }
   .progress-dots .dot.filled{ background:var(--brass-bright); }
   .piano-wrap{ background:#0d0a07; border-radius:14px; padding:14px 10px 10px; box-shadow: inset 0 0 0 1px rgba(201,162,75,0.25), 0 10px 24px rgba(0,0,0,0.35); margin-bottom:16px; }
-  .piano-keys{ position:relative; width:100%; height:160px; }
+  .piano-keys{ position:relative; width:100%; height:170px; }
   .key{ position:absolute; top:0; cursor:pointer; transition: background 0.08s ease, transform 0.08s ease; }
   .key.white{ height:100%; background:linear-gradient(180deg,#f8f1e4,#ece0cb); border:1px solid #1a130d; border-left:1px solid rgba(0,0,0,0.25); border-radius:0 0 7px 7px; z-index:1; }
   .key.white:active{ background:#e2d5bc; }
   .key.white.picked1{ background:var(--brass-bright); border-color:var(--brass); }
-  .key.white.picked{ background:var(--brass-bright); border-color:var(--brass); }
   .key.white.correct{ background:var(--good); border-color:var(--good); }
   .key.white.wrong{ background:var(--bad); border-color:var(--bad); }
   .key.white.scaleNote{ background:#8fb3d9; border-color:#5f87b3; }
   .key.black{ height:60%; background:linear-gradient(180deg,#2a1f16,#140e09); border:1px solid #000; border-radius:0 0 6px 6px; z-index:2; }
   .key.black:active{ background:#000; }
   .key.black.picked1{ background:var(--brass-bright); }
-  .key.black.picked{ background:var(--brass-bright); }
   .key.black.correct{ background:var(--good); }
   .key.black.wrong{ background:var(--bad); }
   .key.black.scaleNote{ background:#5f87b3; }
@@ -77,8 +74,6 @@
   .key.disabled.scaleNote{ opacity:1; }
   .key.black.disabled{ opacity:1; }
   .key .label{ position:absolute; bottom:5px; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:rgba(30,20,10,0.55); pointer-events:none; user-select:none; }
-  .quality-btns{ display:flex; gap:14px; justify-content:center; margin-bottom:16px; }
-  .quality-btns button{ flex:1; max-width:160px; padding:20px 10px; font-size:16px; }
   .feedback-text{ text-align:center; font-size:14px; font-weight:700; margin-top:4px; min-height:20px; }
   .feedback-text.good{color:var(--good);}
   .feedback-text.bad{color:var(--bad);}
@@ -96,14 +91,10 @@
   button:active{transform:translateY(0);}
   button.primary{ background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none; }
   button:disabled{ opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
-  .result-banner{ font-family:'Noto Serif KR', serif; font-size:22px; font-weight:700; margin:6px 0 10px; }
-  .result-banner.pass{ color:var(--good); }
-  .result-banner.fail{ color:var(--bad); }
-  .result-banner.grand{ color:var(--brass-bright); font-size:26px; }
-  .praise-list{ list-style:none; padding:0; margin:0 0 18px; font-size:14px; line-height:2; color:var(--brass-bright); }
+  .result-banner{ font-family:'Noto Serif KR', serif; font-size:24px; font-weight:700; margin:6px 0 10px; color:var(--brass-bright); }
   footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); opacity:0.7; margin-top:22px; letter-spacing:0.01em; }
 
-  /* ---- name gate / checkpoint ---- */
+  /* ---- name gate (final screen) ---- */
   .setup-fields{ display:flex; flex-direction:column; gap:10px; margin:14px 0; max-width:280px; margin-left:auto; margin-right:auto; }
   .setup-input{ width:100%; padding:12px 14px; font-size:15px; border-radius:10px; border:1px solid rgba(201,162,75,0.35); background:rgba(0,0,0,0.25); color:var(--ivory); font-family:'Noto Sans KR', sans-serif; text-align:center; }
   .setup-input::placeholder{ color:var(--ivory-dim); opacity:0.75; }
@@ -130,9 +121,11 @@
 <body>
 <div class="app">
   <header>
-    <div class="eyebrow">Pitch Test</div>
-    <h1 id="mainTitle">음감테스트 1~8단계</h1>
-    <div class="desc">음을 듣고 맞혀보는 음감 테스트예요. 총 8단계로 이어집니다.</div>
+    <div class="eyebrow">Pitch Test · Beginner</div>
+    <h1 id="mainTitle">음감테스트 · 초급</h1>
+    <div class="desc">
+      한 음 듣기, 두 음 이어서 듣기 문제가 섞여서 나와요. 총 <b>10문제</b>, 한 문제당 <b>10점</b>, <b>100점 만점</b>이에요.
+    </div>
   </header>
 
   <div class="card">
@@ -145,68 +138,32 @@
       </div>
     </div>
 
-    <div class="screen" id="screen-intro">
-      <div class="center">
-        <div class="stage-title" id="introTitle"></div>
-        <p class="stage-explain" id="introExplain"></p>
-        <div class="controls"><button class="primary" id="introStartBtn">시작하기</button></div>
-      </div>
-    </div>
-
     <div class="screen" id="screen-quiz">
-      <div class="center" id="practiceTagWrap" style="display:none;"><span class="practice-tag">연습문제</span></div>
       <div class="scorebar" id="scorebar">
-        <span>연속 <b id="streakNum">0</b>/3</span>
-        <span>틀림 <b id="missNum">0</b>/2</span>
+        <span>문제 <b id="qNum">1</b>/10</span>
+        <span>점수 <b id="scoreNum">0</b>점</span>
       </div>
       <div class="status" id="statusText">음을 재생하는 중…</div>
       <div class="progress-dots" id="dotsWrap"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
-      <div id="quizAnswerArea"></div>
+      <div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>
       <div class="feedback-text" id="feedbackText"></div>
       <div class="controls">
-        <button class="primary" id="confirmNoteBtn" style="display:none;" disabled>확인 ✅</button>
         <button id="replayBtn">🔊 다시 듣기</button>
       </div>
       <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
     </div>
 
-    <div class="screen" id="screen-result">
-      <div class="center">
-        <div class="result-banner" id="resultBanner"></div>
-        <p class="stage-explain" id="resultSub"></p>
-        <div class="controls"><button class="primary" id="resultNextBtn">다음</button></div>
-      </div>
-    </div>
-
-    <div class="screen" id="screen-checkpoint">
-      <div class="center">
-        <div class="big-emoji">🎉</div>
-        <div class="stage-title">4단계까지 완료했어요!</div>
-        <p class="stage-explain" id="checkpointSummary"></p>
-        <p class="stage-explain">여기서 그만해도 <b>도장</b>을 받을 수 있어요. 더 도전하면 <b>추가 상품</b>을 받을 수 있어요!</p>
-        <div class="setup-fields" id="checkpointForm">
-          <input class="setup-input" id="ckGrade" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
-          <input class="setup-input" id="ckName" type="text" placeholder="이름 (예: 홍길동)" maxlength="20">
-          <p class="setup-error" id="ckError"></p>
-        </div>
-        <div class="controls" id="checkpointChoices">
-          <button id="ckStopBtn">여기서 그만할래요</button>
-          <button class="primary" id="ckContinueBtn">더 도전할래요!</button>
-        </div>
-        <p class="stage-explain" id="checkpointDone" style="display:none; color:var(--good); font-weight:700;">제출 완료! 도장을 받으러 진행자에게 이 화면을 보여주세요.</p>
-        <div class="controls" id="ckRestartWrap" style="display:none;"><button id="ckRestartBtn">처음부터 다시</button></div>
-      </div>
-    </div>
-
     <div class="screen" id="screen-final">
       <div class="center">
-        <div class="big-emoji" id="finalEmoji">🏁</div>
-        <div class="result-banner" id="finalBanner">수고하셨어요!</div>
-        <ul class="praise-list" id="praiseList" style="display:none;"></ul>
-        <p class="stage-explain" id="finalMsg"></p>
-        <p class="stage-explain" id="finalPassSummary"></p>
-        <div class="controls" id="finalSubmitWrap"><button class="primary" id="finalSubmitBtn">점수 제출하기</button></div>
-        <p class="stage-explain" id="finalDone" style="display:none; color:var(--good); font-weight:700;">제출 완료! 이 화면을 진행자에게 보여주세요.</p>
+        <div class="big-emoji">🏁</div>
+        <div class="result-banner" id="finalScoreBanner"></div>
+        <div class="setup-fields" id="nameGateForm">
+          <input class="setup-input" id="gateGrade" type="text" inputmode="numeric" placeholder="학년" maxlength="2">
+          <input class="setup-input" id="gateName" type="text" placeholder="이름 (예: 홍길동)" maxlength="20">
+          <p class="setup-error" id="gateError"></p>
+          <div class="controls"><button class="primary" id="gateSubmitBtn">제출하기</button></div>
+        </div>
+        <p class="stage-explain" id="gateDone" style="display:none; color:var(--good); font-weight:700;"></p>
         <div class="controls"><button id="restartBtn">처음부터 다시</button></div>
       </div>
     </div>
@@ -238,7 +195,7 @@
     </div>
     <div class="dash-body-scroll">
       <table>
-        <thead><tr><th>학년</th><th>이름</th><th>회차</th><th>통과</th><th>전체</th><th>제출시각</th></tr></thead>
+        <thead><tr><th>학년</th><th>이름</th><th>회차</th><th>점수</th><th>만점</th><th>제출시각</th></tr></thead>
         <tbody id="dashBody"><tr class="empty-row"><td colspan="6">불러오는 중...</td></tr></tbody>
       </table>
     </div>
@@ -278,7 +235,7 @@ function getDeviceId(){
 }
 const DEVICE_ID = getDeviceId();
 const TEACHER_PIN = '2580';
-const APP_MODE = 'pitch18';
+const APP_MODE = 'pitchBeg';
 function sanitizeToken(s){ return (s||'').trim().replace(/[\s\/\\'"]+/g,'_').slice(0,20); }
 function pad3(n){ return String(n).padStart(3,'0'); }
 async function nextAttemptNo(mode, storageId){
@@ -290,12 +247,12 @@ async function nextAttemptNo(mode, storageId){
     return max+1;
   }catch(e){ return 1; }
 }
-async function submitRecord(grade, name, passed, total){
+async function submitRecord(grade, name, score, total){
   try{
     const storageId = sanitizeToken(grade)+'-'+sanitizeToken(name);
     const attemptNo = await nextAttemptNo(APP_MODE, storageId);
     const key = APP_MODE+':'+storageId+':'+pad3(attemptNo);
-    const value = JSON.stringify({ grade, name, deviceId:DEVICE_ID, attemptNo, passed, total, updatedAt:Date.now() });
+    const value = JSON.stringify({ grade, name, deviceId:DEVICE_ID, attemptNo, passed:score, total, updatedAt:Date.now() });
     await window.storage.set(key, value);
   }catch(e){ console.error('score submit failed', e); }
 }
@@ -344,9 +301,9 @@ function playClapBurst(startTime, volume){
   noise.connect(bandpass).connect(highpass).connect(gain).connect(ctx.destination);
   noise.start(startTime); noise.stop(startTime + dur + 0.02);
 }
-function playSuccessSound(small){
+function playSuccessSound(){
   const ctx = ensureCtx(); const now = ctx.currentTime + 0.02;
-  const totalClaps = small ? 10 : 14, spread = small ? 0.4 : 0.55;
+  const totalClaps = 14, spread = 0.55;
   for(let i=0;i<totalClaps;i++){
     const progress = i/totalClaps;
     const t = now + progress*spread + (Math.random()-0.5)*0.03;
@@ -374,30 +331,18 @@ function playFanfare(){
   arp.forEach((f,i)=> scheduleTone(f, now + i*0.14, 0.5));
   arp.forEach(f=> scheduleTone(f, now + arp.length*0.14 + 0.05, 0.9));
 }
-// 8단계까지 전부 통과했을 때만 울리는 아주 성대한 팡파레 — 상승 음계 + 큰 화음 + 박수.
-function playGrandFanfare(){
-  const ctx = ensureCtx(); const now = ctx.currentTime + 0.05;
-  const run = [523.25,587.33,659.25,698.46,783.99,880.00,987.77,1046.50];
-  run.forEach((f,i)=> scheduleTone(f, now + i*0.11, 0.35));
-  const chordStart = now + run.length*0.11 + 0.08;
-  [523.25,659.25,783.99,1046.50,2093.00].forEach(f=> scheduleTone(f, chordStart, 1.5));
-  setTimeout(()=> playSuccessSound(false), (run.length*0.11+0.08)*1000 + 250);
-}
 
-// ---------- note pools / chord math ----------
+// ---------- note pools ----------
 const BLACK_PCS = new Set([1,3,6,8,10]);
-function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
 const SCALE_MIDI = [60,62,64,65,67,69,71,72];
 const POOL_WHITE = [60,62,64,65,67,69,71,72];
 const POOL_CHROMA = [60,61,62,63,64,65,66,67,68,69,70,71,72];
-const WHITE_SCALE_EXT = [60,62,64,65,67,69,71,72,74,76,77,79];
+function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
 const SOLFEGE_PC = {0:'도',2:'레',4:'미',5:'파',7:'솔',9:'라',11:'시',1:'도#',3:'레#',6:'파#',8:'솔#',10:'라#'};
 function solfegeLabel(midi){
   const pc = ((midi%12)+12)%12;
   return SOLFEGE_PC[pc] + (midi>=72 ? '’' : '');
 }
-
-// ---- 1·2단계(한 음) 용 ----
 function pickNoteFor(stage, recent){
   const pool = stage.pool.filter(m=> recent.indexOf(m) < 0);
   const usable = pool.length ? pool : stage.pool;
@@ -425,8 +370,6 @@ function playScaleThenNote(onReady, targetMidi){
     setTimeout(onReady, 1150);
   }, scaleMs + 400);
 }
-
-// ---- 3·4단계(두 음 이어서) 용 ----
 function pickPairFor(stage, recentPairKeys){
   const pool = stage.pool;
   let a, b, guard = 0;
@@ -470,101 +413,43 @@ function playPair(pair, onReady){
   }, scaleMs + 400);
 }
 
-// ---- 5~8단계(화음) 용 ----
-function playScaleIntro(onDone){
-  const ctx = ensureCtx();
-  const noteDur = 0.3;
-  const now = ctx.currentTime + 0.05;
-  SCALE_MIDI.forEach((m,i)=>{
-    scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95);
-    setTimeout(()=>{
-      const el = keyEls[m]; if(!el) return;
-      el.classList.add('scaleNote');
-      setTimeout(()=> el.classList.remove('scaleNote'), noteDur*1000*0.85);
-    }, i*noteDur*1000 + 50);
-  });
-  setTimeout(onDone, SCALE_MIDI.length*noteDur*1000 + 300);
-}
-function playChordTogether(midis, dur, onDone){
-  const ctx = ensureCtx();
-  const now = ctx.currentTime + 0.05;
-  midis.forEach(m=> scheduleTone(freqFromMidi(m), now, dur));
-  if(onDone) setTimeout(onDone, dur*1000 + 250);
-}
-const TRIAD_QUALITY_CANDS = [];
-for(let r=60; r<72; r++){
-  TRIAD_QUALITY_CANDS.push({root:r, quality:'major', midis:[r, r+4, r+7]});
-  TRIAD_QUALITY_CANDS.push({root:r, quality:'minor', midis:[r, r+3, r+7]});
-}
-const CHORD2_CANDS = [];
-for(let i=0;i<WHITE_SCALE_EXT.length;i++){
-  [2,3].forEach(off=>{ if(i+off<WHITE_SCALE_EXT.length) CHORD2_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+off]]); });
-}
-const CHORD3_CANDS = [];
-for(let i=0;i<6;i++){ CHORD3_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+2], WHITE_SCALE_EXT[i+4]]); }
-const CHORD3_CHROMA_CANDS = [];
-for(let r=60; r<70; r++){
-  CHORD3_CHROMA_CANDS.push([r, r+4, r+7]);
-  CHORD3_CHROMA_CANDS.push([r, r+3, r+7]);
-}
-function pickFrom(arr, recent){
-  const pool = arr.filter(x=> recent.indexOf(x) < 0);
-  const usable = pool.length ? pool : arr;
-  return usable[Math.floor(Math.random()*usable.length)];
-}
-function candidatesFor(stage){
-  if(stage.key==='s5') return TRIAD_QUALITY_CANDS;
-  if(stage.key==='s6') return CHORD2_CANDS;
-  if(stage.key==='s7') return CHORD3_CANDS;
-  return CHORD3_CHROMA_CANDS;
-}
-
-// ---------- stages ----------
-const STAGES = [
-  { key:'s1', type:'single', title:'1단계 · 한 음 듣기', pool:POOL_WHITE, biasBlack:false, kbLow:60, kbHigh:72,
-    explain:'7개의 음 중에서 들린 음을 골라보세요!' },
-  { key:'s2', type:'single', title:'2단계 · 한 음 듣기 (♯ ♭ 포함)', pool:POOL_CHROMA, biasBlack:true, kbLow:60, kbHigh:72,
-    explain:'샵이나 플랫이 포함될 수 있어요. 들린 음을 건반에서 짚어보세요!' },
-  { key:'s3', type:'pair', title:'3단계 · 두 음 이어서 듣기', pool:POOL_WHITE, biasBlack:false, kbLow:60, kbHigh:72,
-    explain:'두 음을 순서대로 들려드려요. 들린 순서대로 건반을 짚어보세요!' },
-  { key:'s4', type:'pair', title:'4단계 · 두 음 이어서 듣기 (♯ ♭ 포함)', pool:POOL_CHROMA, biasBlack:true, kbLow:60, kbHigh:72,
-    explain:'샵이나 플랫이 포함될 수 있어요. 들린 순서대로 두 음을 짚어보세요!' },
-  { key:'s5', type:'quality', title:'5단계 · 장조 · 단조 맞히기',
-    explain:'화음을 듣고 장조인지 단조인지 맞혀보세요!' },
-  { key:'s6', type:'notes', title:'6단계 · 2개 화음 맞히기', notes:2, kbLow:60, kbHigh:79,
-    explain:'두 음이 동시에 울리는 화음이에요. 건반 두 개를 짚어보세요!' },
-  { key:'s7', type:'notes', title:'7단계 · 3개 화음 맞히기', notes:3, kbLow:60, kbHigh:79,
-    explain:'세 음이 동시에 울리는 화음이에요. 건반 세 개를 짚어보세요!' },
-  { key:'s8', type:'notes', title:'8단계 · 3개 화음 맞히기 (♯ ♭ 포함)', notes:3, kbLow:60, kbHigh:79,
-    explain:'샵이나 플랫이 포함될 수 있어요. 건반 세 개를 짚어보세요!' },
+// ---------- question plan: 1단계 3문제, 2단계 3문제, 3단계 2문제, 4단계 2문제 = 10문제, 순서 랜덤 ----------
+const STAGE_DEFS = {
+  s1: { type:'single', pool:POOL_WHITE, biasBlack:false },
+  s2: { type:'single', pool:POOL_CHROMA, biasBlack:true },
+  s3: { type:'pair', pool:POOL_WHITE, biasBlack:false },
+  s4: { type:'pair', pool:POOL_CHROMA, biasBlack:true },
+};
+const QUESTION_TEMPLATE = [
+  ...Array(3).fill(STAGE_DEFS.s1),
+  ...Array(3).fill(STAGE_DEFS.s2),
+  ...Array(2).fill(STAGE_DEFS.s3),
+  ...Array(2).fill(STAGE_DEFS.s4),
 ];
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+const KB_LOW = 60, KB_HIGH = 72;
 
 // ---------- state ----------
-let curStageIdx = 0, curStage = null;
-let stagePassLog = [];
-let isPractice = false, isAnswered = false;
-let streak = 0, misses = 0;
+let order = [], qIdx = 0, score = 0, isAnswered = false, curStage = null;
 let curTargetMidi = null, recent = [];
 let curPair = null, pickedFirst = null, recentPairKeys = [];
-let curAnswerSet = null, pickedSet = null, recentCandidates = [];
 let keyEls = {};
 let replayCount = 0;
 const MAX_REPLAY = 1;
-let anyStageFailed = false;
-let studentInfo = null;
 
 const screens = {};
-['start','intro','quiz','result','checkpoint','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
+['start','quiz','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
 function showScreen(k){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[k].classList.add('active'); }
 
-// ---------- answer UI ----------
-function buildKeyboard(low, high){
-  const container = document.getElementById('quizAnswerArea');
-  container.innerHTML = '<div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>';
-  const pianoKeys = document.getElementById('pianoKeys');
-  keyEls = {};
+function buildKeyboard(){
+  const container = document.getElementById('pianoKeys');
+  container.innerHTML = ''; keyEls = {};
   const keys = [];
-  for(let m=low; m<=high; m++) keys.push({ midi:m, black:isBlack(m) });
+  for(let m=KB_LOW; m<=KB_HIGH; m++) keys.push({ midi:m, black:isBlack(m) });
   const whiteKeys = keys.filter(k=>!k.black);
   const whiteWidth = 100/whiteKeys.length, blackWidth = whiteWidth*0.6;
   let wi = 0;
@@ -586,169 +471,95 @@ function buildKeyboard(low, high){
     keyEls[k.midi] = el;
     (k.black?blackEls:whiteEls).push(el);
   });
-  whiteEls.forEach(el=>pianoKeys.appendChild(el));
-  blackEls.forEach(el=>pianoKeys.appendChild(el));
+  whiteEls.forEach(el=>container.appendChild(el));
+  blackEls.forEach(el=>container.appendChild(el));
 }
-function resetKeyboardVisual(){ Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked','picked1','scaleNote','disabled'); }); }
+function resetKeyboardVisual(){
+  Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked1','scaleNote','disabled'); });
+}
 function lockKeyboard(){ Object.values(keyEls).forEach(el=> el.classList.add('disabled')); }
 function updateDots(){
   document.getElementById('dot1').classList.toggle('filled', pickedFirst!=null);
   document.getElementById('dot2').classList.toggle('filled', false);
 }
-function buildQualityButtons(){
-  const container = document.getElementById('quizAnswerArea');
-  container.innerHTML = '<div class="quality-btns"><button id="majorBtn">🌞 장조(Major)</button><button id="minorBtn">🌙 단조(minor)</button></div>';
-  keyEls = {};
-  document.getElementById('majorBtn').addEventListener('click', ()=> onQualityClick('major'));
-  document.getElementById('minorBtn').addEventListener('click', ()=> onQualityClick('minor'));
-}
-function setupAnswerUI(){
-  if(curStage.type==='quality') buildQualityButtons();
-  else buildKeyboard(curStage.kbLow, curStage.kbHigh);
+function updateScoreUI(){
+  document.getElementById('qNum').textContent = Math.min(qIdx+1, order.length);
+  document.getElementById('scoreNum').textContent = score;
 }
 
-// ---------- stage flow ----------
-const APP_TITLE = document.getElementById('mainTitle').textContent;
-function startStage(idx){
-  curStageIdx = idx; curStage = STAGES[idx];
-  document.getElementById('introTitle').textContent = curStage.title;
-  document.getElementById('introExplain').textContent = curStage.explain;
-  document.getElementById('mainTitle').textContent = curStage.title;
-  showScreen('intro');
-}
-document.getElementById('introStartBtn').addEventListener('click', ()=>{
-  recentCandidates = [];
-  beginPractice();
-});
-function beginPractice(){
-  isPractice = true; streak=0; misses=0; recent=[]; recentPairKeys=[]; pickedFirst=null; pickedSet=null;
-  document.getElementById('practiceTagWrap').style.display = '';
-  document.getElementById('scorebar').style.visibility = 'hidden';
-  askQuestion();
-}
-function beginReal(){
-  isPractice = false; streak=0; misses=0; recent=[]; recentPairKeys=[]; pickedFirst=null; pickedSet=null;
-  document.getElementById('practiceTagWrap').style.display = 'none';
-  document.getElementById('scorebar').style.visibility = '';
-  updateScorebar();
-  askQuestion();
-}
-function updateScorebar(){
-  document.getElementById('streakNum').textContent = streak;
-  document.getElementById('missNum').textContent = misses;
-}
 function askQuestion(){
   showScreen('quiz');
-  setupAnswerUI();
-  isAnswered = false; pickedFirst = null; pickedSet = new Set();
+  curStage = order[qIdx];
+  buildKeyboard();
+  resetKeyboardVisual();
+  isAnswered = false; pickedFirst = null;
   replayCount = 0;
   const replayBtn = document.getElementById('replayBtn');
-  replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기';
-  replayBtn.style.display = isPractice ? 'none' : '';
-  document.getElementById('replayNote').style.display = isPractice ? 'none' : '';
-  const confirmBtn = document.getElementById('confirmNoteBtn');
-  confirmBtn.style.display = curStage.type==='notes' ? '' : 'none';
-  confirmBtn.disabled = true;
+  replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기'; replayBtn.style.display = '';
+  document.getElementById('replayNote').style.display = '';
   document.getElementById('dotsWrap').style.display = curStage.type==='pair' ? '' : 'none';
   if(curStage.type==='pair') updateDots();
   document.getElementById('feedbackText').textContent = '';
   document.getElementById('feedbackText').className = 'feedback-text';
+  updateScoreUI();
   const st = document.getElementById('statusText');
-  const isChord = curStage.type==='quality' || curStage.type==='notes';
-  st.textContent = isChord ? '화음을 재생하는 중…' : '음을 재생하는 중…'; st.classList.add('pulse');
-  if(curStage.type!=='quality') lockKeyboard();
-
-  if(curStage.type==='single'){
-    curTargetMidi = pickNoteFor(curStage, recent);
-    recent.push(curTargetMidi); if(recent.length>4) recent.shift();
-    playScaleThenNote(()=>{ st.textContent='건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse'); resetKeyboardVisual(); }, curTargetMidi);
-  } else if(curStage.type==='pair'){
+  st.textContent = '음을 재생하는 중…'; st.classList.add('pulse');
+  lockKeyboard();
+  if(curStage.type==='pair'){
     curPair = pickPairFor(curStage, recentPairKeys);
     recentPairKeys.push(curPair[0]+'_'+curPair[1]); if(recentPairKeys.length>4) recentPairKeys.shift();
-    playPair(curPair, ()=>{ st.textContent='들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse'); resetKeyboardVisual(); });
+    playPair(curPair, ()=>{
+      st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse');
+      resetKeyboardVisual();
+    });
   } else {
-    const cand = pickFrom(candidatesFor(curStage), recentCandidates);
-    recentCandidates.push(cand); if(recentCandidates.length>4) recentCandidates.shift();
-    if(curStage.type==='quality'){
-      curAnswerSet = cand.quality;
-      setTimeout(()=>{ playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); }); }, 300);
-    } else {
-      curAnswerSet = new Set(cand);
-      playScaleIntro(()=>{
-        playChordTogether(cand, 1.3, ()=>{
-          st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚고 확인을 눌러보세요`; st.classList.remove('pulse');
-          resetKeyboardVisual();
-        });
-      });
-    }
-    window.__lastCand = cand;
+    curTargetMidi = pickNoteFor(curStage, recent);
+    recent.push(curTargetMidi); if(recent.length>4) recent.shift();
+    playScaleThenNote(()=>{
+      st.textContent = '건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse');
+      resetKeyboardVisual();
+    }, curTargetMidi);
   }
 }
 document.getElementById('replayBtn').addEventListener('click', ()=>{
-  const type = curStage.type;
-  if(type==='single' && curTargetMidi==null) return;
-  if(type==='pair' && !curPair) return;
-  if((type==='quality'||type==='notes') && !window.__lastCand) return;
+  if(curStage.type==='pair'){ if(!curPair) return; } else { if(curTargetMidi==null) return; }
   if(replayCount >= MAX_REPLAY) return;
   replayCount++;
   const replayBtn = document.getElementById('replayBtn');
   if(replayCount >= MAX_REPLAY) replayBtn.disabled = true;
   const st = document.getElementById('statusText');
-  const isChord = type==='quality' || type==='notes';
-  st.textContent = isChord ? '화음을 재생하는 중…' : '음을 재생하는 중…'; st.classList.add('pulse');
-  if(type==='single'){
-    playScaleThenNote(()=>{ st.textContent='건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse'); }, curTargetMidi);
-  } else if(type==='pair'){
-    playPair(curPair, ()=>{ st.textContent='들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse'); });
+  st.textContent = '음을 재생하는 중…'; st.classList.add('pulse');
+  if(curStage.type==='pair'){
+    playPair(curPair, ()=>{ st.textContent = '들린 순서대로 건반을 짚어보세요 (1번째 → 2번째)'; st.classList.remove('pulse'); });
   } else {
-    const cand = window.__lastCand;
-    if(type==='quality'){
-      playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='장조일까요, 단조일까요?'; st.classList.remove('pulse'); });
-    } else {
-      playScaleIntro(()=>{ playChordTogether(cand, 1.3, ()=>{ st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 짚고 확인을 눌러보세요`; st.classList.remove('pulse'); }); });
-    }
+    playScaleThenNote(()=>{ st.textContent = '건반에서 들린 음을 짚어보세요'; st.classList.remove('pulse'); }, curTargetMidi);
   }
 });
-function announceStart(){
-  showScreen('quiz');
-  if(curStage.type!=='quality') lockKeyboard();
-  document.getElementById('confirmNoteBtn').style.display = 'none';
-  document.getElementById('feedbackText').textContent = '';
-  document.getElementById('feedbackText').className = 'feedback-text';
-  const st = document.getElementById('statusText');
-  st.textContent = '연습 끝! 이제 시작하겠습니다 🙂'; st.classList.remove('pulse');
-  setTimeout(beginReal, 1200);
+function nextQuestion(){
+  qIdx++;
+  if(qIdx >= order.length){ showFinal(); return; }
+  askQuestion();
 }
-
-// ---------- answer handlers ----------
 function onKeyClick(midi, el){
   if(curStage.type==='pair') return onKeyClickPair(midi, el);
-  if(curStage.type==='notes') return onNoteClick(midi, el);
   return onKeyClickSingle(midi, el);
 }
 function onKeyClickSingle(midi, el){
   if(isAnswered || curTargetMidi==null) return;
   isAnswered = true;
   const fb = document.getElementById('feedbackText');
-  if(midi === curTargetMidi){
-    el.classList.add('correct');
-    fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
-    playSuccessSound();
-    if(isPractice){ setTimeout(announceStart, 1300); return; }
-    streak++; updateScorebar();
-    if(streak>=3){ setTimeout(stagePass, 900); return; }
-    setTimeout(askQuestion, 1100);
+  const correct = midi === curTargetMidi;
+  el.classList.add(correct ? 'correct' : 'wrong');
+  if(!correct && keyEls[curTargetMidi]) keyEls[curTargetMidi].classList.add('correct');
+  if(correct){
+    fb.textContent = '정답이에요! 🎯 (+10점)'; fb.classList.add('good');
+    playSuccessSound(); score += 10;
   } else {
-    el.classList.add('wrong');
-    if(keyEls[curTargetMidi]) keyEls[curTargetMidi].classList.add('correct');
     fb.textContent = '아쉬워요, 다른 음이었어요.'; fb.classList.add('bad');
     playFailSound();
-    if(isPractice){ setTimeout(announceStart, 1600); return; }
-    misses++; streak = 0; updateScorebar();
-    if(misses>=3){ setTimeout(stageFail, 1200); return; }
-    if(misses===2) fb.textContent += ' 이제는 마지막 기회예요!';
-    setTimeout(askQuestion, 1600);
   }
+  updateScoreUI();
+  setTimeout(nextQuestion, correct ? 1200 : 1700);
 }
 function onKeyClickPair(midi, el){
   if(isAnswered || !curPair) return;
@@ -762,202 +573,59 @@ function onKeyClickPair(midi, el){
       el.classList.add('wrong');
       if(keyEls[curPair[0]]) keyEls[curPair[0]].classList.add('correct');
       fb.textContent = '아쉬워요, 첫 음이 달랐어요.'; fb.classList.add('bad');
-      handlePairWrong();
+      playFailSound();
+      updateScoreUI();
+      setTimeout(nextQuestion, 1700);
     }
     return;
   }
   isAnswered = true;
-  if(midi === curPair[1]){
-    el.classList.add('correct');
-    fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
-    playSuccessSound();
-    if(isPractice){ setTimeout(announceStart, 1300); return; }
-    streak++; updateScorebar();
-    if(streak>=3){ setTimeout(stagePass, 900); return; }
-    setTimeout(askQuestion, 1100);
-  } else {
-    el.classList.add('wrong');
-    if(keyEls[curPair[1]]) keyEls[curPair[1]].classList.add('correct');
-    fb.textContent = '아쉬워요, 두 번째 음이 달랐어요.'; fb.classList.add('bad');
-    handlePairWrong();
-  }
-}
-function handlePairWrong(){
-  playFailSound();
-  if(isPractice){ setTimeout(announceStart, 1700); return; }
-  misses++; streak = 0; updateScorebar();
-  if(misses>=3){ setTimeout(stageFail, 1300); return; }
-  if(misses===2) document.getElementById('feedbackText').textContent += ' 이제는 마지막 기회예요!';
-  setTimeout(askQuestion, 1700);
-}
-function onQualityClick(q){
-  if(isAnswered) return; isAnswered = true;
-  const correct = q === curAnswerSet;
-  finishAnswer(correct);
-}
-function onNoteClick(midi, el){
-  if(isAnswered) return;
-  if(pickedSet.has(midi)){
-    pickedSet.delete(midi);
-    el.classList.remove('picked');
-    updateConfirmBtn();
-    return;
-  }
-  if(pickedSet.size >= curStage.notes) return;
-  pickedSet.add(midi);
-  el.classList.add('picked');
-  updateConfirmBtn();
-}
-function updateConfirmBtn(){
-  document.getElementById('confirmNoteBtn').disabled = pickedSet.size !== curStage.notes;
-}
-function onConfirmNotes(){
-  if(isAnswered) return;
-  if(pickedSet.size !== curStage.notes) return;
-  isAnswered = true;
-  document.getElementById('confirmNoteBtn').disabled = true;
-  const correct = [...pickedSet].every(m=> curAnswerSet.has(m));
-  pickedSet.forEach(m=>{
-    const el = keyEls[m]; if(!el) return;
-    el.classList.remove('picked');
-    el.classList.add(curAnswerSet.has(m) ? 'correct' : 'wrong');
-  });
-  curAnswerSet.forEach(m=>{ if(keyEls[m] && !keyEls[m].classList.contains('wrong')) keyEls[m].classList.add('correct'); });
-  lockKeyboard();
-  finishAnswer(correct);
-}
-document.getElementById('confirmNoteBtn').addEventListener('click', onConfirmNotes);
-function finishAnswer(correct){
-  const fb = document.getElementById('feedbackText');
+  const correct = midi === curPair[1];
+  el.classList.add(correct ? 'correct' : 'wrong');
+  if(!correct && keyEls[curPair[1]]) keyEls[curPair[1]].classList.add('correct');
   if(correct){
-    fb.textContent = '정답이에요! 🎯'; fb.classList.add('good');
-    playSuccessSound(true);
-    if(isPractice){ setTimeout(announceStart, 1600); return; }
-    streak++; updateScorebar();
-    if(streak>=3){ setTimeout(stagePass, 900); return; }
-    setTimeout(askQuestion, 1400);
+    fb.textContent = '정답이에요! 🎯 (+10점)'; fb.classList.add('good');
+    playSuccessSound(); score += 10;
   } else {
-    fb.textContent = '아쉬워요, 정답은 따로 표시했어요.'; fb.classList.add('bad');
+    fb.textContent = '아쉬워요, 두 번째 음이 달랐어요.'; fb.classList.add('bad');
     playFailSound();
-    if(isPractice){ setTimeout(announceStart, 1600); return; }
-    misses++; streak = 0; updateScorebar();
-    if(misses>=3){ setTimeout(stageFail, 1400); return; }
-    if(misses===2) fb.textContent += ' 이제는 마지막 기회예요!';
-    setTimeout(askQuestion, 1700);
   }
+  updateScoreUI();
+  setTimeout(nextQuestion, correct ? 1200 : 1700);
 }
-
-// ---------- pass / fail ----------
-function stagePass(){
-  playFanfare();
-  stagePassLog.push(true);
-  document.getElementById('resultBanner').textContent = '🎉 통과!';
-  document.getElementById('resultBanner').className = 'result-banner pass';
-  document.getElementById('resultSub').textContent = '3문제 연속으로 맞혔어요. 정말 잘하네요!';
-  showScreen('result');
-}
-function stageFail(){
-  anyStageFailed = true;
-  stagePassLog.push(false);
-  playFailSound();
-  document.getElementById('resultBanner').textContent = '아쉬워요';
-  document.getElementById('resultBanner').className = 'result-banner fail';
-  document.getElementById('resultSub').textContent = '아쉽지만 실패입니다. 다음 단계로 넘어갑니다.';
-  showScreen('result');
-}
-document.getElementById('resultNextBtn').addEventListener('click', ()=>{
-  const nextIdx = curStageIdx + 1;
-  if(nextIdx === 4){ showCheckpoint(); return; }
-  if(nextIdx < STAGES.length){ startStage(nextIdx); return; }
-  showFinal();
-});
-
-// ---------- checkpoint (after stage 4) ----------
-function showCheckpoint(){
-  const passed = stagePassLog.filter(Boolean).length;
-  document.getElementById('checkpointSummary').textContent = `4단계 중 ${passed}개의 단계를 통과했습니다.`;
-  document.getElementById('checkpointForm').style.display = '';
-  document.getElementById('checkpointChoices').style.display = '';
-  document.getElementById('checkpointDone').style.display = 'none';
-  document.getElementById('ckRestartWrap').style.display = 'none';
-  document.getElementById('ckGrade').value = '';
-  document.getElementById('ckName').value = '';
-  document.getElementById('ckError').textContent = '';
-  document.getElementById('mainTitle').textContent = APP_TITLE;
-  showScreen('checkpoint');
-}
-function readCheckpointName(){
-  const grade = document.getElementById('ckGrade').value.trim();
-  const name = document.getElementById('ckName').value.trim();
-  const err = document.getElementById('ckError');
-  if(!grade || !name){ err.textContent = '학년과 이름을 모두 입력해주세요.'; return null; }
-  err.textContent = '';
-  return {grade, name};
-}
-document.getElementById('ckStopBtn').addEventListener('click', async ()=>{
-  const info = readCheckpointName(); if(!info) return;
-  studentInfo = info;
-  const btn = document.getElementById('ckStopBtn'), contBtn = document.getElementById('ckContinueBtn');
-  btn.disabled = true; contBtn.disabled = true;
-  const origText = btn.textContent; btn.textContent = '제출 중…';
-  const passed = stagePassLog.filter(Boolean).length;
-  await submitRecord(info.grade, info.name, passed, 4);
-  btn.disabled = false; contBtn.disabled = false; btn.textContent = origText;
-  document.getElementById('checkpointForm').style.display = 'none';
-  document.getElementById('checkpointChoices').style.display = 'none';
-  document.getElementById('checkpointDone').style.display = '';
-  document.getElementById('ckRestartWrap').style.display = '';
-});
-document.getElementById('ckContinueBtn').addEventListener('click', ()=>{
-  const info = readCheckpointName(); if(!info) return;
-  studentInfo = info;
-  startStage(4);
-});
-
-// ---------- final (after stage 8) ----------
 function showFinal(){
-  if(!anyStageFailed){
-    playGrandFanfare();
-    document.getElementById('finalEmoji').textContent = '🏆';
-    document.getElementById('finalBanner').textContent = '완벽해요! 음감테스트 올 클리어!';
-    document.getElementById('finalBanner').className = 'result-banner grand';
-    const praise = document.getElementById('praiseList');
-    praise.style.display = '';
-    praise.innerHTML = ['🌟 정말 대단해요!', '🎼 귀가 완전 음악 귀네요!', '👏 1단계부터 8단계까지 전부 통과!', '🏅 최고의 음감을 가졌어요!']
-      .map(t=>`<li>${t}</li>`).join('');
-    document.getElementById('finalMsg').textContent = '수고 많았어요. 정말 자랑스러워요!';
-  } else {
-    document.getElementById('finalEmoji').textContent = '🙂';
-    document.getElementById('finalBanner').textContent = '수고하셨어요!';
-    document.getElementById('finalBanner').className = 'result-banner';
-    document.getElementById('praiseList').style.display = 'none';
-    document.getElementById('finalMsg').textContent = '끝까지 도전해줘서 고마워요!';
-  }
-  const total = STAGES.length, passed = stagePassLog.filter(Boolean).length;
-  document.getElementById('finalPassSummary').textContent = `${total}단계 중 ${passed}개의 단계를 통과했습니다.`;
-  document.getElementById('finalSubmitWrap').style.display = '';
-  document.getElementById('finalDone').style.display = 'none';
-  document.getElementById('mainTitle').textContent = APP_TITLE;
+  playFanfare();
+  document.getElementById('finalScoreBanner').textContent = `100점 중 ${score}점을 받았어요!`;
+  document.getElementById('nameGateForm').style.display = '';
+  document.getElementById('gateDone').style.display = 'none';
+  document.getElementById('gateGrade').value = '';
+  document.getElementById('gateName').value = '';
+  document.getElementById('gateError').textContent = '';
   showScreen('final');
 }
-document.getElementById('finalSubmitBtn').addEventListener('click', async ()=>{
-  const btn = document.getElementById('finalSubmitBtn');
-  btn.disabled = true; const orig = btn.textContent; btn.textContent = '제출 중…';
-  const total = STAGES.length, passed = stagePassLog.filter(Boolean).length;
-  await submitRecord(studentInfo.grade, studentInfo.name, passed, total);
-  btn.disabled = false; btn.textContent = orig;
-  document.getElementById('finalSubmitWrap').style.display = 'none';
-  document.getElementById('finalDone').style.display = '';
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  ensureCtx();
+  order = shuffle(QUESTION_TEMPLATE);
+  qIdx = 0; score = 0; recent = []; recentPairKeys = [];
+  askQuestion();
 });
-
-function resetAll(){
-  stagePassLog = []; studentInfo = null; anyStageFailed = false;
-  document.getElementById('mainTitle').textContent = APP_TITLE;
+document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
+  const grade = document.getElementById('gateGrade').value.trim();
+  const name = document.getElementById('gateName').value.trim();
+  const err = document.getElementById('gateError');
+  if(!grade || !name){ err.textContent = '학년과 이름을 모두 입력해주세요.'; return; }
+  err.textContent = '';
+  const btn = document.getElementById('gateSubmitBtn');
+  btn.disabled = true; btn.textContent = '제출 중…';
+  await submitRecord(grade, name, score, 100);
+  btn.disabled = false; btn.textContent = '제출하기';
+  document.getElementById('nameGateForm').style.display = 'none';
+  document.getElementById('gateDone').textContent = `${name}님, ${score}점! 축하합니다! 이 화면을 진행자에게 보여주시고, 다음 단계(고급)에도 도전해보세요!`;
+  document.getElementById('gateDone').style.display = '';
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
   showScreen('start');
-}
-document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); stagePassLog=[]; studentInfo=null; anyStageFailed=false; startStage(0); });
-document.getElementById('restartBtn').addEventListener('click', resetAll);
-document.getElementById('ckRestartBtn').addEventListener('click', resetAll);
+});
 
 // ---------- teacher dashboard ----------
 let titleTaps = 0, titleTapTimer = null;
@@ -992,7 +660,7 @@ document.getElementById('dashCloseBtn').addEventListener('click', ()=>{
 document.getElementById('dashRefreshBtn').addEventListener('click', loadDashboard);
 document.getElementById('dashExportBtn').addEventListener('click', ()=>{
   if(lastDashRows.length === 0){ alert('내려받을 기록이 없어요.'); return; }
-  const header = ['학년','이름','회차','통과','전체','제출시각'];
+  const header = ['학년','이름','회차','점수','만점','제출시각'];
   const csvRows = lastDashRows.map(r=> [r.grade||'', r.name||'', r.attemptNo||1, r.passed, r.total, r.updatedAt ? new Date(r.updatedAt).toLocaleString('ko-KR') : '']);
   const esc = v=>{ const s=String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const csv = [header, ...csvRows].map(row=> row.map(esc).join(',')).join('\r\n');
