@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>동물 소리 맞히기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#211712; --bg-mid:#2c2018; --panel:#3a2b1f; --panel-light:#463424;
+    --ivory:#f3ead9; --ivory-dim:#cdc0a8; --brass:#c9a24b; --brass-bright:#e6c469;
+    --good:#7ea377; --bad:#b1503a; --wood-line: rgba(243,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(201,162,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(201,162,75,0.08), transparent 50%),
+      linear-gradient(180deg, var(--bg-deep), var(--bg-mid));
+    color:var(--ivory);
+    font-family:'Noto Sans KR', sans-serif;
+    display:flex; justify-content:center; padding:32px 16px 60px;
+  }
+  .app{ width:100%; max-width:640px; }
+  header{ text-align:center; margin-bottom:22px; }
+  .eyebrow{ font-size:12px; letter-spacing:0.32em; color:var(--brass); text-transform:uppercase; margin-bottom:8px; font-weight:500; }
+  h1{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:26px; margin:0 0 10px; letter-spacing:-0.01em; }
+  .desc{ font-size:13.5px; line-height:1.75; color:var(--ivory-dim); background:rgba(0,0,0,0.18); border:1px solid var(--wood-line); border-radius:10px; padding:14px 16px; text-align:left; }
+  .desc b{color:var(--brass-bright);font-weight:700;}
+  .card{
+    background: linear-gradient(180deg, var(--panel), var(--bg-mid));
+    border:1px solid rgba(201,162,75,0.22); border-radius:18px; padding:26px 22px 28px; margin-top:20px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+    position:relative; overflow:hidden;
+  }
+  .card::before{
+    content:""; position:absolute; inset:0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 40px);
+    pointer-events:none;
+  }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+  .center{ text-align:center; }
+  .big-emoji{ font-size:44px; margin-bottom:10px; }
+  .stage-title{ font-family:'Noto Serif KR', serif; font-weight:700; font-size:20px; color:var(--brass-bright); margin-bottom:8px; }
+  .stage-explain{ font-size:13.5px; line-height:1.8; color:var(--ivory-dim); margin:0 auto 20px; max-width:440px; }
+  .progress-line{ text-align:center; font-size:13px; color:var(--ivory-dim); margin-bottom:16px; letter-spacing:0.02em; }
+  .progress-line b{ color:var(--brass-bright); font-weight:700; }
+  .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:18px; font-weight:500; letter-spacing:0.02em; }
+  .status.pulse{ animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
+  .play-wrap{ text-align:center; margin-bottom:22px; }
+  .play-btn{
+    font-size:17px; padding:18px 30px; border-radius:999px;
+    background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none;
+    cursor:pointer; font-weight:700; box-shadow:0 10px 24px rgba(201,162,75,0.25);
+  }
+  .play-btn:active{ transform:translateY(1px); }
+  .answer-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  @media (max-width:420px){ .answer-grid{ grid-template-columns:1fr; } }
+  .answer-btn{
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:15px;
+    border-radius:14px; padding:16px 10px; border:1px solid rgba(201,162,75,0.4);
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    color:var(--ivory); cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .answer-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,0.3); }
+  .answer-btn:disabled{ cursor:not-allowed; }
+  .answer-btn.correct{ background:var(--good); color:#15210f; border-color:var(--good); }
+  .answer-btn.wrong{ background:var(--bad); color:#2b0e08; border-color:var(--bad); }
+  .feedback-text{ text-align:center; font-size:14.5px; font-weight:700; margin-top:4px; margin-bottom:18px; min-height:22px; }
+  .feedback-text.good{color:var(--good);}
+  .feedback-text.bad{color:var(--bad);}
+  .controls{ display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  button{
+    font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
+    border-radius:999px; padding:11px 22px; border:1px solid rgba(201,162,75,0.4);
+    background: linear-gradient(180deg, var(--panel-light), var(--panel));
+    color:var(--ivory); cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing:0.01em;
+  }
+  button:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,0.3);}
+  button:active{transform:translateY(0);}
+  button.primary{ background: linear-gradient(180deg, var(--brass-bright), var(--brass)); color:#241a10; border:none; }
+  button:disabled{ opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+  .result-banner{ font-family:'Noto Serif KR', serif; font-size:24px; font-weight:700; margin:6px 0 10px; color:var(--brass-bright); }
+  footer{ text-align:center; font-size:11.5px; color:var(--ivory-dim); opacity:0.7; margin-top:22px; letter-spacing:0.01em; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Animal Sound Quiz</div>
+    <h1 id="mainTitle">동물 소리 맞히기 🐾</h1>
+    <div class="desc">
+      평소에 잘 들어보지 못한 <b>동물 소리</b>를 듣고 어떤 동물인지 맞혀보는 웃긴 테스트예요!<br>
+      (실제 녹음이 아니라 재미로 만든 효과음이에요 🎧) 총 <b>30문제</b>, 순서와 보기가 할 때마다 바뀌어요.
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="screen active" id="screen-start">
+      <div class="center">
+        <div class="big-emoji">🦛</div>
+        <div class="stage-title">준비되셨나요?</div>
+        <p class="stage-explain">퓨마, 하마, 코알라... 평소에 잘 못 들어본 동물 소리들이 나와요.<br>소리를 듣고 보기 중에서 정답을 골라보세요!</p>
+        <div class="controls"><button class="primary" id="startBtn">시작하기</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-quiz">
+      <div class="progress-line">문제 <b id="qNum">1</b>/<span id="qTotal">30</span> · 맞춘 개수 <b id="scoreNum">0</b></div>
+      <div class="status" id="statusText">소리를 재생하는 중…</div>
+      <div class="play-wrap"><button class="play-btn" id="playBtn">🔊 소리 듣기</button></div>
+      <div class="answer-grid" id="answerGrid"></div>
+      <div class="feedback-text" id="feedbackText"></div>
+      <div class="controls"><button class="primary" id="nextBtn" style="display:none;">다음 문제 →</button></div>
+    </div>
+
+    <div class="screen" id="screen-final">
+      <div class="center">
+        <div class="big-emoji" id="finalEmoji">🏁</div>
+        <div class="result-banner" id="finalBanner"></div>
+        <p class="stage-explain" id="finalMsg"></p>
+        <div class="controls"><button class="primary" id="restartBtn">다시 풀기</button></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Claude가 만든 동물 소리 맞히기 · 이어폰 사용을 권장합니다</footer>
+</div>
+
+<script>
+// ---------- audio engine ----------
+let audioCtx = null;
+function ensureCtx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function noiseBurst(ctx, startTime, dur, opts){
+  opts = opts || {};
+  const freq = opts.freq!=null?opts.freq:800, Q = opts.Q!=null?opts.Q:1.2;
+  const type = opts.type||'bandpass', gain = opts.gain!=null?opts.gain:0.5, fadeIn = opts.fadeIn!=null?opts.fadeIn:0.01;
+  const bufferSize = Math.max(1, Math.floor(ctx.sampleRate*dur));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++){ data[i] = Math.random()*2-1; }
+  const src = ctx.createBufferSource(); src.buffer = buffer;
+  const filt = ctx.createBiquadFilter(); filt.type = type; filt.frequency.value = freq; filt.Q.value = Q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, startTime);
+  g.gain.linearRampToValueAtTime(gain, startTime+fadeIn);
+  g.gain.exponentialRampToValueAtTime(0.001, startTime+dur);
+  src.connect(filt).connect(g).connect(ctx.destination);
+  src.start(startTime); src.stop(startTime+dur+0.02);
+}
+function tonePitch(ctx, startTime, dur, opts){
+  opts = opts || {};
+  const f0 = opts.f0, f1 = opts.f1!=null?opts.f1:opts.f0, type = opts.type||'sawtooth';
+  const gain = opts.gain!=null?opts.gain:0.35, vibRate = opts.vibRate||0, vibDepth = opts.vibDepth||0;
+  const osc = ctx.createOscillator(); osc.type = type;
+  osc.frequency.setValueAtTime(f0, startTime);
+  osc.frequency.linearRampToValueAtTime(f1, startTime+dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, startTime);
+  g.gain.linearRampToValueAtTime(gain, startTime+Math.min(0.04, dur*0.2));
+  g.gain.exponentialRampToValueAtTime(0.001, startTime+dur);
+  osc.connect(g).connect(ctx.destination);
+  if(vibRate>0 && vibDepth>0){
+    const lfo = ctx.createOscillator(); lfo.frequency.value = vibRate;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = vibDepth;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    lfo.start(startTime); lfo.stop(startTime+dur+0.05);
+  }
+  osc.start(startTime); osc.stop(startTime+dur+0.05);
+}
+
+// ---------- "animal voice" archetypes — playful synthesized stand-ins, not real recordings ----------
+function playGrowl(ctx, t, s){
+  const dur = s.dur||1.2;
+  tonePitch(ctx, t, dur, {f0:s.freq*1.15, f1:s.freq*0.85, type:'sawtooth', gain:0.38});
+  noiseBurst(ctx, t, dur, {freq:s.freq*2.2, Q:0.8, type:'lowpass', gain:0.3});
+  return dur;
+}
+function playGrunt(ctx, t, s){
+  const reps = s.reps||3, each = s.dur||0.22, gap = 0.14;
+  for(let i=0;i<reps;i++){
+    const st = t + i*(each+gap);
+    tonePitch(ctx, st, each, {f0:s.freq*1.3, f1:s.freq*0.9, type:'square', gain:0.32});
+    noiseBurst(ctx, st, each, {freq:s.freq*1.8, Q:1, type:'lowpass', gain:0.28});
+  }
+  return reps*(each+gap);
+}
+function playSnoreBurp(ctx, t, s){
+  const dur = s.dur||0.9;
+  noiseBurst(ctx, t, dur, {freq:s.freq, Q:6, type:'bandpass', gain:0.4});
+  tonePitch(ctx, t, dur, {f0:s.freq*0.8, f1:s.freq*1.2, type:'triangle', gain:0.22});
+  return dur;
+}
+function playHonk(ctx, t, s){
+  const reps = s.reps||2, each = s.dur||0.32, gap = 0.18;
+  for(let i=0;i<reps;i++){
+    const st = t + i*(each+gap);
+    tonePitch(ctx, st, each, {f0:s.freq, f1:s.freq*1.08, type:'sawtooth', gain:0.3});
+    noiseBurst(ctx, st, each, {freq:s.freq*2.5, Q:4, type:'bandpass', gain:0.18});
+  }
+  return reps*(each+gap);
+}
+function playLaugh(ctx, t, s){
+  const reps = s.reps||6, each = 0.1, gap = 0.07;
+  for(let i=0;i<reps;i++){
+    const st = t + i*(each+gap);
+    const f = s.freq * (1 + (i%2===0?0.15:-0.08));
+    tonePitch(ctx, st, each, {f0:f*1.2, f1:f*0.9, type:'square', gain:0.26});
+  }
+  return reps*(each+gap);
+}
+function playHowl(ctx, t, s){
+  const dur = s.dur||1.5, vr = s.vibRate||5, vd = s.vibDepth||8;
+  tonePitch(ctx, t, dur*0.4, {f0:s.freq*0.7, f1:s.freq*1.15, type:'sine', gain:0.3, vibRate:vr, vibDepth:vd});
+  tonePitch(ctx, t+dur*0.35, dur*0.65, {f0:s.freq*1.15, f1:s.freq*0.9, type:'sine', gain:0.3, vibRate:vr, vibDepth:vd});
+  return dur;
+}
+function playScreamChirp(ctx, t, s){
+  const reps = s.reps||1, each = s.dur||0.22, gap = 0.12;
+  for(let i=0;i<reps;i++){
+    const st = t + i*(each+gap);
+    tonePitch(ctx, st, each, {f0:s.freq*0.7, f1:s.freq*1.3, type:'sawtooth', gain:0.3});
+  }
+  return reps*(each+gap);
+}
+function playHumBleat(ctx, t, s){
+  const dur = s.dur||0.7;
+  tonePitch(ctx, t, dur, {f0:s.freq, f1:s.freq*1.05, type:'triangle', gain:0.26, vibRate:s.vibRate||4, vibDepth:s.vibDepth||5});
+  return dur;
+}
+const ARCHETYPES = { growl:playGrowl, grunt:playGrunt, snoreBurp:playSnoreBurp, honk:playHonk, laugh:playLaugh, howl:playHowl, screamChirp:playScreamChirp, humBleat:playHumBleat };
+function playAnimalSound(spec, onDone){
+  const ctx = ensureCtx();
+  const t = ctx.currentTime + 0.05;
+  const dur = ARCHETYPES[spec.archetype](ctx, t, spec);
+  setTimeout(onDone, dur*1000 + 250);
+}
+
+// ---------- animal pool (30) ----------
+const ANIMALS = [
+  {name:'코알라', archetype:'snoreBurp', freq:70, dur:1.0},
+  {name:'하마', archetype:'grunt', freq:90, reps:3, dur:0.24},
+  {name:'퓨마', archetype:'screamChirp', freq:900, reps:2, dur:0.25},
+  {name:'기린', archetype:'humBleat', freq:180, dur:0.8},
+  {name:'판다', archetype:'humBleat', freq:260, dur:0.5, vibRate:6, vibDepth:10},
+  {name:'알파카', archetype:'humBleat', freq:320, dur:0.6, vibRate:7, vibDepth:14},
+  {name:'낙타', archetype:'grunt', freq:70, reps:2, dur:0.3},
+  {name:'타조', archetype:'honk', freq:200, reps:2, dur:0.4},
+  {name:'침팬지', archetype:'screamChirp', freq:1100, reps:3, dur:0.18},
+  {name:'여우', archetype:'howl', freq:500, dur:1.0, vibRate:7, vibDepth:15},
+  {name:'악어', archetype:'growl', freq:60, dur:1.3},
+  {name:'코끼리물범', archetype:'snoreBurp', freq:50, dur:1.2},
+  {name:'라마', archetype:'humBleat', freq:300, dur:0.55},
+  {name:'코뿔소', archetype:'grunt', freq:110, reps:2, dur:0.3},
+  {name:'나무늘보', archetype:'howl', freq:650, dur:1.0, vibRate:6, vibDepth:20},
+  {name:'캥거루', archetype:'screamChirp', freq:500, reps:2, dur:0.15},
+  {name:'북극곰', archetype:'growl', freq:90, dur:1.1},
+  {name:'펭귄', archetype:'honk', freq:350, reps:3, dur:0.2},
+  {name:'두루미', archetype:'honk', freq:500, reps:2, dur:0.35},
+  {name:'공작', archetype:'screamChirp', freq:1300, reps:2, dur:0.3},
+  {name:'재규어', archetype:'growl', freq:110, dur:1.0},
+  {name:'바다사자', archetype:'grunt', freq:160, reps:4, dur:0.18},
+  {name:'하이에나', archetype:'laugh', freq:450, reps:7},
+  {name:'당나귀', archetype:'howl', freq:220, dur:1.4, vibRate:3, vibDepth:25},
+  {name:'염소', archetype:'screamChirp', freq:600, reps:1, dur:0.4},
+  {name:'고슴도치', archetype:'screamChirp', freq:1000, reps:3, dur:0.1},
+  {name:'스컹크', archetype:'grunt', freq:130, reps:2, dur:0.25},
+  {name:'늑대', archetype:'howl', freq:350, dur:1.8, vibRate:4, vibDepth:10},
+  {name:'올빼미', archetype:'screamChirp', freq:450, reps:1, dur:0.6},
+  {name:'치타', archetype:'screamChirp', freq:850, reps:2, dur:0.2},
+];
+document.getElementById('qTotal').textContent = ANIMALS.length;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+// ---------- quiz state ----------
+let order = [], qIdx = 0, score = 0, isAnswered = false, curAnimal = null;
+const screens = {};
+['start','quiz','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
+function showScreen(k){ Object.values(screens).forEach(s=>s.classList.remove('active')); screens[k].classList.add('active'); }
+
+function startQuiz(){
+  order = shuffle(ANIMALS.map((_,i)=>i));
+  qIdx = 0; score = 0;
+  showScreen('quiz');
+  askQuestion();
+}
+function askQuestion(){
+  curAnimal = ANIMALS[order[qIdx]];
+  isAnswered = false;
+  document.getElementById('qNum').textContent = qIdx+1;
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('feedbackText').textContent = '';
+  document.getElementById('feedbackText').className = 'feedback-text';
+  document.getElementById('nextBtn').style.display = 'none';
+  const st = document.getElementById('statusText');
+  st.textContent = '소리를 재생하는 중…'; st.classList.add('pulse');
+
+  // 보기: 정답 + 다른 동물 중 무작위 3개를 매번 새로 뽑고 순서도 섞음
+  const wrongPool = ANIMALS.filter(a=>a!==curAnimal);
+  const wrongs = shuffle(wrongPool).slice(0,3);
+  const options = shuffle([curAnimal, ...wrongs]);
+  const grid = document.getElementById('answerGrid');
+  grid.innerHTML = '';
+  options.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn'; btn.textContent = opt.name;
+    btn.addEventListener('click', ()=> onAnswer(opt, btn));
+    grid.appendChild(btn);
+  });
+
+  playAnimalSound(curAnimal, ()=>{ st.textContent = '어떤 동물의 소리일까요?'; st.classList.remove('pulse'); });
+}
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  if(!curAnimal) return;
+  const st = document.getElementById('statusText');
+  st.textContent = '소리를 재생하는 중…'; st.classList.add('pulse');
+  playAnimalSound(curAnimal, ()=>{ st.textContent = '어떤 동물의 소리일까요?'; st.classList.remove('pulse'); });
+});
+function onAnswer(opt, btn){
+  if(isAnswered) return;
+  isAnswered = true;
+  const fb = document.getElementById('feedbackText');
+  const correct = opt===curAnimal;
+  Array.from(document.getElementById('answerGrid').children).forEach(b=>{
+    b.disabled = true;
+    if(b===btn) b.classList.add(correct?'correct':'wrong');
+    else if(b.textContent===curAnimal.name) b.classList.add('correct');
+  });
+  if(correct){ score++; fb.textContent = '정답이에요! 🎯'; fb.classList.add('good'); }
+  else{ fb.textContent = `아쉬워요, 정답은 '${curAnimal.name}'였어요.`; fb.classList.add('bad'); }
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('nextBtn').style.display = '';
+}
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  qIdx++;
+  if(qIdx >= order.length){ showFinal(); return; }
+  askQuestion();
+});
+function showFinal(){
+  const total = order.length;
+  let emoji, msg;
+  if(score>=total*0.9){ emoji='🏆'; msg='동물학자 되셔도 되겠어요! 정말 대단해요!'; }
+  else if(score>=total*0.6){ emoji='🎉'; msg='오호, 제법인데요? 동물 소리에 밝으시네요!'; }
+  else if(score>=total*0.3){ emoji='🙂'; msg='생각보다 쉽지 않았죠? 다시 도전해보세요!'; }
+  else{ emoji='🐣'; msg='동물원 입장권부터 끊으셔야겠어요 ㅎㅎ 다시 풀어볼까요?'; }
+  document.getElementById('finalEmoji').textContent = emoji;
+  document.getElementById('finalBanner').textContent = `${total}문제 중 ${score}개 맞혔어요!`;
+  document.getElementById('finalMsg').textContent = msg;
+  showScreen('final');
+}
+document.getElementById('startBtn').addEventListener('click', ()=>{ ensureCtx(); startQuiz(); });
+document.getElementById('restartBtn').addEventListener('click', ()=>{ startQuiz(); });
+</script>
+</body>
+</html>
