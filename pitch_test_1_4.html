@@ -79,6 +79,7 @@
   .feedback-text.good{color:var(--good);}
   .feedback-text.bad{color:var(--bad);}
   .controls{ display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .replay-note{ text-align:center; font-size:11.5px; color:var(--ivory-dim); margin:6px 0 0; opacity:0.8; }
   button{
     font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
     border-radius:999px; padding:11px 22px; border:1px solid rgba(201,162,75,0.4);
@@ -159,9 +160,10 @@
       <div class="progress-dots" id="dotsWrap"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
       <div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>
       <div class="feedback-text" id="feedbackText"></div>
-      <div class="controls">
+      <div class="controls" id="replayWrap">
         <button id="replayBtn">🔊 다시 듣기</button>
       </div>
+      <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
     </div>
 
     <div class="screen" id="screen-result">
@@ -464,7 +466,7 @@ let curTargetMidi = null, recent = [];
 let curPair = null, pickedFirst = null, recentPairKeys = [];
 let keyEls = {};
 let replayCount = 0;
-const MAX_REPLAY = 3;
+const MAX_REPLAY = 1;
 
 // ---------- screens ----------
 const screens = {};
@@ -547,6 +549,8 @@ function askQuestion(){
   replayCount = 0;
   const replayBtn = document.getElementById('replayBtn');
   replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기';
+  document.getElementById('replayWrap').style.display = isPractice ? 'none' : '';
+  document.getElementById('replayNote').style.display = isPractice ? 'none' : '';
   document.getElementById('dotsWrap').style.display = curStage.type==='pair' ? '' : 'none';
   if(curStage.type==='pair') updateDots();
   document.getElementById('feedbackText').textContent = '';

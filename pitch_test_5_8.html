@@ -78,6 +78,7 @@
   .feedback-text.good{color:var(--good);}
   .feedback-text.bad{color:var(--bad);}
   .controls{ display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .replay-note{ text-align:center; font-size:11.5px; color:var(--ivory-dim); margin:6px 0 0; opacity:0.8; }
   button{
     font-family:'Noto Sans KR', sans-serif; font-weight:700; font-size:14px;
     border-radius:999px; padding:11px 22px; border:1px solid rgba(201,162,75,0.4);
@@ -163,6 +164,7 @@
         <button class="primary" id="confirmNoteBtn" style="display:none;" disabled>확인 ✅</button>
         <button id="replayBtn">🔊 다시 듣기</button>
       </div>
+      <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
     </div>
 
     <div class="screen" id="screen-result">
@@ -450,7 +452,7 @@ let recentCandidates = [];
 let anyStageFailed = false;
 let keyEls = {};
 let replayCount = 0;
-const MAX_REPLAY = 3;
+const MAX_REPLAY = 1;
 
 const screens = {};
 ['start','intro','quiz','result','final'].forEach(k=> screens[k]=document.getElementById('screen-'+k));
@@ -545,6 +547,8 @@ function askOne(){
   replayCount = 0;
   const replayBtn = document.getElementById('replayBtn');
   replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기';
+  replayBtn.style.display = isPractice ? 'none' : '';
+  document.getElementById('replayNote').style.display = isPractice ? 'none' : '';
   const confirmBtn = document.getElementById('confirmNoteBtn');
   confirmBtn.style.display = curStage.kind==='quality' ? 'none' : '';
   confirmBtn.disabled = true;
