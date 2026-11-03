@@ -49,6 +49,8 @@
   .stage-explain{ font-size:13.5px; line-height:1.8; color:var(--ivory-dim); margin:0 auto 20px; max-width:440px; }
   .scorebar{ display:flex; justify-content:center; gap:22px; font-size:13px; color:var(--ivory-dim); margin-bottom:16px; letter-spacing:0.02em; }
   .scorebar b{ color:var(--brass-bright); font-weight:700; }
+  .qnum-big{ text-align:center; font-family:'Noto Serif KR', serif; font-weight:700; font-size:32px; color:var(--brass-bright); margin-bottom:10px; letter-spacing:0.01em; }
+  .qnum-big span{ color:var(--ivory-dim); font-size:20px; font-weight:500; }
   .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
   .status.pulse{ animation:pulse 1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
@@ -124,7 +126,8 @@
     <div class="eyebrow">Pitch Test · Beginner</div>
     <h1 id="mainTitle">음감테스트 · 초급</h1>
     <div class="desc">
-      한 음 듣기, 두 음 이어서 듣기 문제가 섞여서 나와요. 총 <b>10문제</b>, 한 문제당 <b>10점</b>, <b>100점 만점</b>이에요.
+      한 음 듣기, 두 음 이어서 듣기 문제가 섞여서 나와요. 총 <b>10문제</b>, 한 문제당 <b>10점</b>, <b>100점 만점</b>이에요.<br>
+      맞든 틀리든 자동으로 다음 문제로 넘어가요.
     </div>
   </header>
 
@@ -139,18 +142,18 @@
     </div>
 
     <div class="screen" id="screen-quiz">
+      <div class="qnum-big">문제 <span id="qNum">1</span> / <span id="qTotal">10</span></div>
+      <div class="controls" style="margin-top:0;">
+        <button id="replayBtn">🔊 다시 듣기</button>
+      </div>
+      <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
       <div class="scorebar" id="scorebar">
-        <span>문제 <b id="qNum">1</b>/10</span>
         <span>점수 <b id="scoreNum">0</b>점</span>
       </div>
       <div class="status" id="statusText">음을 재생하는 중…</div>
       <div class="progress-dots" id="dotsWrap"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
       <div class="piano-wrap"><div class="piano-keys" id="pianoKeys"></div></div>
       <div class="feedback-text" id="feedbackText"></div>
-      <div class="controls">
-        <button id="replayBtn">🔊 다시 듣기</button>
-      </div>
-      <p class="replay-note" id="replayNote">(다시듣기는 1번만 가능합니다.)</p>
     </div>
 
     <div class="screen" id="screen-final">
