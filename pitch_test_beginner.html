@@ -271,10 +271,64 @@ let audioCtx = null;
 function ensureCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if(audioCtx.state === "suspended") audioCtx.resume();
+  loadPianoSamples();
   return audioCtx;
 }
 function freqFromMidi(midi){ return 440 * Math.pow(2, (midi-69)/12); }
+
+// ---------- 실제 어쿠스틱 피아노 음원(Salamander Grand Piano, CC BY) ----------
+// index.html(작곡하기)에서 쓰는 것과 같은 samples/piano 폴더의 멀티샘플을 그대로 재사용.
+// 로딩 전/실패 시에는 기존 합성음(triangle+sine)으로 자동 대체됨.
+const PIANO_SAMPLE_URLS = {24:'samples/piano/m24.mp3',30:'samples/piano/m30.mp3',36:'samples/piano/m36.mp3',
+  42:'samples/piano/m42.mp3',45:'samples/piano/m45.mp3',51:'samples/piano/m51.mp3',
+  57:'samples/piano/m57.mp3',60:'samples/piano/m60.mp3',66:'samples/piano/m66.mp3',
+  72:'samples/piano/m72.mp3',78:'samples/piano/m78.mp3',84:'samples/piano/m84.mp3',
+  90:'samples/piano/m90.mp3',96:'samples/piano/m96.mp3',99:'samples/piano/m99.mp3',
+  105:'samples/piano/m105.mp3'};
+let pianoSampleLib = null, pianoSampleLoading = null;
+function loadPianoSamples(){
+  if(pianoSampleLib || pianoSampleLoading) return pianoSampleLoading || Promise.resolve(pianoSampleLib);
+  const ctx = audioCtx;
+  const entries = Object.entries(PIANO_SAMPLE_URLS);
+  pianoSampleLoading = Promise.all(entries.map(([midi,url])=>
+    fetch(url).then(r=>r.arrayBuffer()).then(buf=>ctx.decodeAudioData(buf)).then(buffer=>(
+      {midi:+midi, freq:freqFromMidi(+midi), buffer}
+    )).catch(()=>null)
+  )).then(list=>{
+    pianoSampleLib = list.filter(Boolean);
+    pianoSampleLoading = null;
+    return pianoSampleLib;
+  });
+  return pianoSampleLoading;
+}
+function playPianoSample(freq, startTime, duration){
+  if(!pianoSampleLib || !pianoSampleLib.length) return false;
+  let best = pianoSampleLib[0], bestDist = Infinity;
+  for(const s of pianoSampleLib){ const d = Math.abs(Math.log2(freq/s.freq)); if(d<bestDist){ bestDist=d; best=s; } }
+  const ctx = ensureCtx();
+  const rate = freq / best.freq;
+  const src = ctx.createBufferSource();
+  src.buffer = best.buffer; src.playbackRate.value = rate;
+  const gain = ctx.createGain();
+  const availDur = best.buffer.duration / rate;
+  const playDur = Math.min(availDur, duration + 0.4);
+  const release = Math.min(0.25, Math.max(0.03, playDur*0.3));
+  const peak = 0.9;
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.008);
+  if(playDur > duration + 0.02){
+    const fadeStart = startTime + duration;
+    gain.gain.setValueAtTime(peak, fadeStart);
+    gain.gain.exponentialRampToValueAtTime(0.0001, fadeStart + release);
+  } else {
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + playDur);
+  }
+  src.connect(gain).connect(ctx.destination);
+  src.start(startTime); src.stop(startTime + playDur + 0.05);
+  return true;
+}
 function scheduleTone(freq, startTime, duration){
+  if(playPianoSample(freq, startTime, duration)) return;
   const ctx = ensureCtx();
   const osc = ctx.createOscillator(), osc2 = ctx.createOscillator();
   const gain = ctx.createGain(), gain2 = ctx.createGain();
