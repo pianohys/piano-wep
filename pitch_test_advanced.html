@@ -448,7 +448,7 @@ function playScaleIntro(onDone){
       setTimeout(()=> el.classList.remove('scaleNote'), noteDur*1000*0.85);
     }, i*noteDur*1000 + 50);
   });
-  setTimeout(onDone, SCALE_MIDI.length*noteDur*1000 + 300);
+  setTimeout(onDone, SCALE_MIDI.length*noteDur*1000 + 800);
 }
 function playChordTogether(midis, dur, onDone){
   const ctx = ensureCtx();

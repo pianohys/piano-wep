@@ -466,7 +466,7 @@ function playScaleThenNote(onReady, targetMidi){
   setTimeout(()=>{
     scheduleTone(freqFromMidi(targetMidi), ensureCtx().currentTime + 0.05, 1.0, true);
     setTimeout(onReady, 1150);
-  }, scaleMs + 400);
+  }, scaleMs + 900);
 }
 function pickPairFor(stage, recentPairKeys){
   const pool = stage.pool;
@@ -508,7 +508,7 @@ function playPair(pair, onReady){
       scheduleTone(freqFromMidi(pair[1]), ensureCtx().currentTime + 0.05, 0.9, true);
       setTimeout(onReady, 1050);
     }, 1000);
-  }, scaleMs + 400);
+  }, scaleMs + 900);
 }
 
 // ---------- question plan: 1단계 3문제, 2단계 3문제, 3단계 2문제, 4단계 2문제 = 10문제, 순서 랜덤 ----------
