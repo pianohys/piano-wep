@@ -482,22 +482,20 @@ function playArpeggioThenChord(midis, chordDur, onReady){
 // ---------- 순서 있는 두 음(연속) 문제 ----------
 function pickPairFor(stage, recentPairKeys){
   const pool = stage.pool;
+  const maxInterval = stage.maxInterval;
   let a, b, guard = 0;
   do{
     a = pool[Math.floor(Math.random()*pool.length)];
-    b = pool[Math.floor(Math.random()*pool.length)];
-    guard++;
-  } while((a===b || recentPairKeys.indexOf(a+'_'+b) >= 0) && guard < 40);
-  if(stage.biasBlack){
-    const blacks = pool.filter(isBlack);
-    if(blacks.length){
-      if(!isBlack(a) && !isBlack(b)){
-        const repl = blacks[Math.floor(Math.random()*blacks.length)];
-        if(Math.random()<0.5) a = repl; else b = repl;
-        if(a===b){ const whites = pool.filter(m=>!isBlack(m)); b = whites[Math.floor(Math.random()*whites.length)]; }
-      }
+    let candidates = pool.filter(m => m!==a && (maxInterval==null || Math.abs(m-a) <= maxInterval));
+    if(!candidates.length) candidates = pool.filter(m => m!==a);
+    if(stage.biasBlack){
+      const blackCands = candidates.filter(isBlack);
+      const whiteCands = candidates.filter(m=>!isBlack(m));
+      if(blackCands.length && (Math.random() < 0.66 || !whiteCands.length)) candidates = blackCands;
     }
-  }
+    b = candidates[Math.floor(Math.random()*candidates.length)];
+    guard++;
+  } while(recentPairKeys.indexOf(a+'_'+b) >= 0 && guard < 40);
   return Math.random()<0.5 ? [a,b] : [b,a];
 }
 function playPair(pair, onReady){
@@ -527,9 +525,9 @@ for(let r=60; r<72; r++){
   TRIAD_QUALITY_CANDS.push({root:r, quality:'major', midis:[r, r+4, r+7]});
   TRIAD_QUALITY_CANDS.push({root:r, quality:'minor', midis:[r, r+3, r+7]});
 }
-// 3~5번: 샵/플랫이 포함될 수 있는 순서 있는 두 음(연속) 문제용 반음계 풀
+// 3~5번: 샵/플랫이 포함될 수 있는 순서 있는 두 음(연속) 문제용 반음계 풀 — 한 옥타브 안(도~높은 도)
 const ADV_PAIR_POOL = [];
-for(let m=60; m<=79; m++) ADV_PAIR_POOL.push(m);
+for(let m=60; m<=72; m++) ADV_PAIR_POOL.push(m);
 // 6~8번: 샵/플랫이 포함될 수 있는 2음 화음(동시) 후보 — 장3도/단3도 간격으로 구성
 const CHORD2_CHROMA_CANDS = [];
 for(let r=60; r<78; r++){
@@ -550,7 +548,7 @@ function pickFrom(arr, recent){
 // ---------- question plan: 1~2번 장단조, 3~5번 두 음(연속), 6~8번 2음 화음, 9~10번 3음 화음 = 10문제, 순서 고정 ----------
 const STAGE_DEFS = {
   s5: { key:'s5', type:'quality', explain:'화음의 음을 하나씩 들려준 다음, 화음을 한번에 들려드려요. 메이저(밝은 장조 느낌)인지 마이너(어두운 단조 느낌)인지 골라보세요.' },
-  s6: { key:'s6', type:'pair', pool:ADV_PAIR_POOL, biasBlack:true, kbLow:60, kbHigh:79, explain:'두 음을 순서대로 들려드려요. 샵이나 플랫이 포함될 수 있어요. 들린 순서대로 고른 후 확인을 눌러주세요.' },
+  s6: { key:'s6', type:'pair', pool:ADV_PAIR_POOL, biasBlack:true, maxInterval:9, kbLow:60, kbHigh:72, explain:'두 음을 순서대로 들려드려요. 샵이나 플랫이 포함될 수 있어요. 들린 순서대로 고른 후 확인을 눌러주세요.' },
   s7: { key:'s7', type:'notes', notes:2, kbLow:60, kbHigh:79, explain:'화음을 이루는 두 개의 음을 고른 후 확인을 눌러주세요. 샵이나 플랫이 포함될 수 있어요.' },
   s8: { key:'s8', type:'notes', notes:3, kbLow:60, kbHigh:79, explain:'화음을 이루는 세 개의 음을 고른 후 확인을 눌러주세요. 샵이나 플랫이 포함될 수 있어요.' },
 };
