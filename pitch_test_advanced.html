@@ -52,6 +52,9 @@
   .qnum-big{ text-align:center; font-family:'Noto Serif KR', serif; font-weight:700; font-size:32px; color:var(--brass-bright); margin-bottom:10px; letter-spacing:0.01em; }
   .qnum-big span{ color:var(--ivory-dim); font-size:20px; font-weight:500; }
   .status{ text-align:center; font-size:14.5px; color:var(--brass-bright); min-height:22px; margin-bottom:10px; font-weight:500; letter-spacing:0.02em; }
+  .progress-dots{ display:flex; justify-content:center; gap:10px; margin-bottom:14px; }
+  .progress-dots .dot{ width:14px; height:14px; border-radius:50%; border:2px solid var(--brass); background:transparent; font-size:0; }
+  .progress-dots .dot.filled{ background:var(--brass-bright); }
   .status.pulse{ animation:pulse 1s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{opacity:0.55;} 50%{opacity:1;} }
   .piano-wrap{ background:#0d0a07; border-radius:14px; padding:14px 10px 10px; box-shadow: inset 0 0 0 1px rgba(201,162,75,0.25), 0 10px 24px rgba(0,0,0,0.35); margin-bottom:16px; }
@@ -60,12 +63,16 @@
   .key.white{ height:100%; background:linear-gradient(180deg,#f8f1e4,#ece0cb); border:1px solid #1a130d; border-left:1px solid rgba(0,0,0,0.25); border-radius:0 0 7px 7px; z-index:1; }
   .key.white:active{ background:#e2d5bc; }
   .key.white.picked{ background:var(--brass-bright); border-color:var(--brass); }
+  .key.white.picked1{ background:var(--brass-bright); border-color:var(--brass); }
+  .key.white.picked2{ background:#b98f3b; border-color:var(--brass); }
   .key.white.correct{ background:var(--good); border-color:var(--good); }
   .key.white.wrong{ background:var(--bad); border-color:var(--bad); }
   .key.white.scaleNote{ background:#8fb3d9; border-color:#5f87b3; }
   .key.black{ height:60%; background:linear-gradient(180deg,#2a1f16,#140e09); border:1px solid #000; border-radius:0 0 6px 6px; z-index:2; }
   .key.black:active{ background:#000; }
   .key.black.picked{ background:var(--brass-bright); }
+  .key.black.picked1{ background:var(--brass-bright); }
+  .key.black.picked2{ background:#b98f3b; }
   .key.black.correct{ background:var(--good); }
   .key.black.wrong{ background:var(--bad); }
   .key.black.scaleNote{ background:#5f87b3; }
@@ -151,6 +158,7 @@
         <span>점수 <b id="scoreNum">0</b>점</span>
       </div>
       <div class="status" id="statusText">화음을 재생하는 중…</div>
+      <div class="progress-dots" id="dotsWrap"><span class="dot" id="dot1">1</span><span class="dot" id="dot2">2</span></div>
       <div id="quizAnswerArea"></div>
       <div class="feedback-text" id="feedbackText"></div>
       <div class="controls">
@@ -430,7 +438,6 @@ function playFanfare(){
 const BLACK_PCS = new Set([1,3,6,8,10]);
 function isBlack(midi){ return BLACK_PCS.has(((midi%12)+12)%12); }
 const SCALE_MIDI = [60,62,64,65,67,69,71,72];
-const WHITE_SCALE_EXT = [60,62,64,65,67,69,71,72,74,76,77,79];
 const SOLFEGE_PC = {0:'도',2:'레',4:'미',5:'파',7:'솔',9:'라',11:'시',1:'도#',3:'레#',6:'파#',8:'솔#',10:'라#'};
 function solfegeLabel(midi){
   const pc = ((midi%12)+12)%12;
@@ -456,17 +463,76 @@ function playChordTogether(midis, dur, onDone){
   midis.forEach(m=> scheduleTone(freqFromMidi(m), now, dur, true));
   if(onDone) setTimeout(onDone, dur*1000 + 250);
 }
+// 장/단조 문제: 화음의 음(도·미·솔)을 하나씩 들려준 뒤, 화음을 한번에(풍성하게) 들려줌.
+function playArpeggioThenChord(midis, chordDur, onReady){
+  const ctx = ensureCtx();
+  const noteDur = 0.45;
+  const now = ctx.currentTime + 0.05;
+  midis.forEach((m,i)=> scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95));
+  const arpMs = midis.length * noteDur * 1000;
+  setTimeout(()=>{
+    const t0 = ensureCtx().currentTime + 0.05;
+    midis.forEach(m=> scheduleTone(freqFromMidi(m), t0, chordDur, true));
+    setTimeout(onReady, chordDur*1000 + 250);
+  }, arpMs + 900);
+}
+// ---------- 순서 있는 두 음(연속) 문제 ----------
+function pickPairFor(stage, recentPairKeys){
+  const pool = stage.pool;
+  let a, b, guard = 0;
+  do{
+    a = pool[Math.floor(Math.random()*pool.length)];
+    b = pool[Math.floor(Math.random()*pool.length)];
+    guard++;
+  } while((a===b || recentPairKeys.indexOf(a+'_'+b) >= 0) && guard < 40);
+  if(stage.biasBlack){
+    const blacks = pool.filter(isBlack);
+    if(blacks.length){
+      if(!isBlack(a) && !isBlack(b)){
+        const repl = blacks[Math.floor(Math.random()*blacks.length)];
+        if(Math.random()<0.5) a = repl; else b = repl;
+        if(a===b){ const whites = pool.filter(m=>!isBlack(m)); b = whites[Math.floor(Math.random()*whites.length)]; }
+      }
+    }
+  }
+  return Math.random()<0.5 ? [a,b] : [b,a];
+}
+function playPair(pair, onReady){
+  const ctx = ensureCtx();
+  const noteDur = 0.34;
+  const now = ctx.currentTime + 0.05;
+  SCALE_MIDI.forEach((m,i)=>{
+    scheduleTone(freqFromMidi(m), now + i*noteDur, noteDur*0.95);
+    setTimeout(()=>{
+      const el = keyEls[m]; if(!el) return;
+      el.classList.add('scaleNote');
+      setTimeout(()=> el.classList.remove('scaleNote'), noteDur*1000*0.85);
+    }, i*noteDur*1000 + 50);
+  });
+  const scaleMs = SCALE_MIDI.length * noteDur * 1000;
+  setTimeout(()=>{
+    const t0 = ensureCtx().currentTime + 0.05;
+    scheduleTone(freqFromMidi(pair[0]), t0, 0.9);
+    setTimeout(()=>{
+      scheduleTone(freqFromMidi(pair[1]), ensureCtx().currentTime + 0.05, 0.9, true);
+      setTimeout(onReady, 1050);
+    }, 1000);
+  }, scaleMs + 900);
+}
 const TRIAD_QUALITY_CANDS = [];
 for(let r=60; r<72; r++){
   TRIAD_QUALITY_CANDS.push({root:r, quality:'major', midis:[r, r+4, r+7]});
   TRIAD_QUALITY_CANDS.push({root:r, quality:'minor', midis:[r, r+3, r+7]});
 }
-const CHORD2_CANDS = [];
-for(let i=0;i<WHITE_SCALE_EXT.length;i++){
-  [2,3].forEach(off=>{ if(i+off<WHITE_SCALE_EXT.length) CHORD2_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+off]]); });
+// 3~5번: 샵/플랫이 포함될 수 있는 순서 있는 두 음(연속) 문제용 반음계 풀
+const ADV_PAIR_POOL = [];
+for(let m=60; m<=79; m++) ADV_PAIR_POOL.push(m);
+// 6~8번: 샵/플랫이 포함될 수 있는 2음 화음(동시) 후보 — 장3도/단3도 간격으로 구성
+const CHORD2_CHROMA_CANDS = [];
+for(let r=60; r<78; r++){
+  CHORD2_CHROMA_CANDS.push([r, r+4]);
+  CHORD2_CHROMA_CANDS.push([r, r+3]);
 }
-const CHORD3_CANDS = [];
-for(let i=0;i<6;i++){ CHORD3_CANDS.push([WHITE_SCALE_EXT[i], WHITE_SCALE_EXT[i+2], WHITE_SCALE_EXT[i+4]]); }
 const CHORD3_CHROMA_CANDS = [];
 for(let r=60; r<70; r++){
   CHORD3_CHROMA_CANDS.push([r, r+4, r+7]);
@@ -478,12 +544,12 @@ function pickFrom(arr, recent){
   return usable[Math.floor(Math.random()*usable.length)];
 }
 
-// ---------- question plan: 5단계 2문제, 6단계 3문제, 7단계 3문제, 8단계 2문제 = 10문제, 순서 랜덤 ----------
+// ---------- question plan: 1~2번 장단조, 3~5번 두 음(연속), 6~8번 2음 화음, 9~10번 3음 화음 = 10문제, 순서 고정 ----------
 const STAGE_DEFS = {
-  s5: { key:'s5', type:'quality', explain:'화음을 듣고 메이저(밝은 장조 느낌)인지 마이너(어두운 단조 느낌)인지 골라보세요.' },
-  s6: { key:'s6', type:'notes', notes:2, kbLow:60, kbHigh:79, explain:'화음을 이루는 두 개의 음을 짚고 확인을 눌러보세요.' },
-  s7: { key:'s7', type:'notes', notes:3, kbLow:60, kbHigh:79, explain:'화음을 이루는 세 개의 음을 짚고 확인을 눌러보세요.' },
-  s8: { key:'s8', type:'notes', notes:3, kbLow:60, kbHigh:79, explain:'화음에는 샵이나 플랫이 포함될 수 있어요.' },
+  s5: { key:'s5', type:'quality', explain:'도·미·솔처럼 화음의 음을 하나씩 들려준 다음, 화음을 한번에 들려드려요. 메이저(밝은 장조 느낌)인지 마이너(어두운 단조 느낌)인지 골라보세요.' },
+  s6: { key:'s6', type:'pair', pool:ADV_PAIR_POOL, biasBlack:true, kbLow:60, kbHigh:79, explain:'두 음을 순서대로 들려드려요. 샵이나 플랫이 포함될 수 있어요. 들린 순서대로 고른 후 확인을 눌러주세요.' },
+  s7: { key:'s7', type:'notes', notes:2, kbLow:60, kbHigh:79, explain:'화음을 이루는 두 개의 음을 고른 후 확인을 눌러주세요. 샵이나 플랫이 포함될 수 있어요.' },
+  s8: { key:'s8', type:'notes', notes:3, kbLow:60, kbHigh:79, explain:'화음을 이루는 세 개의 음을 고른 후 확인을 눌러주세요. 샵이나 플랫이 포함될 수 있어요.' },
 };
 const QUESTION_TEMPLATE = [
   ...Array(2).fill(STAGE_DEFS.s5),
@@ -493,14 +559,14 @@ const QUESTION_TEMPLATE = [
 ];
 function candidatesFor(stage){
   if(stage.key==='s5') return TRIAD_QUALITY_CANDS;
-  if(stage.key==='s6') return CHORD2_CANDS;
-  if(stage.key==='s7') return CHORD3_CANDS;
+  if(stage.key==='s7') return CHORD2_CHROMA_CANDS;
   return CHORD3_CHROMA_CANDS;
 }
 
 // ---------- state ----------
 let order = [], qIdx = 0, score = 0, isAnswered = false, curStage = null;
 let curAnswerSet = null, pickedSet = null, recentCandidates = [];
+let curPair = null, pickedPairVals = [], recentPairKeys = [];
 let keyEls = {};
 let replayCount = 0;
 const MAX_REPLAY = 1;
@@ -528,7 +594,7 @@ function buildKeyboard(low, high){
     const el = document.createElement('div');
     el.className = 'key ' + (k.black?'black':'white');
     el.style.left = k.left+'%'; el.style.width = k.width+'%';
-    el.addEventListener('click', ()=> onNoteClick(k.midi, el));
+    el.addEventListener('click', ()=> onKeyClick(k.midi, el));
     if(!k.black){
       const lbl = document.createElement('span');
       lbl.className = 'label'; lbl.textContent = solfegeLabel(k.midi);
@@ -540,7 +606,30 @@ function buildKeyboard(low, high){
   whiteEls.forEach(el=>pianoKeys.appendChild(el));
   blackEls.forEach(el=>pianoKeys.appendChild(el));
 }
-function resetKeyboardVisual(){ Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked','disabled','scaleNote'); }); }
+function resetKeyboardVisual(){ Object.values(keyEls).forEach(el=>{ el.classList.remove('correct','wrong','picked','picked1','picked2','disabled','scaleNote'); }); }
+function onKeyClick(midi, el){
+  if(curStage.type==='pair') return onKeyClickPair(midi, el);
+  return onNoteClick(midi, el);
+}
+function updateDots(){
+  document.getElementById('dot1').classList.toggle('filled', pickedPairVals.length>=1);
+  document.getElementById('dot2').classList.toggle('filled', pickedPairVals.length>=2);
+}
+function refreshPairVisual(){
+  Object.values(keyEls).forEach(el=> el.classList.remove('picked1','picked2'));
+  pickedPairVals.forEach((m,i)=>{ if(keyEls[m]) keyEls[m].classList.add(i===0?'picked1':'picked2'); });
+}
+function onKeyClickPair(midi, el){
+  if(isAnswered || !curPair) return;
+  const idx = pickedPairVals.indexOf(midi);
+  if(idx>=0){
+    pickedPairVals.splice(idx,1);
+  } else {
+    if(pickedPairVals.length>=2) return;
+    pickedPairVals.push(midi);
+  }
+  refreshPairVisual(); updateDots(); updateConfirmBtn();
+}
 function lockKeyboard(){ Object.values(keyEls).forEach(el=> el.classList.add('disabled')); }
 function buildQualityButtons(){
   const container = document.getElementById('quizAnswerArea');
@@ -562,14 +651,16 @@ function askQuestion(){
   showScreen('quiz');
   curStage = order[qIdx];
   setupAnswerUI();
-  isAnswered = false; pickedSet = new Set();
+  isAnswered = false; pickedSet = new Set(); pickedPairVals = [];
   replayCount = 0;
   const replayBtn = document.getElementById('replayBtn');
   replayBtn.disabled = false; replayBtn.textContent = '🔊 다시 듣기'; replayBtn.style.display = '';
   document.getElementById('replayNote').style.display = '';
   document.getElementById('qTypeExplain').textContent = curStage.explain;
+  document.getElementById('dotsWrap').style.display = curStage.type==='pair' ? '' : 'none';
+  if(curStage.type==='pair') updateDots();
   const confirmBtn = document.getElementById('confirmNoteBtn');
-  confirmBtn.style.display = curStage.type==='notes' ? '' : 'none';
+  confirmBtn.style.display = (curStage.type==='notes' || curStage.type==='pair') ? '' : 'none';
   confirmBtn.disabled = true;
   document.getElementById('feedbackText').textContent = '';
   document.getElementById('feedbackText').className = 'feedback-text';
@@ -578,11 +669,23 @@ function askQuestion(){
   st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
   if(curStage.type!=='quality') lockKeyboard();
 
+  if(curStage.type==='pair'){
+    st.textContent = '음을 재생하는 중…';
+    curPair = pickPairFor(curStage, recentPairKeys);
+    recentPairKeys.push(curPair[0]+'_'+curPair[1]); if(recentPairKeys.length>4) recentPairKeys.shift();
+    playPair(curPair, ()=>{
+      st.textContent = '들린 순서대로 건반을 고른 후 확인을 눌러주세요 (1번째 → 2번째)'; st.classList.remove('pulse');
+      resetKeyboardVisual();
+    });
+    window.__lastCand = null;
+    return;
+  }
+
   const cand = pickFrom(candidatesFor(curStage), recentCandidates);
   recentCandidates.push(cand); if(recentCandidates.length>4) recentCandidates.shift();
   if(curStage.type==='quality'){
     curAnswerSet = cand.quality;
-    setTimeout(()=>{ playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='메이저일까요, 마이너일까요?'; st.classList.remove('pulse'); }); }, 300);
+    playArpeggioThenChord(cand.midis, 1.3, ()=>{ st.textContent='메이저일까요, 마이너일까요?'; st.classList.remove('pulse'); });
   } else {
     curAnswerSet = new Set(cand);
     playScaleIntro(()=>{
@@ -595,6 +698,17 @@ function askQuestion(){
   window.__lastCand = cand;
 }
 document.getElementById('replayBtn').addEventListener('click', ()=>{
+  if(curStage.type==='pair'){
+    if(!curPair) return;
+    if(replayCount >= MAX_REPLAY) return;
+    replayCount++;
+    const replayBtn = document.getElementById('replayBtn');
+    if(replayCount >= MAX_REPLAY) replayBtn.disabled = true;
+    const st = document.getElementById('statusText');
+    st.textContent = '음을 재생하는 중…'; st.classList.add('pulse');
+    playPair(curPair, ()=>{ st.textContent = '들린 순서대로 건반을 고른 후 확인을 눌러주세요 (1번째 → 2번째)'; st.classList.remove('pulse'); });
+    return;
+  }
   const cand = window.__lastCand; if(!cand) return;
   if(replayCount >= MAX_REPLAY) return;
   replayCount++;
@@ -603,7 +717,7 @@ document.getElementById('replayBtn').addEventListener('click', ()=>{
   const st = document.getElementById('statusText');
   st.textContent = '화음을 재생하는 중…'; st.classList.add('pulse');
   if(curStage.type==='quality'){
-    playChordTogether(cand.midis, 1.3, ()=>{ st.textContent='메이저일까요, 마이너일까요?'; st.classList.remove('pulse'); });
+    playArpeggioThenChord(cand.midis, 1.3, ()=>{ st.textContent='메이저일까요, 마이너일까요?'; st.classList.remove('pulse'); });
   } else {
     playScaleIntro(()=>{ playChordTogether(cand, 1.3, ()=>{ st.textContent = `화음을 이루는 건반 ${curStage.notes}개를 고른 후 확인을 눌러주세요`; st.classList.remove('pulse'); }); });
   }
@@ -631,7 +745,9 @@ function onNoteClick(midi, el){
   updateConfirmBtn();
 }
 function updateConfirmBtn(){
-  document.getElementById('confirmNoteBtn').disabled = pickedSet.size !== curStage.notes;
+  const btn = document.getElementById('confirmNoteBtn');
+  if(curStage.type==='pair') btn.disabled = pickedPairVals.length !== 2;
+  else btn.disabled = pickedSet.size !== curStage.notes;
 }
 function onConfirmNotes(){
   if(isAnswered) return;
@@ -648,7 +764,29 @@ function onConfirmNotes(){
   lockKeyboard();
   finishAnswer(correct);
 }
-document.getElementById('confirmNoteBtn').addEventListener('click', onConfirmNotes);
+function onConfirmPair(){
+  if(isAnswered || pickedPairVals.length!==2) return;
+  isAnswered = true;
+  document.getElementById('confirmNoteBtn').disabled = true;
+  const correct = pickedPairVals[0]===curPair[0] && pickedPairVals[1]===curPair[1];
+  if(correct){
+    pickedPairVals.forEach(m=>{ const el=keyEls[m]; if(el){ el.classList.remove('picked1','picked2'); el.classList.add('correct'); } });
+  } else {
+    pickedPairVals.forEach(m=>{
+      const el = keyEls[m]; if(!el) return;
+      el.classList.remove('picked1','picked2');
+      if(!curPair.includes(m)) el.classList.add('wrong');
+    });
+    curPair.forEach(m=>{ const el=keyEls[m]; if(el){ el.classList.remove('wrong'); el.classList.add('correct'); } });
+  }
+  lockKeyboard();
+  finishAnswer(correct);
+}
+function onConfirmKey(){
+  if(curStage.type==='pair') return onConfirmPair();
+  return onConfirmNotes();
+}
+document.getElementById('confirmNoteBtn').addEventListener('click', onConfirmKey);
 function finishAnswer(correct){
   const fb = document.getElementById('feedbackText');
   if(correct){
@@ -681,7 +819,7 @@ document.getElementById('startBtn').addEventListener('click', async ()=>{
   await Promise.race([ loadPianoSamples(), new Promise(res=>setTimeout(res, 4000)) ]);
   btn.disabled = false; btn.textContent = origText;
   order = QUESTION_TEMPLATE.slice();
-  qIdx = 0; score = 0; recentCandidates = [];
+  qIdx = 0; score = 0; recentCandidates = []; recentPairKeys = [];
   askQuestion();
 });
 document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
