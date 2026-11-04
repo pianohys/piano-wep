@@ -276,6 +276,36 @@ function ensureCtx(){
 }
 function freqFromMidi(midi){ return 440 * Math.pow(2, (midi-69)/12); }
 
+// ---------- 그랜드 피아노 룸 울림(리버브) ----------
+// 실제 공연장 IR(임펄스 응답) 파일은 네트워크 제약으로 가져올 수 없어, 지수적으로 감쇠하는
+// 화이트노이즈로 합성한 임펄스 응답을 ConvolverNode에 먹여 콘서트홀 울림을 흉내냄. 음계든
+// 단일음이든 화음이든, scheduleTone을 거치는 모든 소리가 이 공용 리버브 버스로 살짝
+// 보내져(센드) 드라이 소리와 섞임.
+let reverbConvolver = null, reverbSend = null;
+function buildReverbImpulse(ctx, duration, decay){
+  const rate = ctx.sampleRate;
+  const length = Math.max(1, Math.floor(rate * duration));
+  const impulse = ctx.createBuffer(2, length, rate);
+  for(let ch=0; ch<2; ch++){
+    const data = impulse.getChannelData(ch);
+    for(let i=0;i<length;i++){
+      data[i] = (Math.random()*2 - 1) * Math.pow(1 - i/length, decay);
+    }
+  }
+  return impulse;
+}
+function getReverbSend(){
+  const ctx = ensureCtx();
+  if(reverbSend) return reverbSend;
+  reverbConvolver = ctx.createConvolver();
+  reverbConvolver.buffer = buildReverbImpulse(ctx, 2.4, 2.6);
+  const wet = ctx.createGain(); wet.gain.value = 0.78;
+  reverbConvolver.connect(wet).connect(ctx.destination);
+  reverbSend = ctx.createGain(); reverbSend.gain.value = 0.46;
+  reverbSend.connect(reverbConvolver);
+  return reverbSend;
+}
+
 // ---------- 실제 어쿠스틱 피아노 음원(Salamander Grand Piano, CC BY) ----------
 // index.html(작곡하기)에서 쓰는 것과 같은 samples/piano 폴더의 멀티샘플을 그대로 재사용.
 // 로딩 전/실패 시에는 기존 합성음(triangle+sine)으로 자동 대체됨.
@@ -324,6 +354,7 @@ function playPianoSample(freq, startTime, duration){
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + playDur);
   }
   src.connect(gain).connect(ctx.destination);
+  gain.connect(getReverbSend());
   src.start(startTime); src.stop(startTime + playDur + 0.05);
   return true;
 }
@@ -344,6 +375,7 @@ function scheduleTone(freq, startTime, duration){
   gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration*0.6);
   osc.connect(gain).connect(ctx.destination);
   osc2.connect(gain2).connect(ctx.destination);
+  gain.connect(getReverbSend()); gain2.connect(getReverbSend());
   osc.start(startTime); osc.stop(startTime + duration + 0.05);
   osc2.start(startTime); osc2.stop(startTime + duration + 0.05);
 }
