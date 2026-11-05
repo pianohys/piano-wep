@@ -470,22 +470,20 @@ function playScaleThenNote(onReady, targetMidi){
 }
 function pickPairFor(stage, recentPairKeys){
   const pool = stage.pool;
+  const maxInterval = stage.maxInterval;
   let a, b, guard = 0;
   do{
     a = pool[Math.floor(Math.random()*pool.length)];
-    b = pool[Math.floor(Math.random()*pool.length)];
-    guard++;
-  } while((a===b || recentPairKeys.indexOf(a+'_'+b) >= 0) && guard < 40);
-  if(stage.biasBlack){
-    const blacks = pool.filter(isBlack);
-    if(blacks.length){
-      if(!isBlack(a) && !isBlack(b)){
-        const repl = blacks[Math.floor(Math.random()*blacks.length)];
-        if(Math.random()<0.5) a = repl; else b = repl;
-        if(a===b){ const whites = pool.filter(m=>!isBlack(m)); b = whites[Math.floor(Math.random()*whites.length)]; }
-      }
+    let candidates = pool.filter(m => m!==a && (maxInterval==null || Math.abs(m-a) <= maxInterval));
+    if(!candidates.length) candidates = pool.filter(m => m!==a);
+    if(stage.biasBlack){
+      const blackCands = candidates.filter(isBlack);
+      const whiteCands = candidates.filter(m=>!isBlack(m));
+      if(blackCands.length && (Math.random() < 0.66 || !whiteCands.length)) candidates = blackCands;
     }
-  }
+    b = candidates[Math.floor(Math.random()*candidates.length)];
+    guard++;
+  } while(recentPairKeys.indexOf(a+'_'+b) >= 0 && guard < 40);
   return Math.random()<0.5 ? [a,b] : [b,a];
 }
 function playPair(pair, onReady){
@@ -515,7 +513,7 @@ function playPair(pair, onReady){
 const STAGE_DEFS = {
   s1: { type:'single', pool:POOL_WHITE, biasBlack:false, explain:'도부터 높은 도까지, 8개의 음 중에서 들린 음을 골라보세요.' },
   s2: { type:'single', pool:POOL_CHROMA, biasBlack:true, explain:'샵(#)이나 플랫(♭)이 포함된 음도 나올 수 있어요.' },
-  s3: { type:'pair', pool:POOL_WHITE, biasBlack:false, explain:'두 음을 순서대로 들려드려요. 들린 순서대로 짚어보세요.' },
+  s3: { type:'pair', pool:POOL_WHITE, biasBlack:false, maxInterval:9, explain:'두 음을 순서대로 들려드려요. 들린 순서대로 짚어보세요.' },
 };
 const QUESTION_TEMPLATE = [
   ...Array(5).fill(STAGE_DEFS.s1),
