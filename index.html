@@ -3221,6 +3221,9 @@ function saveBaseName(){
 // 데스크톱 크롬/파이어폭스는 보통 파일 공유를 지원하지 않아서(canShare가 false) 자동으로 예전
 // 방식인 <a download>로 넘어가고, 거기서는 원래처럼 조용히 다운로드 폴더에 저장됨 — 두 경우 다
 // 그대로 잘 동작하게 유지됨.
+// 어느 경로로 저장됐는지(method)도 같이 돌려줌 — "classic"(<a download>)은 브라우저가 아무 안내
+// 없이 조용히 다운로드 폴더에 넣어버려서, 호출하는 쪽이 "다운로드 폴더를 확인해보세요" 같은 안내를
+// 따로 보여줄 수 있게 함. "저장은 됐는데 학생들이 파일을 못 찾는다"는 피드백이 바로 이 경로 때문임.
 async function offerDownload(filename, data){
   if(window.claude && typeof window.claude.use==='function'){
     try{
@@ -3228,7 +3231,7 @@ async function offerDownload(filename, data){
       if(downloads){
         try{
           await downloads.save({filename, data});
-          return {ok:true};
+          return {ok:true, method:'claude'};
         }catch(err){
           return {ok:false, code:(err&&err.code)||'unavailable'};
         }
@@ -3241,7 +3244,7 @@ async function offerDownload(filename, data){
       const file=new File([blob], filename, {type:blob.type||'application/octet-stream'});
       if(navigator.canShare({files:[file]})){
         await navigator.share({files:[file]});
-        return {ok:true};
+        return {ok:true, method:'share'};
       }
     }catch(err){
       if(err && (err.name==='AbortError')) return {ok:false, code:'declined'};
@@ -3253,7 +3256,7 @@ async function offerDownload(filename, data){
     const a=document.createElement('a'); a.href=url; a.download=filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),3000);
-    return {ok:true};
+    return {ok:true, method:'classic'};
   }catch(_){ return {ok:false, code:'unavailable'}; }
 }
 document.getElementById('fsave').addEventListener('click',async ()=>{
@@ -5086,7 +5089,13 @@ saveAudioBtn.addEventListener('click', async ()=>{
   setRecStatus('저장하는 중…');
   const res=await offerDownload(filename, recBlob);
   if(res.ok){
-    setRecStatus(`저장했어요: ${filename}`);
+    // method==='classic'(<a download>)는 브라우저가 아무 안내 없이 조용히 다운로드 폴더에 저장해버려서
+    // "저장은 됐는데 파일을 못 찾겠다"는 피드백으로 이어짐 — 그 경로일 때만 어디서 찾아야 하는지 덧붙여줌.
+    // claude(앱 저장 대화상자)/share(아이폰 "저장" 시트)는 그 자리에서 위치를 직접 고르므로 안내가 안 필요함.
+    const whereHint = res.method==='classic'
+      ? ' 기기의 <b>다운로드</b> 폴더나 <b>파일</b> 앱에서 찾을 수 있어요. (아이폰: 파일 앱 → 다운로드 / 안드로이드: 파일 앱 → Download / 컴퓨터: 다운로드 폴더)'
+      : '';
+    setRecStatus(`저장했어요: <b>${filename}</b>.${whereHint}`);
   } else if(res.code==='declined'){
     setRecStatus('저장을 취소했어요.');
   } else {
