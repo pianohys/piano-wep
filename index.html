@@ -4817,7 +4817,12 @@ function mimeToExt(baseMime){
   // 비디오 카메라 아이콘으로 뜨고, Suno 같은 "오디오 파일만" 받는 업로드 창에서는 아예 골라지지도
   // 않음(눌러도 반응 없음) — 오디오 전용 확장자인 .m4a(UTI: public.mpeg-4-audio, public.audio를
   // 만족함)로 저장해야 "오디오 파일"로 제대로 인식되고 그런 업로드 창에서도 선택할 수 있음.
-  return baseMime.indexOf('mp4')>-1 ? 'm4a' : (baseMime.indexOf('webm')>-1 ? 'webm' : 'dat');
+  // 'audio/webm'도 같은 문제라, .webm 그대로 저장하면 대부분의 OS/파일 선택창이 "동영상"으로
+  // 분류해서 과제 제출처럼 "오디오 파일만" 받는 업로드 창에 안 뜸("분명히 저장했는데 과제 제출할 때
+  // 안 보인다"는 피드백의 원인) — 오디오 전용 확장자인 .weba(WebM Audio, Firefox/WebM 표준에서 쓰는
+  // 확장자)로 저장해야 오디오로 인식됨. (mp3 변환이 성공하면 이 함수는 아예 안 쓰이고 .mp3로 저장되니,
+  // 변환이 실패했을 때의 대비책임.)
+  return baseMime.indexOf('mp4')>-1 ? 'm4a' : (baseMime.indexOf('webm')>-1 ? 'weba' : 'dat');
 }
 function showRecResult(){
   showRecordPopup();   // 녹음이 끝났으니 결과(또는 실패 메시지)를 다시 팝업으로 보여줌
