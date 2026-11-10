@@ -758,7 +758,7 @@ document.getElementById('gateSubmitBtn').addEventListener('click', async ()=>{
   await submitRecord(grade, name, score, 100);
   btn.disabled = false; btn.textContent = '제출하기';
   document.getElementById('nameGateForm').style.display = 'none';
-  document.getElementById('gateDone').textContent = `${name}님, ${score}점! 축하합니다! 이 화면을 진행자에게 보여주시고, 다음 단계(고급)에도 도전해보세요!`;
+  document.getElementById('gateDone').textContent = `${name}님, ${score}점! 축하합니다! 이제 이 화면을 닫고 다른 문제에 도전하세요.`;
   document.getElementById('gateDone').style.display = '';
 });
 document.getElementById('restartBtn').addEventListener('click', ()=>{
