@@ -21,15 +21,23 @@
 //
 // ---- 저장 위치 ----
 // 드라이브에 "작곡하기 제출 파일"이라는 폴더가 자동으로 만들어지고(이미 있으면 그대로 씀),
-// 그 안에 학생이 입력한 제목/학년/반/번호/이름이 들어간 파일 이름 그대로 저장됨 — 작곡하기
-// 앱이 로컬에 저장할 때 쓰는 이름 규칙과 동일함.
+// 그 안에 학생이 입력한 "반"별로 하위 폴더가 또 자동으로 생겨서(예: "2반", 반을 안 적었으면
+// "반미기재") 그 안에 파일이 저장됨 — 반마다 폴더가 나뉘어 있어서 수합/채점하기 편함. 파일
+// 이름 자체는 제목/학년/반/번호/이름이 들어간 기존 규칙 그대로(작곡하기 앱이 로컬에 저장할
+// 때 쓰는 이름 규칙과 동일함).
 
 var SUBMIT_FOLDER_NAME = '작곡하기 제출 파일';
 
-function getOrCreateSubmitFolder_() {
-  var folders = DriveApp.getFoldersByName(SUBMIT_FOLDER_NAME);
+function getOrCreateChildFolder_(parent, name) {
+  var folders = parent.getFoldersByName(name);
   if (folders.hasNext()) return folders.next();
-  return DriveApp.createFolder(SUBMIT_FOLDER_NAME);
+  return parent.createFolder(name);
+}
+
+function getOrCreateSubmitFolder_(clsName) {
+  var root = getOrCreateChildFolder_(DriveApp, SUBMIT_FOLDER_NAME);
+  var clsFolderName = sanitizeFileName_(clsName || '반미기재');
+  return getOrCreateChildFolder_(root, clsFolderName);
 }
 
 function sanitizeFileName_(name) {
@@ -50,7 +58,7 @@ function doPost(e) {
     var bytes = Utilities.base64Decode(data.base64);
     var blob = Utilities.newBlob(bytes, mimeType, filename);
 
-    var folder = getOrCreateSubmitFolder_();
+    var folder = getOrCreateSubmitFolder_(data.cls);
     var file = folder.createFile(blob);
 
     result = {
