@@ -3199,15 +3199,35 @@ document.getElementById('share').addEventListener('click',async ()=>{
 });
 
 // ---------- save / temporary save ----------
-const SAVEKEY='rhythm-maker-save-v1';
+// 예전엔 모든 학생이 기기 하나당 똑같은 localStorage 키 하나를 같이 썼음 — 교실/부스에서
+// 여러 학생이 같은 기기(브라우저)를 돌아가며 쓰면, 나중에 임시저장한 학생이 이전 학생의
+// 저장분을 그냥 덮어써버려서 "분명 같은 기기인데 이어서 하기가 안 된다"는 문제로 이어짐.
+// 그래서 위 학년/반/번호/이름 칸에 적은 내용으로 저장 키 자체를 학생별로 분리함 — 이름을
+// 꼭 적어야 저장/불러오기가 되게 해서, 비워둔 채로 눌러 서로 겹치는 일이 없게 함.
+const SAVEKEY_LEGACY='rhythm-maker-save-v1';   // 이 기능을 고치기 전, 기기별 공용 슬롯에 저장된 것
+const SAVEKEY_PREFIX='rhythm-maker-save-v2';
+function tempSaveKey(){
+  const {title,grade,cls,num,name}=studentTokens();
+  return SAVEKEY_PREFIX+'::'+[title,grade,cls,num,name].join('_');
+}
 document.getElementById('tsave').addEventListener('click',()=>{
   if(ensureNotMidRecording('임시저장')) return;
-  try{ localStorage.setItem(SAVEKEY, encodeState()); setStatus('임시저장했어요. 다음에 열면 「📂 이어서 하기」로 불러올 수 있어요.'); }
+  if(!document.getElementById('recName').value.trim()){
+    setStatus('임시저장하려면 먼저 위에 <b>이름</b>을 적어주세요. (같은 기기를 여러 명이 써도 서로 안 겹치게 하려고요)');
+    return;
+  }
+  try{ localStorage.setItem(tempSaveKey(), encodeState()); setStatus('임시저장했어요. 나중에 똑같은 이름을 적고 「📂 이어서 하기」를 누르면 불러올 수 있어요.'); }
   catch(_){ setStatus('이 브라우저에선 임시저장이 안 돼요. 「⬇️ 파일로 저장」을 이용해 주세요.'); }
 });
 document.getElementById('tload').addEventListener('click',()=>{
-  try{ const s=localStorage.getItem(SAVEKEY);
-    if(!s){ setStatus('임시저장된 내용이 없어요.'); return; }
+  if(!document.getElementById('recName').value.trim()){
+    setStatus('이어서 하려면 먼저 저장할 때 적었던 것과 똑같은 <b>이름</b>을 적어주세요.');
+    return;
+  }
+  try{
+    let s=localStorage.getItem(tempSaveKey());
+    if(!s) s=localStorage.getItem(SAVEKEY_LEGACY);   // 이 기능을 고치기 전(기기 공용 슬롯)에 저장된 게 있으면 그거라도
+    if(!s){ setStatus('이 이름으로 임시저장된 내용이 없어요. 학년·반·번호·이름을 저장할 때와 똑같이 적었는지 확인해주세요.'); return; }
     if(decodeState(s)) setStatus('임시저장한 내용을 불러왔어요.'); else setStatus('불러오기에 실패했어요.');
   }catch(_){ setStatus('불러오기에 실패했어요.'); }
 });
