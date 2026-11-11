@@ -619,6 +619,11 @@
       <div class="recResultLabel" id="recResultLabelNC">🎵 녹음 결과</div>
       <audio id="recPlayer" controls=""></audio>
       <button type="button" class="btn-save-audio btn-save-audio--nc" id="saveAudioNC" disabled="">💾 음성 파일로 저장</button>
+      <!-- 로컬에 저장했다가 과제 제출 창에 다시 올리는 과정에서, 파일 선택창이 어떤 이유로든
+           그 파일을 걸러내서 "분명 저장했는데 안 보인다"는 문제가 반복돼서, 그 단계 자체를
+           건너뛰고 녹음 직후 선생님의 구글 드라이브로 바로 보내는 버튼을 추가함. 선생님이
+           아래 DRIVE_UPLOAD_URL에 자신의 Apps Script 배포 주소를 넣기 전까지는 숨겨져 있음. -->
+      <button type="button" class="btn-save-audio btn-save-audio--nc" id="submitDriveBtn" disabled="" style="display:none">📤 선생님 드라이브로 제출</button>
     </div>
   </div>
 </div>
@@ -4678,6 +4683,52 @@ const recBtn=document.getElementById('recBtn');
 const saveAudioBtn=document.getElementById('saveAudio');
 const saveAudioNCBtn=document.getElementById('saveAudioNC');
 if(saveAudioNCBtn) saveAudioNCBtn.addEventListener('click', ()=>{ saveAudioBtn.click(); });
+// ---------- 드라이브로 바로 제출 ----------
+// "로컬에 저장 → 과제 제출 창에서 그 파일 다시 찾아 올리기" 흐름에서, 기기/브라우저의 파일
+// 선택창이 이유 없이 그 파일을 걸러내서 "분명 저장했는데 과제 제출하려니 안 보인다"는 문제가
+// 반복적으로 발생함 — 로컬 저장·재업로드 단계 자체를 건너뛰고 녹음 직후 바로 선생님의 구글
+// 드라이브로 전송하는 경로. 선생님이 scripts/drive_upload.gs를 자신의 Google Apps Script로
+// 배포한 뒤 그 배포 주소를 아래에 넣어야 버튼이 나타남(비워두면 기존처럼 안 보임 — 안전한 기본값).
+const DRIVE_UPLOAD_URL=''; // 예: 'https://script.google.com/macros/s/AKfycby.../exec'
+const submitDriveBtn=document.getElementById('submitDriveBtn');
+if(submitDriveBtn && DRIVE_UPLOAD_URL) submitDriveBtn.style.display='';
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onloadend=()=>resolve(String(reader.result).split(',')[1]||'');
+    reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  });
+}
+if(submitDriveBtn) submitDriveBtn.addEventListener('click', async ()=>{
+  if(!recBlob || !DRIVE_UPLOAD_URL) return;
+  if(blockIfUnfinished('드라이브로 제출할')) return;
+  const filename=recFileName('', recExt);
+  const origText=submitDriveBtn.textContent;
+  submitDriveBtn.disabled=true; submitDriveBtn.textContent='제출하는 중…';
+  setRecStatus('드라이브로 제출하는 중…');
+  try{
+    const base64=await blobToBase64(recBlob);
+    const {title,grade,cls,num,name}=studentTokens();
+    // Content-Type을 text/plain으로 보내면 브라우저가 "단순 요청"으로 취급해 CORS 사전 요청
+    // (OPTIONS)을 건너뛰어서, Apps Script 웹앱에 별도 설정 없이도 그대로 전달됨(이 프로젝트의
+    // 다른 Apps Script 연동에서도 쓰는 방식) — 서버 쪽에서 e.postData.contents를 JSON.parse.
+    const res=await fetch(DRIVE_UPLOAD_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({filename, mimeType:(recBlob.type||'audio/mpeg'), base64, title, grade, cls, num, name})
+    });
+    const json=await res.json().catch(()=>null);
+    if(json && json.ok){
+      setRecStatus(`선생님 드라이브로 제출했어요: <b>${filename}</b>`);
+    } else {
+      setRecStatus('제출에 실패했어요. 다시 시도해주세요.');
+    }
+  }catch(_){
+    setRecStatus('제출 중 오류가 발생했어요. 인터넷 연결을 확인해주세요.');
+  }
+  submitDriveBtn.disabled=!recBlob; submitDriveBtn.textContent=origText;
+});
 const countdownOverlay=document.getElementById('countdownOverlay');
 const countdownNum=document.getElementById('countdownNum');
 
@@ -4843,6 +4894,10 @@ function showRecResult(){
   if(saveAudioNCBtn){
     saveAudioNCBtn.disabled=!recBlob;
     saveAudioNCBtn.textContent=saveAudioBtn.textContent;
+  }
+  if(submitDriveBtn && DRIVE_UPLOAD_URL){
+    submitDriveBtn.disabled=!recBlob;
+    submitDriveBtn.textContent='📤 선생님 드라이브로 제출';
   }
   setRecStatus('녹음이 끝났어요! 들어보고 저장해보세요.');
 }
