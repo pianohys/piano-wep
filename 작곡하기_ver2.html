@@ -86,12 +86,11 @@
   /* accidentals — sharp/flat/natural tiles, dragged onto an already-placed note in the score below.
      음표 상자(palgroups)와 같은 palRow에 두고, palSticky가 그 줄 전체를 화면 위에 고정해 둠 —
      요청: "임시표넣기는 맨위에 음표 끌어다놓기 옆에 넣어줘야 악보가 길어져도 넣을 수 있을 것 같아".
-     "임시표" 글씨를 타일 위쪽에 두는 세로 배치라, 음표 상자와의 간격이 좁아 보이지 않음(요청:
-     "임시표라는 글씨가 위로가게.. 왼쪽에 있는 음표들이랑 간격이 너무 좁아"). */
-  .accBox{display:flex;flex-direction:column;align-items:flex-start;gap:5px;flex:0 0 auto;
-    padding-left:14px;border-left:1.5px solid var(--soft)}
-  .accBoxTiles{display:flex;align-items:center;gap:6px}
-  .accBoxLabel{font-weight:400;font-size:12.5px;color:#807a6a;font-family:'Noto Sans KR';white-space:nowrap}
+     왼쪽 음표 상자(.paltable)와 똑같이 "머리글 한 줄 + 칸 한 줄"의 작은 표로 만듦(요청:
+     "임시표도 왼쪽처럼 작게라도 표로 만들어줘") — .paltable 클래스를 그대로 재사용해 머리글
+     스타일까지 왼쪽 표와 통일되고, 표 자체 테두리가 음표 상자와 구분선 역할도 함께 함. */
+  .accBox{flex:0 0 auto}
+  .accCell{padding:7px 10px;text-align:center;vertical-align:middle}
   /* review/record/save shortcuts — sit at the right edge of the score's own eyebrow row
      (margin-left:auto) so they're reachable right away without scrolling down to those sections. */
   .topActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;margin-left:auto}
@@ -427,7 +426,6 @@
   @media (max-width:560px){
     .tilebox{ height:56px; } .tile svg{ width:46px!important; height:52px!important; }
     .paltable th{ font-size:13px; padding:2px 5px 6px; }
-    .accBoxLabel{ display:none; }             /* keep the icons, drop the label text to save room */
     .acctile{ width:28px; height:28px; font-size:15px; }
     .topActions button{ padding:7px 10px; font-size:12.5px; }
     .chordPickPopup{ width:186px; }
@@ -499,14 +497,16 @@
         <div class="palgroups" id="palgroups"></div>
         <button type="button" class="palScrollBtn palScrollBtn--right" id="palScrollRight" aria-label="오른쪽으로 이동" disabled>›</button>
       </div>
-      <span class="accBox" id="accBox">
-        <span class="accBoxLabel">임시표 — 끌어다 음표에 놓기</span>
-        <span class="accBoxTiles">
-          <span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span>
-          <span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span>
-          <span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span>
-        </span>
-      </span>
+      <div class="accBox" id="accBox">
+        <table class="paltable">
+          <thead><tr><th colspan="3">임시표 — 끌어다 음표에 놓기</th></tr></thead>
+          <tbody><tr>
+            <td class="accCell"><span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span></td>
+            <td class="accCell"><span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span></td>
+            <td class="accCell"><span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span></td>
+          </tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
