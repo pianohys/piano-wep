@@ -4709,7 +4709,7 @@ if(saveAudioNCBtn) saveAudioNCBtn.addEventListener('click', ()=>{ saveAudioBtn.c
 // 반복적으로 발생함 — 로컬 저장·재업로드 단계 자체를 건너뛰고 녹음 직후 바로 선생님의 구글
 // 드라이브로 전송하는 경로. 선생님이 scripts/drive_upload.gs를 자신의 Google Apps Script로
 // 배포한 뒤 그 배포 주소를 아래에 넣어야 버튼이 나타남(비워두면 기존처럼 안 보임 — 안전한 기본값).
-const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbzDi6r60vif_c0AVOKDX7kRZro93u3pQeD3MbUZoPH0Es4isUVhNkcmwDDKb5Q55jXuFA/exec';
+const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbzuY8uWvI-dPDxJIUovjROIGzPMOgqxp0V9pFWNPOFl8Y7Dl2HeZwr5LPn3p-NEy-LgWQ/exec';
 const submitDriveBtn=document.getElementById('submitDriveBtn');
 if(submitDriveBtn && DRIVE_UPLOAD_URL) submitDriveBtn.style.display='';
 function blobToBase64(blob){
