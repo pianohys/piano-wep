@@ -202,6 +202,31 @@
   /* 악보 검토하기: 4박이 안 맞는 마디를 빨간 박스로 표시 */
   .measure.flagged{outline:3px solid var(--coral);outline-offset:3px;border-radius:8px;box-shadow:0 0 0 3px rgba(228,87,46,.12) inset}
   .measure.flagged .mnum{color:var(--coral);font-weight:700}
+  /* 마디 복사: 드래그하는 동안 지금 선택된 범위가 한눈에 보이게(copy-selecting), 복사가
+     끝나면 "✅ 복사됨" 배지로 어디가 복사됐는지 확실히 알 수 있게(copy-copied) 표시함.
+     마디 지우기도 같은 방식으로 드래그 중인 범위를 색으로 보여줌(erase-selecting, 지우개와 같은 코랄색). */
+  .measure.copy-selecting{outline:3px solid var(--amber);outline-offset:-3px;border-radius:8px;background:rgba(244,201,93,.22);z-index:2}
+  .measure.copy-copied{outline:3px solid var(--amber);outline-offset:-3px;border-radius:8px}
+  .measure.copy-copied::after{content:"✅ 복사됨";position:absolute;top:4px;right:6px;font-size:11px;font-weight:700;
+    color:#5c4400;background:var(--amber);padding:2px 8px;border-radius:999px;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .measure.erase-selecting{outline:3px solid var(--coral);outline-offset:-3px;border-radius:8px;background:rgba(228,87,46,.22);z-index:2}
+  /* 마디 번호(.mnum)를 눌러 "여기부터 재생" 시작점으로 고르면, 그 마디에 재생 버튼과 같은 색(teal)
+     테두리 + 마디 번호 앞에 ▶ 표시를 남겨서 어디서부터 재생될지 한눈에 보이게 함. */
+  .mnum{cursor:pointer}
+  .measure.play-start{outline:3px dashed var(--teal);outline-offset:-3px;border-radius:8px}
+  .measure.play-start .mnum{color:var(--teal);font-weight:700}
+  .measure.play-start .mnum::before{content:"▶ "}
+  /* 재생 중 화면이 따라 스크롤돼도 늘 손이 닿는 곳(화면 오른쪽 아래)에 떠 있는 정지 버튼 —
+     재생 중일 때만(.show) 보이게 함. */
+  #floatingStop{position:fixed;right:18px;bottom:18px;z-index:60;align-items:center;gap:8px;
+    padding:14px 22px;border-radius:999px;border:none;background:var(--coral);color:#fff;
+    font-family:"Noto Sans KR";font-size:16px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.3);
+    cursor:pointer;display:none}
+  #floatingStop.show{display:flex}
+  #floatingStop:active{filter:brightness(.9)}
+  @media (max-width:760px){
+    #floatingStop{right:12px;bottom:max(12px, env(safe-area-inset-bottom));font-size:15px;padding:12px 20px;}
+  }
   .slot{flex:1 1 0;width:auto;position:relative;cursor:pointer;border-radius:8px;transition:background .1s;
         -webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   /* these two draw the staff lines and bar lines using a plain CSS background — print-color-adjust
@@ -399,7 +424,7 @@
   @media print{
     body{ background:#fff; }
     .wrap{ max-width:none; }
-    header.top .sub, .palSticky, .accBox, .controls, .savebar, .hint, .how, .keymode-row, .studentInfoHint, .chordPickPopup{ display:none!important; }
+    header.top .sub, .palSticky, .accBox, .controls, .savebar, .hint, .how, .keymode-row, .studentInfoHint, .chordPickPopup, #floatingStop{ display:none!important; }
     .studentInfo{ border:none; background:transparent; padding:0; }
     .studentInfo input{ border:none; background:transparent; padding:0 2px; font-weight:700; }
     .panel.score{ border:none; box-shadow:none; background:#fff; padding:0; margin:0; }
@@ -459,6 +484,10 @@
       <button type="button" class="palScrollBtn palScrollBtn--right" id="palScrollRight" aria-label="오른쪽으로 이동" disabled>›</button>
     </div>
   </div>
+
+  <!-- 재생 중에는 화면이 자동으로 스크롤돼서 아래쪽 「■ 정지」 버튼이 화면 밖으로 밀려날 수 있음 —
+       재생하는 동안만(.show) 화면에 항상 떠 있는 정지 버튼을 따로 둬서 스크롤 위치와 상관없이 바로 멈출 수 있게 함. -->
+  <button type="button" id="floatingStop" aria-label="정지">■ 정지</button>
   <!-- SCORE -->
   <section class="panel score">
     <p class="eyebrow"><span class="num">2</span>빈 오선 악보 <span style="font-weight:400;font-size:14px;color:#807a6a;font-family:'Noto Sans KR'">— 4/4박자, <span id="meascount">8</span>마디</span>
@@ -849,7 +878,7 @@ const CLEF_PATH_D = "M29.28,67.35 L26.77,68.66 L25.25,70.51 L23.29,73.67 L21.98,
 const CLEF_TAG = `<path d="${CLEF_PATH_D}" fill="${INK}" fill-rule="evenodd"/>`;
 function clefColumn(withGlyph){ return `<div class="clef"><svg viewBox="0 0 64 ${VH2}" width="64" height="${VH2}">${withGlyph?CLEF_TAG:''}</svg></div>`; }
 
-const BEATS=4, MAXMEAS=32; let MEAS=8, SLOTS=MEAS*BEATS;   // measures grow one at a time (8 -> 9 -> 10 ...); clef repeats every 4
+const BEATS=4, MAXMEAS=40; let MEAS=8, SLOTS=MEAS*BEATS;   // measures grow one at a time (8 -> 9 -> 10 ...); clef repeats every 4
 const board=document.getElementById('board');
 const slotData=new Array(SLOTS).fill(null);
 const pitchData=new Array(SLOTS).fill(null);   // diatonic step per slot (only meaningful when slotData has onsets)
@@ -993,8 +1022,10 @@ let measureEraseMode=false;   // when on, clicking anywhere in a measure clears 
 // 상태) 이미 걸려 있는 붙임줄(진한 곡선)만 보이고, 같은 음높이가 우연히 이어질 때마다 힌트가 뜨는
 // 일은 없음 — 학생이 붙임줄을 쓸 생각이 없을 때 괜히 이상한 점선이 보여서 헷갈리지 않게 하려는 것.
 let tieMode=false;
-let measCopyMode=false, measPasteMode=false;   // 마디 복사/붙여넣기 모드 — 한 마디의 음표·가사·화음을 통째로 다른 마디에 덮어씀
-let measClip=null;   // {n,p,f,a,l,c} — copyMeasureContents()가 채움
+let measCopyMode=false, measPasteMode=false;   // 마디 복사/붙여넣기 모드 — 마디 통째로(여러 마디 가능) 다른 위치에 덮어씀
+let measClip=null;   // [{n,p,f,a,l,c}, ...] — 복사한 마디들(왼쪽부터 순서대로). copyMeasureRange()가 채움
+let measDragAnchor=null, measDragCur=null;   // 복사/지우기 모드에서 드래그 중인 마디 범위(시작 마디~현재 마디)
+let playStartMeas=0;   // 마디 번호(.mnum)를 눌러 고른 "여기부터 재생" 시작 마디(0부터 시작). 기본 0=처음부터.
 let lastSpace=0;          // debounce: Korean IME can fire the space key twice
 
 // build palette — a single 2-row table (header row of beat-value labels, body row of shapes) so
@@ -1069,7 +1100,7 @@ window.addEventListener('resize',updatePalScrollBtns);
 updatePalScrollBtns();
 function selectTile(id,el){
   if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
-  if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+  exitMeasureEraseMode();
   exitTieMode();
   exitMeasCopyPasteMode();
   if(cursorIdx!=null){
@@ -1163,6 +1194,7 @@ function chordTagHTML(mi){
 }
 function buildBoard(){
   cursorIdx=null;   // board.innerHTML is about to be replaced, so any stale cursor-slot reference must go too
+  playStartMeas=0;   // 마디 구조가 통째로 다시 그려지므로, 전에 골라 둔 "여기부터 재생" 시작점도 함께 초기화
   chordPopupMi=null; chordPopupView='pick'; chordPopupSelected=[]; chordPopupHalf=null;   // board is being rebuilt from scratch, so any open chord popup (a child of a soon-to-be-removed .measure) is gone with it
   const systems=Math.ceil(MEAS/4);   // last system may have fewer than 4 measures when MEAS isn't a multiple of 4
   let html='';
@@ -1938,6 +1970,16 @@ function exitTieMode(){
 function exitMeasCopyPasteMode(){
   if(measCopyMode){ measCopyMode=false; document.getElementById('copyMeasureBtn').classList.remove('active'); }
   if(measPasteMode){ measPasteMode=false; document.getElementById('pasteMeasureBtn').classList.remove('active'); }
+  measDragAnchor=null; measDragCur=null;
+  clearMeasureRangeHighlight();
+}
+function exitMeasureEraseMode(){
+  if(!measureEraseMode) return;
+  measureEraseMode=false;
+  document.getElementById('clearMeasure').classList.remove('active');
+  board.classList.remove('measure-erasing');
+  measDragAnchor=null; measDragCur=null;
+  clearMeasureRangeHighlight();
 }
 // 붙임줄 반쪽 곡선 하나 — 실제로 두 칸에 걸쳐 이어 그리지 않고, 각 칸 안에서만 끝나는 곡선을 양쪽에
 // 하나씩 그림(마디/줄이 바뀌어도 항상 자기 칸 안에서 그려지니 안전함).
@@ -2296,25 +2338,21 @@ function removeFracAtom(idx,pos){
 board.addEventListener('click',e=>{
   const tieBtn=e.target.closest('.tie-btn');
   if(tieBtn){ toggleTie(+tieBtn.dataset.idx); return; }
-  if(measureEraseMode){
-    const measEl=e.target.closest('.measure');
-    if(measEl) clearMeasureContents(+measEl.dataset.m);
-    else setStatus('지울 마디를 <b>클릭</b>하세요.');
-    return;
-  }
-  if(measCopyMode){
-    const measEl=e.target.closest('.measure');
-    if(measEl) copyMeasureContents(+measEl.dataset.m);
-    else setStatus('복사할 마디를 <b>클릭</b>하세요.');
-    return;
-  }
+  if(measureEraseMode || measCopyMode) return;   // 지우기/복사는 pointerdown/pointerup에서 드래그로 처리함(여러 마디 한번에 선택 가능)
   if(measPasteMode){
     const measEl=e.target.closest('.measure');
-    if(measEl) pasteMeasureContents(+measEl.dataset.m);
+    if(measEl) pasteMeasureRange(+measEl.dataset.m);
     else setStatus('붙여넣을 마디를 <b>클릭</b>하세요.');
     return;
   }
   if(e.target.closest('.lyrc'))return;          // clicking a lyric box = type lyrics
+  const mnumEl=e.target.closest('.mnum');
+  if(mnumEl && !deleteMode && !tieMode){
+    const m=+mnumEl.closest('.measure').dataset.m;
+    if(playStartMeas===m){ playStartMeas=0; setPlayStartHighlight(); setStatus('처음부터 재생하도록 되돌렸어요.'); }
+    else { playStartMeas=m; setPlayStartHighlight(); setStatus(`▶ 이제 재생하면 ${m+1}번째 마디부터 시작해요. (마디 번호를 다시 누르면 처음부터)`); }
+    return;
+  }
   const slot=e.target.closest('.slot'); if(!slot)return;
   const idx=+slot.dataset.idx;
   const isHeld=heldFrom[idx]!=null;
@@ -2703,7 +2741,18 @@ document.addEventListener('pointerdown',e=>{
     // 있으면 취소, 새 드래그는 시작하지 않음.
     if(drag){ drag.ghost.remove(); drag=null; clearOver(); clearLivePreview(); hidePitchTag(); }
     if(accDrag){ accDrag.ghost.remove(); accDrag=null; clearOver(); }
+    if(measDragAnchor!=null){ measDragAnchor=null; measDragCur=null; clearMeasureRangeHighlight(); }
     pending=null; accPending=null; stopAutoScroll();
+    return;
+  }
+  if(measCopyMode || measureEraseMode){
+    // 마디 복사/지우기 모드: 탭(손 안 움직임)과 드래그(여러 마디)를 모두 여기서 시작점만 잡고,
+    // 실제 복사/지우기는 pointerup(finish)에서 한 번에 처리함.
+    const measEl=e.target.closest('.measure');
+    if(measEl){
+      measDragAnchor=+measEl.dataset.m; measDragCur=measDragAnchor;
+      highlightMeasureRange(measDragAnchor,measDragCur, measCopyMode?'copy-selecting':'erase-selecting');
+    }
     return;
   }
   if(e.target.closest('.lyrc')) return;                 // typing lyrics
@@ -2756,6 +2805,15 @@ document.addEventListener('pointerdown',e=>{
 });
 document.addEventListener('pointermove',e=>{
   lastPointerX=e.clientX; lastPointerY=e.clientY;
+  if(measDragAnchor!=null){
+    const measEl=e.target.closest('.measure');
+    if(measEl){
+      const m=+measEl.dataset.m;
+      if(m!==measDragCur){ measDragCur=m; highlightMeasureRange(measDragAnchor,measDragCur, measCopyMode?'copy-selecting':'erase-selecting'); }
+    }
+    e.preventDefault();
+    return;
+  }
   if(pending && !drag && Math.hypot(e.clientX-pending.x0, e.clientY-pending.y0)>8){ startDrag(e.clientX,e.clientY); }
   if(drag){
     moveDrag(e.clientX,e.clientY); e.preventDefault();
@@ -2764,10 +2822,22 @@ document.addEventListener('pointermove',e=>{
   if(accPending && !accDrag && Math.hypot(e.clientX-accPending.x0, e.clientY-accPending.y0)>8){ startAccDrag(e.clientX,e.clientY); }
   if(accDrag){ moveAccDrag(e.clientX,e.clientY); e.preventDefault(); if(!autoScrollRAF) autoScrollRAF=requestAnimationFrame(autoScrollStep); }
 },{passive:false});
-function finish(e){ activePointerIds.delete(e.pointerId); if(drag){ endDrag(e.clientX,e.clientY); } if(accDrag){ endAccDrag(e.clientX,e.clientY); } pending=null; accPending=null; stopAutoScroll(); }
+function finish(e){
+  activePointerIds.delete(e.pointerId);
+  if(measDragAnchor!=null){
+    const a=measDragAnchor, b=measDragCur;
+    measDragAnchor=null; measDragCur=null;
+    if(measCopyMode) copyMeasureRange(a,b);
+    else if(measureEraseMode) clearMeasureRange(a,b);
+    else clearMeasureRangeHighlight();
+    return;
+  }
+  if(drag){ endDrag(e.clientX,e.clientY); } if(accDrag){ endAccDrag(e.clientX,e.clientY); } pending=null; accPending=null; stopAutoScroll();
+}
 document.addEventListener('pointerup',finish);
 document.addEventListener('pointercancel',e=>{
   activePointerIds.delete(e.pointerId);
+  if(measDragAnchor!=null){ measDragAnchor=null; measDragCur=null; clearMeasureRangeHighlight(); }
   if(drag){drag.ghost.remove();drag=null;clearOver();}
   if(accDrag){accDrag.ghost.remove();accDrag=null;clearOver();}
   pending=null; accPending=null; stopAutoScroll();
@@ -2871,7 +2941,7 @@ document.getElementById('clear').addEventListener('click',()=>{
   document.getElementById('clear').classList.toggle('active',deleteMode);
   board.classList.toggle('erasing',deleteMode);   // swap the mouse cursor to an eraser while this is on
   if(deleteMode){
-    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasureEraseMode();
     exitTieMode();
     exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
@@ -2889,15 +2959,15 @@ document.getElementById('clearMeasure').addEventListener('click',()=>{
     exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
-    setStatus('🧹 마디 지우기 모드예요. 지울 마디를 <b>클릭</b>하세요. (끝내려면 「한 마디 지우기」를 다시 누르세요)');
-  } else setStatus('한 마디 지우기를 끝냈어요.');
+    setStatus('🧹 마디 지우기 모드예요. 지울 마디를 <b>클릭</b>하거나, 여러 마디를 한번에 지우려면 그 위를 <b>드래그</b>하세요. (끝내려면 「한 마디 지우기」를 다시 누르세요)');
+  } else { measDragAnchor=null; measDragCur=null; clearMeasureRangeHighlight(); setStatus('한 마디 지우기를 끝냈어요.'); }
 });
 document.getElementById('tieModeBtn').addEventListener('click',()=>{
   tieMode=!tieMode;
   document.getElementById('tieModeBtn').classList.toggle('active',tieMode);
   if(tieMode){
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
-    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasureEraseMode();
     exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
@@ -2911,12 +2981,12 @@ document.getElementById('copyMeasureBtn').addEventListener('click',()=>{
   if(measCopyMode){
     measPasteMode=false; document.getElementById('pasteMeasureBtn').classList.remove('active');
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
-    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasureEraseMode();
     exitTieMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
-    setStatus('복사할 마디를 <b>클릭</b>하세요. (끝내려면 「마디 복사」를 다시 누르세요)');
-  } else setStatus('마디 복사를 끝냈어요.');
+    setStatus('복사할 마디를 <b>클릭</b>하거나, 여러 마디를 한번에 복사하려면 그 위를 <b>드래그</b>하세요. (끝내려면 「마디 복사」를 다시 누르세요)');
+  } else { measDragAnchor=null; measDragCur=null; clearMeasureRangeHighlight(); setStatus('마디 복사를 끝냈어요.'); }
 });
 document.getElementById('pasteMeasureBtn').addEventListener('click',()=>{
   measPasteMode=!measPasteMode;
@@ -2924,7 +2994,7 @@ document.getElementById('pasteMeasureBtn').addEventListener('click',()=>{
   if(measPasteMode){
     measCopyMode=false; document.getElementById('copyMeasureBtn').classList.remove('active');
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
-    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasureEraseMode();
     exitTieMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     setCursor(null);
@@ -2946,24 +3016,31 @@ function showConfirm(msg, onYes){
   yesBtn.addEventListener('click',onY);
   noBtn.addEventListener('click',onN);
 }
-// 한 마디 지우기 모드: 그 마디의 음표만 지우고(heldFrom으로 이어지는 칸도 함께),
-// 가사는 「음표 지우기」와 똑같이 그대로 남겨 둠.
-function clearMeasureContents(m){
-  const base=m*BEATS;
+// 한 마디(또는 드래그로 고른 여러 마디) 지우기 모드: 그 마디들의 음표만 지우고(heldFrom으로
+// 이어지는 칸도 함께), 가사는 「음표 지우기」와 똑같이 그대로 남겨 둠.
+function clearMeasureRange(a,b){
+  clearMeasureRangeHighlight();
+  const lo=Math.min(a,b), hi=Math.max(a,b);
   let hasNotes=false;
-  for(let b=0;b<BEATS;b++){ if(slotData[base+b]!=null) hasNotes=true; }
-  if(!hasNotes){ setStatus(`${m+1}번째 마디에는 지울 음표가 없어요.`); return; }
   withUndo(()=>{
-    for(let b=0;b<BEATS;b++){
-      const idx=base+b;
-      if(heldFrom[idx]!=null) continue;   // 앞 음표가 이어지는 칸 — 그 음표의 시작 칸을 지울 때 같이 지워짐
-      if(slotData[idx]!=null) clearSlot(idx);
+    for(let m=lo;m<=hi;m++){
+      const base=m*BEATS;
+      for(let bt=0;bt<BEATS;bt++){
+        const idx=base+bt;
+        if(heldFrom[idx]!=null) continue;   // 앞 음표가 이어지는 칸 — 그 음표의 시작 칸을 지울 때 같이 지워짐
+        if(slotData[idx]!=null){ hasNotes=true; clearSlot(idx); }
+      }
     }
   });
-  setStatus(`${m+1}번째 마디의 음표를 지웠어요. 가사는 그대로 남아 있어요.`);
+  const count=hi-lo+1;
+  if(!hasNotes) setStatus(count>1 ? `${lo+1}~${hi+1}번째 마디에는 지울 음표가 없어요.` : `${lo+1}번째 마디에는 지울 음표가 없어요.`);
+  else setStatus(count>1
+    ? `${lo+1}~${hi+1}번째 마디(${count}개)의 음표를 지웠어요. 가사는 그대로 남아 있어요.`
+    : `${lo+1}번째 마디의 음표를 지웠어요. 가사는 그대로 남아 있어요.`);
 }
-// 마디 복사 — 한 마디의 음표·박자쪼갬(fracData)·임시표·가사·화음을 통째로 measClip에 담아 둠.
-function copyMeasureContents(m){
+// 마디 복사/붙여넣기 공용 — 한 마디의 음표·박자쪼갬(fracData)·임시표·가사·화음을 통째로 꺼내거나(capture)
+// 되돌려 넣음(apply). 드래그로 여러 마디를 한 번에 고를 수 있어서, 이 두 함수를 배열로 여러 번 불러 씀.
+function captureMeasureData(m){
   const base=m*BEATS;
   const n=[], p=[], f={}, a={}, l={};
   for(let b=0;b<BEATS;b++){
@@ -2976,33 +3053,73 @@ function copyMeasureContents(m){
       if(lyrChar[idx+'_'+k]!=null) l[b+'_'+k]=lyrChar[idx+'_'+k];
     }
   }
-  measClip={ n, p, f, a, l, c: chordData[m] ? JSON.parse(JSON.stringify(chordData[m])) : null };
-  setStatus(`${m+1}번째 마디를 복사했어요. 이제 「📥 마디 붙여넣기」로 붙여넣을 마디를 눌러 주세요.`);
+  return { n, p, f, a, l, c: chordData[m] ? JSON.parse(JSON.stringify(chordData[m])) : null };
 }
-// 마디 붙여넣기 — 대상 마디의 내용을 measClip으로 통째로 덮어씀(그 마디 붙임줄은 음이 달라지면
-// tieEligible()이 저절로 무시하므로 따로 손볼 필요 없음).
-function pasteMeasureContents(m){
-  if(!measClip){ setStatus('먼저 「📋 마디 복사」로 복사할 마디를 골라 주세요.'); return; }
-  maybePushUndo();
+function applyMeasureData(m, data){
   const base=m*BEATS;
   for(let b=0;b<BEATS;b++){
     const idx=base+b;
     for(let k=0;k<4;k++){ delete accData[idx+'_'+k]; delete lyrChar[idx+'_'+k]; }
     delete fracData[idx];
-    slotData[idx]=measClip.n[b];
-    pitchData[idx]=Array.isArray(measClip.p[b]) ? measClip.p[b].slice() : measClip.p[b];
-    if(measClip.f[b]) fracData[idx]=JSON.parse(JSON.stringify(measClip.f[b]));
+    slotData[idx]=data.n[b];
+    pitchData[idx]=Array.isArray(data.p[b]) ? data.p[b].slice() : data.p[b];
+    if(data.f[b]) fracData[idx]=JSON.parse(JSON.stringify(data.f[b]));
     for(let k=0;k<4;k++){
-      if(measClip.a[b+'_'+k]!=null) accData[idx+'_'+k]=measClip.a[b+'_'+k];
-      if(measClip.l[b+'_'+k]!=null) lyrChar[idx+'_'+k]=measClip.l[b+'_'+k];
+      if(data.a[b+'_'+k]!=null) accData[idx+'_'+k]=data.a[b+'_'+k];
+      if(data.l[b+'_'+k]!=null) lyrChar[idx+'_'+k]=data.l[b+'_'+k];
     }
   }
-  chordData[m]=measClip.c ? JSON.parse(JSON.stringify(measClip.c)) : null;
+  chordData[m]=data.c ? JSON.parse(JSON.stringify(data.c)) : null;
+}
+function clearMeasureRangeHighlight(){
+  board.querySelectorAll('.measure.copy-selecting,.measure.copy-copied,.measure.erase-selecting').forEach(el=>el.classList.remove('copy-selecting','copy-copied','erase-selecting'));
+}
+// 마디 번호(.mnum)를 눌러 고른 "여기부터 재생" 시작 마디를 ▶ 표시로 보여줌(playStartMeas===0이면
+// 처음부터라는 뜻이라 아무 마디도 표시 안 함).
+function setPlayStartHighlight(){
+  board.querySelectorAll('.measure.play-start').forEach(el=>el.classList.remove('play-start'));
+  if(playStartMeas>0){
+    const el=board.querySelector(`.measure[data-m="${playStartMeas}"]`);
+    if(el) el.classList.add('play-start');
+  }
+}
+function highlightMeasureRange(a,b,cls){
+  clearMeasureRangeHighlight();
+  const lo=Math.min(a,b), hi=Math.max(a,b);
+  for(let m=lo;m<=hi;m++){
+    const el=board.querySelector(`.measure[data-m="${m}"]`);
+    if(el) el.classList.add(cls);
+  }
+}
+// 마디 복사 — a~b(드래그 시작~끝, 순서 상관없음) 범위를 전부 measClip에 담고, 복사된 마디들에
+// "✅ 복사됨" 표시를 남겨서 뭘 복사했는지 한눈에 보이게 함.
+function copyMeasureRange(a,b){
+  const lo=Math.min(a,b), hi=Math.max(a,b);
+  measClip=[];
+  for(let m=lo;m<=hi;m++) measClip.push(captureMeasureData(m));
+  highlightMeasureRange(lo,hi,'copy-copied');
+  const count=hi-lo+1;
+  setStatus(count>1
+    ? `${lo+1}~${hi+1}번째 마디(${count}개)를 복사했어요. 이제 「📥 마디 붙여넣기」로 붙여넣을 위치를 눌러 주세요.`
+    : `${lo+1}번째 마디를 복사했어요. 이제 「📥 마디 붙여넣기」로 붙여넣을 마디를 눌러 주세요.`);
+}
+// 마디 붙여넣기 — 클릭한 마디부터 시작해서, 복사해 둔 마디 수만큼 이어서 통째로 덮어씀(마디가
+// 모자라면 끝까지만). 그 마디들의 붙임줄은 음이 달라지면 tieEligible()이 저절로 무시하므로
+// 따로 손볼 필요 없음.
+function pasteMeasureRange(target){
+  if(!measClip || !measClip.length){ setStatus('먼저 「📋 마디 복사」로 복사할 마디를 골라 주세요.'); return; }
+  maybePushUndo();
+  const n=measClip.length;
+  const end=Math.min(MEAS-1, target+n-1);
+  for(let i=0; target+i<=end; i++) applyMeasureData(target+i, measClip[i]);
   order.length=0; for(let i=0;i<SLOTS;i++) if(slotData[i]) order.push(i);
   rebuildHeld();
   refreshChordTags();
   renderAll();
-  setStatus(`복사한 마디를 ${m+1}번째 마디에 붙여넣었어요.`);
+  const pasted=end-target+1;
+  if(pasted<n) setStatus(`복사한 ${n}개 마디 중 ${pasted}개만 ${target+1}번째 마디부터 붙여넣었어요(마디가 모자라서 끝까지만요).`);
+  else if(n>1) setStatus(`복사한 마디(${n}개)를 ${target+1}번째 마디부터 붙여넣었어요.`);
+  else setStatus(`복사한 마디를 ${target+1}번째 마디에 붙여넣었어요.`);
 }
 document.getElementById('clearAllNotes').addEventListener('click',()=>{
   const hasNotes = slotData.some(x=>x!=null);
@@ -3010,7 +3127,7 @@ document.getElementById('clearAllNotes').addEventListener('click',()=>{
   showConfirm('정말 음표를 전체 지울까요?\n악보에 놓인 음표가 모두 사라져요. 가사는 그대로 남아요.\n(바로 되돌리기로 다시 불러올 수 있어요)', ()=>{
     pushUndo();
     if(deleteMode){ deleteMode=false; document.getElementById('clear').classList.remove('active'); board.classList.remove('erasing'); }
-    if(measureEraseMode){ measureEraseMode=false; document.getElementById('clearMeasure').classList.remove('active'); board.classList.remove('measure-erasing'); }
+    exitMeasureEraseMode();
     exitTieMode(); exitMeasCopyPasteMode();
     selected=null; document.querySelectorAll('.tile').forEach(t=>t.classList.remove('sel'));
     slotData.fill(null); pitchData.fill(null);
@@ -3868,6 +3985,7 @@ function stopAll(){
   board.querySelectorAll('.slot.playing').forEach(s=>s.classList.remove('playing'));
   document.getElementById('play').textContent='▶ 메트로놈 후 재생';
   document.getElementById('playnomet').textContent='▶ 메트로놈 없이 재생';
+  document.getElementById('floatingStop').classList.remove('show');
   if(typeof recState!=='undefined' && recState==='recording'){
     finishRecording();   // 녹음 뒷정리(stopMicCapture)가 오디오 엔진을 스스로 새로 만드니 아래는 건너뜀
   } else if(actx){
@@ -3882,6 +4000,7 @@ function stopAll(){
   }
 }
 document.getElementById('stop').addEventListener('click',stopAll);
+document.getElementById('floatingStop').addEventListener('click',stopAll);
 
 // 악보 전체에서 "마지막으로 소리 나는 음"이 실제로 끝나는 위치(슬롯=박 단위, 0부터 시작하는 실수).
 // 화음 반주가 이 지점을 넘어서까지 울리지 않게(=마지막 마디가 마지막 멜로디 끝음에서 함께 멈추게)
@@ -3967,7 +4086,12 @@ function effectiveChordMode(c){
   if(chordStyle==='orchestra') return 1;
   return c.mode;
 }
-function scheduleChords(start,beat){
+function scheduleChords(start,beat,skipBeats=0){
+  // 원하는 마디부터 재생(skipBeats>0)할 때: 뒤에서 start+노트위치*beat로 절대 시각을 계산하므로,
+  // start 자체를 skipBeats만큼 앞으로 당겨 두면 이 함수 안의 모든 계산이 손댈 필요 없이 그대로
+  // "건너뛴 위치=지금"이 되게 맞춰짐 — skipBeats는 항상 마디(또는 반마디 구간) 경계와 맞아서 아래
+  // spans 필터링도 구간을 자르지 않고 통째로 빼는 것만으로 충분함.
+  start = start - skipBeats*beat;
   // melEnd 대신 arrangementEndBeats()를 씀 — 멜로디가 끝난 뒤에도 화음만 붙어 있는 뒷구간(엔딩 진행)이
   // 있으면 그 구간까지 포함해서 반주가 끊기지 않게 하기 위함(위 arrangementEndBeats 주석 참고).
   const melEnd=arrangementEndBeats();
@@ -3975,7 +4099,7 @@ function scheduleChords(start,beat){
   // 로직은 그 구간 하나하나를(mi 대신 span) 예전 마디 기준 코드와 완전히 똑같은 규칙으로 돈다 — 안 나뉜
   // 마디는 구간 길이가 그대로 BEATS(4)라 예전과 바이트까지 같은 소리가 나고, 나뉜 마디는 구간 길이가
   // BEATS/2(2)인 구간 두 개로 쪼개져서 같은 규칙이 반마디 단위로 적용됨.
-  const spans=chordSpans().filter(sp=>sp.start<melEnd);   // 멜로디가 이미 완전히 끝난 뒤(뒤쪽 빈 구간)는 화음도 아예 안 냄
+  const spans=chordSpans().filter(sp=>sp.start<melEnd && sp.start>=skipBeats);   // 멜로디가 이미 완전히 끝난 뒤(뒤쪽 빈 구간)나 건너뛴 앞부분은 화음도 아예 안 냄
   // 이 구간이 반주가 실제로 끝나는 지점(melEnd)을 포함하는지 — 그 구간만은 멜로디가 쉼표로 일찍
   // 끝나더라도 반주(화음/드럼)가 구간 끝까지 자연스럽게 이어지게 함(아래 mode1/mode2 각각 참고).
   const spanContainsMelEnd = sp => melEnd>sp.start && melEnd<=sp.start+sp.dur;
@@ -4193,8 +4317,11 @@ function drumHat(t, vel=1){
 // 하이햇)과 베이스(화음 근음)를 additive하게 얹기만 함 — 요청으로 chordStyle과 완전히 독립된
 // drumStyle/bassStyle 두 값만 보고 각각 켜고 끔(둘 다 꺼져 있으면 그냥 리턴). 멜로디가 끝난 뒤(빈
 // 마디)는 리듬도 함께 멈춤(scheduleChords와 같은 melEnd 기준).
-function scheduleBandLayer(start,beat){
+function scheduleBandLayer(start,beat,skipBeats=0){
   if(drumStyle==='off' && bassStyle==='off') return;
+  // scheduleChords와 같은 이유로 start를 skipBeats만큼 당겨서, 원하는 마디부터 재생할 때도 그 안의
+  // 모든 시각 계산을 그대로 써도 되게 맞춤(위 scheduleChords 주석 참고).
+  start = start - skipBeats*beat;
   // scheduleChords와 같은 이유로 melEnd 대신 arrangementEndBeats() 사용 — 멜로디 없이 화음만 있는
   // 뒷마디에서도 드럼/베이스가 함께 이어지게 함.
   const melEnd=arrangementEndBeats();
@@ -4204,7 +4331,7 @@ function scheduleBandLayer(start,beat){
   // 박까지 계속 치는 대신 3번째 박에서 자연스럽게 마무리함(요청: 드럼이 갑자기 뚝 끊기는 대신 3박에서
   // 끝나는 느낌).
   const lastMeas = melEnd>0 ? Math.floor((melEnd-1e-9)/BEATS) : -1;
-  for(let mi=0; mi<MEAS; mi++){
+  for(let mi=Math.floor(skipBeats/BEATS); mi<MEAS; mi++){
     if(drumStyle==='off') break;
     const measStartBeat=mi*BEATS;
     if(measStartBeat>=melEnd) continue;
@@ -4245,7 +4372,7 @@ function scheduleBandLayer(start,beat){
   // 또는 반마디) 목록으로 따로 돈다. measEndBeat 자르는 규칙도 scheduleChords와 같음(화음이 중간에
   // 뚝 끊기는 느낌이 없게, 반주가 실제로 끝나는 지점이 들어있는 구간만은 구간 끝까지 끌어줌).
   if(bassStyle!=='off'){
-    const spans=chordSpans().filter(sp=>sp.start<melEnd);
+    const spans=chordSpans().filter(sp=>sp.start<melEnd && sp.start>=skipBeats);
     const spanContainsMelEnd = sp => melEnd>sp.start && melEnd<=sp.start+sp.dur;
     spans.forEach(sp=>{
       const c=sp.chord, measStartBeat=sp.start, spanBeats=sp.dur;
@@ -4316,7 +4443,7 @@ function followPlayhead(slotIdx){
 // keeps clicking WHILE the music plays. The "메트로놈 없이 재생" button sets both false — pure playback.
 async function startPlayback(countIn,useMet,btn){
   if(playing){stopAll();return;}
-  playing=true; btn.textContent='⏸ 재생 중…';   // set BEFORE the async gap so a second click while we're
+  playing=true; btn.textContent='⏸ 재생 중…'; document.getElementById('floatingStop').classList.add('show');   // set BEFORE the async gap so a second click while we're
                                                   // still waiting for the audio context to resume is treated
                                                   // as "already playing" (stopAll) instead of starting twice
   let A=await ensureAudio();
@@ -4360,9 +4487,15 @@ async function startPlayback(countIn,useMet,btn){
   const melEndBeatsNow=arrangementEndBeats();
   const effSlots = melEndBeatsNow>0 ? Math.min(SLOTS, Math.ceil(melEndBeatsNow/BEATS)*BEATS) : SLOTS;
 
+  // 「▶ 여기부터 재생」으로 마디 번호를 눌러 골라 둔 시작 마디(playStartMeas, 0부터 시작) — 그 앞쪽은
+  // 아예 재생하지 않고, 고른 마디의 첫 박이 바로 지금(start) 울리게 함. 고른 마디가 실제 곡 길이
+  // 밖이면(마디 수를 줄였거나 한 경우) 그냥 처음부터 재생함.
+  let startSlot = playStartMeas*BEATS;
+  if(startSlot>=effSlots) startSlot=0;
+
   // notes + optional running metronome + visual playhead
-  for(let s=0;s<effSlots;s++){
-    const bt=start+s*beat;
+  for(let s=startSlot;s<effSlots;s++){
+    const bt=start+(s-startSlot)*beat;
     if(useMet) metro(bt, s%BEATS===0);
     const id=slotData[s];
     if(id==='_frac'){
@@ -4401,12 +4534,12 @@ async function startPlayback(countIn,useMet,btn){
       if(s%BEATS===0) followPlayhead(s);   // 마디가 바뀔 때마다, 화면 밖으로 나갔으면 그 마디가 보이게 스크롤
     }, (bt-A.currentTime)*1000));
   }
-  scheduleChords(start,beat);
-  scheduleBandLayer(start,beat);
+  scheduleChords(start,beat,startSlot);
+  scheduleBandLayer(start,beat,startSlot);
   // count-in highlight (pulse the status)
   if(countIn) for(let i=0;i<BEATS;i++) timers.push(setTimeout(()=>{ if(!playing)return; setStatus(`메트로놈… ${i+1}`); },(t0+i*beat-A.currentTime)*1000));
   timers.push(setTimeout(()=>{ if(playing) setStatus('연주 중 ♪'); },(start-A.currentTime)*1000));
-  const total=(start+effSlots*beat - A.currentTime)*1000 + 120;
+  const total=(start+(effSlots-startSlot)*beat - A.currentTime)*1000 + 120;
   timers.push(setTimeout(()=>{ stopAll(); setStatus('연주 끝! 다시 들어 보거나 음표를 바꿔 보세요.'); }, total));
 }
 document.getElementById('play').addEventListener('click',()=>{
