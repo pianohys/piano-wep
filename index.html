@@ -85,8 +85,12 @@
 
   /* accidentals — sharp/flat/natural tiles, dragged onto an already-placed note in the score below.
      음표 상자(palgroups)와 같은 palRow에 두고, palSticky가 그 줄 전체를 화면 위에 고정해 둠 —
-     요청: "임시표넣기는 맨위에 음표 끌어다놓기 옆에 넣어줘야 악보가 길어져도 넣을 수 있을 것 같아". */
-  .accBox{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+     요청: "임시표넣기는 맨위에 음표 끌어다놓기 옆에 넣어줘야 악보가 길어져도 넣을 수 있을 것 같아".
+     "임시표" 글씨를 타일 위쪽에 두는 세로 배치라, 음표 상자와의 간격이 좁아 보이지 않음(요청:
+     "임시표라는 글씨가 위로가게.. 왼쪽에 있는 음표들이랑 간격이 너무 좁아"). */
+  .accBox{display:flex;flex-direction:column;align-items:flex-start;gap:5px;flex:0 0 auto;
+    padding-left:14px;border-left:1.5px solid var(--soft)}
+  .accBoxTiles{display:flex;align-items:center;gap:6px}
   .accBoxLabel{font-weight:400;font-size:12.5px;color:#807a6a;font-family:'Noto Sans KR';white-space:nowrap}
   /* review/record/save shortcuts — sit at the right edge of the score's own eyebrow row
      (margin-left:auto) so they're reachable right away without scrolling down to those sections. */
@@ -489,9 +493,11 @@
       </div>
       <span class="accBox" id="accBox">
         <span class="accBoxLabel">임시표 — 끌어다 음표에 놓기</span>
-        <span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span>
-        <span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span>
-        <span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span>
+        <span class="accBoxTiles">
+          <span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span>
+          <span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span>
+          <span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span>
+        </span>
       </span>
     </div>
   </div>
