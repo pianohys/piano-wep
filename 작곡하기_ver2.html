@@ -47,7 +47,10 @@
   /* 스크롤이 되는 걸 한눈에 알아보고, 손가락으로 밀기 어려우면 화살표 버튼으로도 이동할 수 있게 함
      (타일 자체는 드래그로 음표를 놓는 용도라 touch-action:none이 걸려 있어, 타일 위에서는 스와이프로
      스크롤이 잘 안 먹기 때문) */
-  .palScrollWrap{position:relative}
+  /* 음표 상자와 한 줄(palRow)에 나란히 둬서, 임시표도 상자와 함께 화면 위에 고정돼(palSticky) 악보가
+     길어져도 스크롤해서 올라올 필요 없이 바로 끌어다 쓸 수 있게 함. 좁은 화면에서는 줄바꿈됨. */
+  .palRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .palScrollWrap{position:relative;flex:1 1 320px;min-width:0}
   .palgroups{overflow-x:auto;scrollbar-width:auto;scrollbar-color:var(--teal) var(--paper2)}
   .palgroups::-webkit-scrollbar{height:11px}
   .palgroups::-webkit-scrollbar-track{background:rgba(35,40,66,.06);border-radius:8px}
@@ -81,9 +84,9 @@
   .tilebox::after{content:"";position:absolute;left:6px;right:6px;top:54%;height:1.5px;background:var(--line)}
 
   /* accidentals — sharp/flat/natural tiles, dragged onto an already-placed note in the score below.
-     Sits in its own compact row right under the 장조/단조 key picker. */
-  .accBoxRow{margin:0 0 10px}
-  .accBox{display:flex;align-items:center;gap:6px}
+     음표 상자(palgroups)와 같은 palRow에 두고, palSticky가 그 줄 전체를 화면 위에 고정해 둠 —
+     요청: "임시표넣기는 맨위에 음표 끌어다놓기 옆에 넣어줘야 악보가 길어져도 넣을 수 있을 것 같아". */
+  .accBox{display:flex;align-items:center;gap:6px;flex:0 0 auto}
   .accBoxLabel{font-weight:400;font-size:12.5px;color:#807a6a;font-family:'Noto Sans KR';white-space:nowrap}
   /* review/record/save shortcuts — sit at the right edge of the score's own eyebrow row
      (margin-left:auto) so they're reachable right away without scrolling down to those sections. */
@@ -486,10 +489,18 @@
        this one panel's own height. -->
   <div class="palSticky" id="palSticky">
     <p class="eyebrow"><span class="num">1</span>음표 상자 <span style="font-weight:400;font-size:14px;color:#807a6a;font-family:'Noto Sans KR'">— 끌어도 상자에는 음표가 그대로 남아 있어요</span></p>
-    <div class="palScrollWrap">
-      <button type="button" class="palScrollBtn palScrollBtn--left" id="palScrollLeft" aria-label="왼쪽으로 이동" disabled>‹</button>
-      <div class="palgroups" id="palgroups"></div>
-      <button type="button" class="palScrollBtn palScrollBtn--right" id="palScrollRight" aria-label="오른쪽으로 이동" disabled>›</button>
+    <div class="palRow">
+      <div class="palScrollWrap">
+        <button type="button" class="palScrollBtn palScrollBtn--left" id="palScrollLeft" aria-label="왼쪽으로 이동" disabled>‹</button>
+        <div class="palgroups" id="palgroups"></div>
+        <button type="button" class="palScrollBtn palScrollBtn--right" id="palScrollRight" aria-label="오른쪽으로 이동" disabled>›</button>
+      </div>
+      <span class="accBox" id="accBox">
+        <span class="accBoxLabel">임시표 — 끌어다 음표에 놓기</span>
+        <span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span>
+        <span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span>
+        <span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span>
+      </span>
     </div>
   </div>
 
@@ -542,14 +553,6 @@
       <span class="tempo">화음 음량 <input type="range" id="volChord" min="0" max="200" step="5" value="100"><b id="volChordLbl">100</b>%</span>
       <span class="tempo">베이스 음량 <input type="range" id="volBass" min="0" max="200" step="5" value="100"><b id="volBassLbl">100</b>%</span>
       <span class="tempo">드럼 음량 <input type="range" id="volDrum" min="0" max="200" step="5" value="100"><b id="volDrumLbl">100</b>%</span>
-    </div>
-    <div class="accBoxRow">
-      <span class="accBox" id="accBox">
-        <span class="accBoxLabel">임시표 — 끌어다 음표에 놓기</span>
-        <span class="acctile" data-acc="#" title="샵 — 끌어다 음표 위에 놓으세요">♯</span>
-        <span class="acctile" data-acc="b" title="플랫 — 끌어다 음표 위에 놓으세요">♭</span>
-        <span class="acctile" data-acc="n" title="제자리표 — 끌어다 음표 위에 놓으세요">♮</span>
-      </span>
     </div>
     <div id="board"></div>
     <div class="controls">
