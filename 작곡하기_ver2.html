@@ -4705,6 +4705,10 @@ let recKind='voice';   // 'melody'(마이크 없이 연주만) | 'voice'(마이�
 let recIntroCount=0;         // 목소리 녹음 때 전주로 앞에 붙일 마디 수(0=전주 없음)
 let recIntroStart=0;         // 그 전주로 쓸 마디들이 원곡의 몇 번째 마디(0부터)부터 시작하는지
 let recIntroRestoreSnap=null;   // 전주를 붙이려고 잠깐 늘려둔 악보를 녹음이 끝난 뒤 원래대로 되돌릴 스냅샷
+// 이번 녹음이 실제로 시작될 때의 전주 마디 수·템포를 그대로 기억해둠 — "학생 목소리가 실제로
+// 시작되는 지점"을 나중에 소리 분석으로 추측하지 않고, 녹음 당시 값 그대로 정확히 계산하기
+// 위함(전주마디수 × 박자수 ÷ 템포 = 정확한 시작 지점 초).
+let recMetaIntroMeasures=0, recMetaTempoBPM=0;
 let captureActive=false, countdownIv=null;
 let recStream=null, recSourceNode=null, recProcessor=null, recSilentGain=null, recChunks=[], recSampleRate=44100, recBlob=null;
 // 녹음 형식: 브라우저가 MediaRecorder로 mp4/webm을 바로 만들 수 있으면 그걸 쓰고(파일 용량도 작고,
@@ -4991,6 +4995,9 @@ if(saveAudioNCBtn) saveAudioNCBtn.addEventListener('click', ()=>{ saveAudioBtn.c
 // 드라이브로 전송하는 경로. 선생님이 scripts/drive_upload.gs를 자신의 Google Apps Script로
 // 배포한 뒤 그 배포 주소를 아래에 넣어야 버튼이 나타남(비워두면 기존처럼 안 보임 — 안전한 기본값).
 const DRIVE_UPLOAD_URL='https://script.google.com/macros/s/AKfycbzuY8uWvI-dPDxJIUovjROIGzPMOgqxp0V9pFWNPOFl8Y7Dl2HeZwr5LPn3p-NEy-LgWQ/exec';
+// 듣기 페이지(listen.html/play.html)가 음성 재생·시작지점 저장에 쓰는 것과 같은 주소 — 제출
+// 직후 "정확한 시작 지점"을 바로 저장해두기 위해 여기서도 그대로 씀.
+const AUDIO_PROXY_URL='https://script.google.com/macros/s/AKfycbwWJ6siWaHrKk7EhObLpajb1ywCse2Q3yfPgNKaOBpKKEp0LLTx3UXAqzef19iVLsRGjg/exec';
 const submitDriveBtn=document.getElementById('submitDriveBtn');
 if(submitDriveBtn && DRIVE_UPLOAD_URL) submitDriveBtn.style.display='';
 function blobToBase64(blob){
@@ -5052,6 +5059,15 @@ if(submitDriveBtn) submitDriveBtn.addEventListener('click', async ()=>{
         const code=encodeState();
         const shareId=randomShareId();
         await shareApiRequestWithRetry('set', {key:'compshare:'+shareId, value:code});
+        // 녹음 당시의 전주 마디 수·템포를 그대로 써서, 학생 목소리가 실제로 시작되는 지점을
+        // 소리 분석으로 추측하지 않고 정확히 계산해 바로 저장해둠 — 나중에 듣기 화면에서
+        // 수작업으로 "더 일찍/더 늦게"를 눌러 맞출 필요가 거의 없어짐.
+        if(recMetaTempoBPM>0){
+          const offsetSeconds=recMetaIntroMeasures*BEATS*60/recMetaTempoBPM;
+          fetch(AUDIO_PROXY_URL+'?action=saveOffset&id='+encodeURIComponent(json.fileId)
+            +'&offset='+encodeURIComponent(offsetSeconds.toFixed(2))
+            +'&tempo='+encodeURIComponent(recMetaTempoBPM)+'&_='+Date.now(), {cache:'no-store'}).catch(()=>{});
+        }
         const dirUrl=location.origin+location.pathname.replace(/[^/]*$/,'');
         const label=(cls?cls+'반 ':'')+(num?num+'번 ':'')+name;
         const playLink=dirUrl+'play.html'
@@ -5198,6 +5214,8 @@ function buildIntroSnapshot(introStart,count){
 }
 function beginRecordedPlayback(){
   recState='recording'; captureActive=true;
+  recMetaIntroMeasures=(recKind==='voice')?recIntroCount:0;
+  recMetaTempoBPM=+tempo.value;
   recBtn.textContent='🔴 녹음 중… (누르면 정지)'; recBtn.classList.add('recording');
   setRecStatus(recKind==='melody' ? '🎵 연주를 녹음하는 중…' : '🎤 노래해보세요!');
   if(recMode==='mr' && recMR && recMR.state==='inactive'){ try{ recMR.start(); }catch(_){ } }
