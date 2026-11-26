@@ -236,7 +236,10 @@
 
   async function fetchSavedOffset(id){
     try{
-      const res = await fetch(AUDIO_PROXY_URL + '?action=getOffset&id=' + encodeURIComponent(id));
+      // 브라우저가 이 GET 요청을 캐싱하면 저장 직후에도 예전 값을 계속 보여주게 되므로,
+      // 매번 다른 URL이 되도록 타임스탬프를 붙이고 캐시를 명시적으로 끔.
+      const url = AUDIO_PROXY_URL + '?action=getOffset&id=' + encodeURIComponent(id) + '&_=' + Date.now();
+      const res = await fetch(url, {cache: 'no-store'});
       const json = await res.json();
       if (json && json.ok && json.offset != null && json.offset !== '') return Number(json.offset);
     }catch(e){}
@@ -333,19 +336,19 @@
           // "직전 ~1.5초 구간 평균(=그 시점까지의 반주 수준)" 대비 상대적으로 커지는 지점을 찾음 —
           // 목소리가 반주 위에 얹히는 순간을 더 안정적으로 잡아냄.
           const baseWins = Math.round(1.5/WIN_SEC);
-          const warmupWins = Math.round(0.4/WIN_SEC);   // 너무 이른 지점은 기준선 자체가 불안정해 후보에서 제외
-          const sustainWins = Math.round(0.5/WIN_SEC);  // 최소 0.5초는 계속 커진 상태여야 진짜 시작으로 인정
+          const warmupWins = Math.round(1.0/WIN_SEC);   // 기준선이 충분히 안정되기 전(1초 미만)은 후보에서 제외
+          const sustainWins = Math.round(0.8/WIN_SEC);  // 최소 0.8초는 계속 커진 상태여야 진짜 시작으로 인정
           let startWin=-1;
           for (let i=warmupWins;i<numWins;i++){
             const from=Math.max(0, i-baseWins);
             let bsum=0, bcnt=0;
             for (let j=from;j<i;j++){ bsum+=energies[j]; bcnt++; }
             const baseline = bcnt ? bsum/bcnt : 0;
-            const rel = Math.max(baseline*1.5, baseline+0.01);
+            const rel = Math.max(baseline*1.6, baseline+0.012);
             if (energies[i] > rel){
               let ok=true;
               for (let k=i;k<Math.min(numWins,i+sustainWins);k++){
-                if (energies[k] <= Math.max(baseline*1.25, baseline+0.006)){ ok=false; break; }
+                if (energies[k] <= Math.max(baseline*1.3, baseline+0.008)){ ok=false; break; }
               }
               if (ok){ startWin=i; break; }
             }
@@ -586,8 +589,8 @@
     syncSaveMsg.textContent = '저장 중…';
     try{
       const url = AUDIO_PROXY_URL + '?action=saveOffset&id=' + encodeURIComponent(currentStudent.audio) +
-        '&offset=' + encodeURIComponent(voiceOnsetSec.toFixed(2));
-      const res = await fetch(url);
+        '&offset=' + encodeURIComponent(voiceOnsetSec.toFixed(2)) + '&_=' + Date.now();
+      const res = await fetch(url, {cache: 'no-store'});
       const json = await res.json();
       syncSaveMsg.textContent = (json && json.ok)
         ? (voiceOnsetSec.toFixed(1) + '초로 저장했어요! 다음부터 이 학생은 이 타이밍으로 재생돼요.')
