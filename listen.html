@@ -124,11 +124,18 @@
     </div>
     <button class="manualPlayBtn" id="manualPlayBtn" hidden>▶ 재생이 안 되면 눌러주세요</button>
     <div class="syncAdjust" id="syncAdjust" hidden>
-      <p class="syncLabel">악보랑 노래가 안 맞으면 조절해보세요 (지금 보정: <b id="syncVal">0.0</b>초)</p>
+      <p class="syncLabel">시작 지점이 안 맞으면 (지금 보정: <b id="syncVal">0.0</b>초)</p>
       <div class="syncBtnRow">
         <button type="button" id="syncEarlier">◀ 더 일찍</button>
         <button type="button" id="syncLater">더 늦게 ▶</button>
-        <button type="button" id="syncSave">💾 이 학생 저장</button>
+      </div>
+      <p class="syncLabel">전체 속도가 안 맞으면 (지금 템포: <b id="tempoVal">0</b> BPM)</p>
+      <div class="syncBtnRow">
+        <button type="button" id="tempoSlower">◀ 더 느리게</button>
+        <button type="button" id="tempoFaster">더 빠르게 ▶</button>
+      </div>
+      <div class="syncBtnRow">
+        <button type="button" id="syncSave">💾 이 학생 저장 (시작 지점 + 속도)</button>
       </div>
       <p class="syncMsg" id="syncSaveMsg"></p>
     </div>
@@ -219,12 +226,14 @@
   const voiceAudio = document.getElementById('voiceAudio');
   const syncAdjust = document.getElementById('syncAdjust');
   const syncVal = document.getElementById('syncVal');
+  const tempoVal = document.getElementById('tempoVal');
   const syncSaveMsg = document.getElementById('syncSaveMsg');
 
   let pollTimer = null;
   let pollDeadline = 0;
   let wantAudio = false;
   let voiceOnsetSec = 0;     // 녹음 파일 안에서 실제 노래가 시작되는 지점(초)
+  let currentTempoBPM = 0;   // 지금 악보 재생에 쓰이는 템포(자동 계산 또는 저장된 값)
   let syncPollTimer = null;
 
   function proxyAudioUrl(id){
@@ -234,17 +243,25 @@
   function updateSyncVal(){
     syncVal.textContent = voiceOnsetSec.toFixed(1);
   }
+  function updateTempoVal(){
+    tempoVal.textContent = currentTempoBPM;
+  }
 
-  async function fetchSavedOffset(id){
+  async function fetchSavedSync(id){
     try{
       // 브라우저가 이 GET 요청을 캐싱하면 저장 직후에도 예전 값을 계속 보여주게 되므로,
       // 매번 다른 URL이 되도록 타임스탬프를 붙이고 캐시를 명시적으로 끔.
       const url = AUDIO_PROXY_URL + '?action=getOffset&id=' + encodeURIComponent(id) + '&_=' + Date.now();
       const res = await fetch(url, {cache: 'no-store'});
       const json = await res.json();
-      if (json && json.ok && json.offset != null && json.offset !== '') return Number(json.offset);
+      if (json && json.ok){
+        return {
+          offset: (json.offset != null && json.offset !== '') ? Number(json.offset) : null,
+          tempo: (json.tempo != null && json.tempo !== '') ? Number(json.tempo) : null
+        };
+      }
     }catch(e){}
-    return null;
+    return {offset:null, tempo:null};
   }
 
   function base64ToArrayBuffer(b64){
@@ -460,18 +477,18 @@
     const voicePrepPromise = wantAudio
       ? (async () => {
           ensureVoiceAudioGraph();
-          const [{objectUrl, onset, gain}, savedOffset] = await Promise.all([
+          const [{objectUrl, onset, gain}, savedSync] = await Promise.all([
             loadAndAnalyzeVoice(currentStudent.audio),
-            fetchSavedOffset(currentStudent.audio)
+            fetchSavedSync(currentStudent.audio)
           ]);
           // 이전에 "더 일찍/더 늦게"로 맞춰서 저장해둔 값이 있으면, 자동 감지보다 그걸 우선함.
-          voiceOnsetSec = savedOffset != null ? savedOffset : onset;
+          voiceOnsetSec = savedSync.offset != null ? savedSync.offset : onset;
           updateSyncVal();
           if (voiceGainNode) voiceGainNode.gain.value = gain;
           if (objectUrl) voiceAudio.src = objectUrl;
-          return !!objectUrl;
+          return {gotAudio: !!objectUrl, savedTempo: savedSync.tempo};
         })()
-      : Promise.resolve(true);
+      : Promise.resolve({gotAudio: true, savedTempo: null});
 
     scoreFrame.onload = () => {
       injectCleanView();
@@ -534,8 +551,8 @@
       // 악기 음소거는 목소리 파일이 준비되길 기다리지 않고 바로 해둠.
       try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
       playStatus.textContent = '학생 목소리를 불러오는 중…';
-      let gotAudio = false;
-      try{ gotAudio = await voicePrepPromise; }catch(e){}
+      let gotAudio = false, savedTempo = null;
+      try{ ({gotAudio, savedTempo} = await voicePrepPromise); }catch(e){}
       if (!gotAudio){
         playStatus.textContent = '학생 목소리를 불러오지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.';
         manualPlayBtn.hidden = false;
@@ -543,15 +560,27 @@
       }
       // 학생이 실제로 노래한 빠르기에 맞춰 악보 재생 속도 자체를 조절함 — 시작 지점만 맞춰서는
       // 곡이 길어질수록 (학생 템포와 원곡 템포가 다르면) 점점 어긋나 버리는 문제를 막아줌.
+      // 전에 "더 빠르게/느리게"로 저장해둔 템포가 있으면 그걸 그대로 씀(자동 계산보다 우선).
       await waitForAudioMetadata();
       const tempoDebug = document.getElementById('tempoDebug');
       try{
-        const tm = matchScoreTempoToRecording(scoreFrame.contentDocument);
-        if (tempoDebug){
-          tempoDebug.textContent = tm.done
-            ? ('템포 보정: ' + tm.origBPM + ' → ' + tm.adjusted + ' BPM (마디 ' + tm.measures + ', 녹음길이 ' + tm.dur.toFixed(1) + '초, 노래구간 ' + tm.sungDuration.toFixed(1) + '초)')
-            : ('템포 보정 안 됨: ' + tm.reason);
+        const doc = scoreFrame.contentDocument;
+        const tempoEl = doc.getElementById('tempo');
+        if (savedTempo != null && tempoEl){
+          tempoEl.value = savedTempo;
+          tempoEl.dispatchEvent(new Event('input', {bubbles:true}));
+          currentTempoBPM = savedTempo;
+          if (tempoDebug) tempoDebug.textContent = '저장된 템포 사용: ' + savedTempo + ' BPM';
+        } else {
+          const tm = matchScoreTempoToRecording(doc);
+          currentTempoBPM = tm.done ? tm.adjusted : (tempoEl ? +tempoEl.value : 0);
+          if (tempoDebug){
+            tempoDebug.textContent = tm.done
+              ? ('템포 보정: ' + tm.origBPM + ' → ' + tm.adjusted + ' BPM (마디 ' + tm.measures + ', 녹음길이 ' + tm.dur.toFixed(1) + '초, 노래구간 ' + tm.sungDuration.toFixed(1) + '초)')
+              : ('템포 보정 안 됨: ' + tm.reason);
+          }
         }
+        updateTempoVal();
       }catch(e){ if (tempoDebug) tempoDebug.textContent = '템포 보정 오류: ' + e.message; }
       playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
       syncAdjust.hidden = false;
@@ -631,16 +660,33 @@
     syncSaveMsg.textContent = '';
     restartTogetherPlayback();
   });
+  function nudgeTempo(delta){
+    currentTempoBPM = Math.min(140, Math.max(50, currentTempoBPM + delta));
+    updateTempoVal();
+    try{
+      const tempoEl = scoreFrame.contentDocument.getElementById('tempo');
+      if (tempoEl){
+        tempoEl.value = currentTempoBPM;
+        tempoEl.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+    }catch(e){}
+    syncSaveMsg.textContent = '';
+    restartTogetherPlayback();
+  }
+  document.getElementById('tempoSlower').addEventListener('click', () => nudgeTempo(-3));
+  document.getElementById('tempoFaster').addEventListener('click', () => nudgeTempo(3));
+
   document.getElementById('syncSave').addEventListener('click', async () => {
     if (!currentStudent || !currentStudent.audio) return;
     syncSaveMsg.textContent = '저장 중…';
     try{
       const url = AUDIO_PROXY_URL + '?action=saveOffset&id=' + encodeURIComponent(currentStudent.audio) +
-        '&offset=' + encodeURIComponent(voiceOnsetSec.toFixed(2)) + '&_=' + Date.now();
+        '&offset=' + encodeURIComponent(voiceOnsetSec.toFixed(2)) +
+        '&tempo=' + encodeURIComponent(currentTempoBPM) + '&_=' + Date.now();
       const res = await fetch(url, {cache: 'no-store'});
       const json = await res.json();
       syncSaveMsg.textContent = (json && json.ok)
-        ? (voiceOnsetSec.toFixed(1) + '초로 저장했어요! 다음부터 이 학생은 이 타이밍으로 재생돼요.')
+        ? (voiceOnsetSec.toFixed(1) + '초 / ' + currentTempoBPM + 'BPM으로 저장했어요! 다음부터 이 학생은 이 타이밍으로 재생돼요.')
         : ('저장하지 못했어요: ' + ((json && json.error) || '다시 시도해주세요.'));
     }catch(e){
       syncSaveMsg.textContent = '저장하지 못했어요. 다시 시도해주세요.';
