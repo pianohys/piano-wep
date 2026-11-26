@@ -409,29 +409,6 @@
     });
   }
 
-  // ---- 학생이 실제로 부른 속도에 맞춰 악보 재생 템포 자체를 조절함 ----
-  // 시작 지점만 맞추면, 학생이 원곡보다 빠르거나 느리게 불렀을 때 곡이 진행될수록 점점
-  // 어긋나 버림 — 녹음 전체 길이(노래 시작 지점 이후)와 악보가 원래 템포로 쭉 재생됐을 때
-  // 걸릴 시간을 비교해서, 그 비율만큼 템포 슬라이더 자체를 조절함(완벽한 보정은 아니고,
-  // 전체적으로 비슷한 빠르기로 맞추는 수준의 근사치임).
-  function matchScoreTempoToRecording(doc){
-    const measEl = doc.getElementById('meascount');
-    const tempoEl = doc.getElementById('tempo');
-    if (!measEl || !tempoEl) return {done:false, reason:'악보 요소를 못 찾음'};
-    const measures = +measEl.textContent;
-    const origBPM = +tempoEl.value;
-    if (!measures || !origBPM) return {done:false, reason:'마디수/템포 읽기 실패(' + measEl.textContent + '/' + tempoEl.value + ')'};
-    const naturalDuration = measures * 4 * (60/origBPM); // 4/4박자 고정(이 앱은 항상 4박)
-    const dur = voiceAudio.duration;
-    if (!isFinite(dur) || dur <= 0) return {done:false, reason:'녹음 길이를 못 읽음'};
-    const sungDuration = Math.max(1, dur - voiceOnsetSec);
-    let adjustedRaw = origBPM * naturalDuration / sungDuration;
-    const adjusted = Math.min(140, Math.max(50, Math.round(adjustedRaw)));
-    tempoEl.value = adjusted;
-    tempoEl.dispatchEvent(new Event('input', {bubbles:true}));
-    return {done:true, origBPM, adjusted, adjustedRaw, measures, dur, sungDuration};
-  }
-
   function teardownPlayback(){
     clearInterval(pollTimer); pollTimer = null;
     clearInterval(syncPollTimer); syncPollTimer = null;
@@ -566,19 +543,17 @@
       try{
         const doc = scoreFrame.contentDocument;
         const tempoEl = doc.getElementById('tempo');
+        // 자동으로 템포를 추정해서 바꾸는 건 꺼둠 — 녹음 끝의 여백(정지 누르기 전 공백)까지
+        // "노래 시간"으로 잘못 계산해서, 멀쩡한 템포까지 틀어버리는 경우가 많았음. 저장해둔
+        // 보정값이 있을 때만 적용하고, 그 외에는 원래 작곡된 템포를 그대로 씀.
         if (savedTempo != null && tempoEl){
           tempoEl.value = savedTempo;
           tempoEl.dispatchEvent(new Event('input', {bubbles:true}));
           currentTempoBPM = savedTempo;
           if (tempoDebug) tempoDebug.textContent = '저장된 템포 사용: ' + savedTempo + ' BPM';
         } else {
-          const tm = matchScoreTempoToRecording(doc);
-          currentTempoBPM = tm.done ? tm.adjusted : (tempoEl ? +tempoEl.value : 0);
-          if (tempoDebug){
-            tempoDebug.textContent = tm.done
-              ? ('템포 보정: ' + tm.origBPM + ' → ' + tm.adjusted + ' BPM (마디 ' + tm.measures + ', 녹음길이 ' + tm.dur.toFixed(1) + '초, 노래구간 ' + tm.sungDuration.toFixed(1) + '초)')
-              : ('템포 보정 안 됨: ' + tm.reason);
-          }
+          currentTempoBPM = tempoEl ? +tempoEl.value : 0;
+          if (tempoDebug) tempoDebug.textContent = '';
         }
         updateTempoVal();
       }catch(e){ if (tempoDebug) tempoDebug.textContent = '템포 보정 오류: ' + e.message; }
