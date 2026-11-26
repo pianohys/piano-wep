@@ -202,7 +202,6 @@
   let pollDeadline = 0;
   let wantAudio = false;
   let voiceOnsetSec = 0;     // 녹음 파일 안에서 실제 노래가 시작되는 지점(초)
-  let firstLyricIdx = null;  // 가사가 처음 붙는 음표 슬롯 번호(없으면 null)
   let syncPollTimer = null;
 
   function proxyAudioUrl(id){
@@ -287,19 +286,6 @@
     }
   }
 
-  // ---- 악보 안에서 가사가 처음 붙는 음표 슬롯 번호 찾기 ----
-  function findFirstLyricIdx(doc){
-    const lyrcs = [...doc.querySelectorAll('.lyrc')];
-    let min = null;
-    lyrcs.forEach(el => {
-      if (el.value && el.value.trim()){
-        const idx = +el.dataset.idx;
-        if (min===null || idx<min) min = idx;
-      }
-    });
-    return min;
-  }
-
   // ---- 재생 중인 악기 소리를 음량 0으로(화면/박자만 남기고 묵음) ----
   function muteInstruments(doc){
     ['volMelody','volChord','volBass','volDrum'].forEach(id => {
@@ -329,7 +315,6 @@
     loadingOverlay.hidden = false;
     loadingOverlay.textContent = '불러오는 중…';
     voiceOnsetSec = 0;
-    firstLyricIdx = null;
 
     const raw = currentStudent.link || '';
     const hashIdx = raw.indexOf('#');
@@ -352,11 +337,6 @@
           const {onset, gain} = await analyzeVoice(proxyAudioUrl(currentStudent.audio));
           voiceOnsetSec = onset;
           if (voiceGainNode) voiceGainNode.gain.value = gain;
-          await new Promise(resolve => {
-            if (voiceAudio.readyState >= 1) return resolve();
-            voiceAudio.addEventListener('loadedmetadata', resolve, {once:true});
-          });
-          try{ voiceAudio.currentTime = voiceOnsetSec; }catch(e){}
         })()
       : Promise.resolve();
 
@@ -419,14 +399,17 @@
     loadingOverlay.hidden = true;
     if (wantAudio){
       try{ await voicePrepPromise; }catch(e){}
-      try{
-        const doc = scoreFrame.contentDocument;
-        muteInstruments(doc);
-        firstLyricIdx = findFirstLyricIdx(doc);
-      }catch(e){}
+      try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
+      playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
+      // 목소리는 녹음된 그대로(자르지 않고) 처음부터 재생 — 전주가 녹음에 포함돼 있으면 그대로 들림.
+      try{ voiceAudio.currentTime = 0; }catch(e){}
+      voiceAudio.play().catch(()=>{ manualPlayBtn.hidden = false; });
+      // 녹음에서 자동 감지한 "진짜 노래 시작 지점"에 맞춰, 그 순간 악보 화면 재생을 시작함.
+      scheduleScoreStart(voiceOnsetSec);
+    } else {
+      playStatus.textContent = '준비됐어요! 재생할게요.';
+      triggerPlayback();
     }
-    playStatus.textContent = wantAudio ? '준비됐어요! 노래 시작에 맞춰 재생할게요.' : '준비됐어요! 재생할게요.';
-    triggerPlayback();
     // 브라우저가 자동재생을 막는 경우를 대비해, 재생 시도와 별개로 수동 버튼도 항상 보여줌.
     manualPlayBtn.hidden = false;
   }
@@ -438,35 +421,26 @@
       if (btn) btn.click();
     }catch(e){
       manualPlayBtn.hidden = false;
-      return;
     }
-    if (wantAudio) startVoiceSyncWatch();
   }
 
-  // 악보가 재생되다가 가사가 처음 붙은 슬롯이 ".playing" 되는 순간 학생 목소리를 재생 —
-  // 전주 길이와 무관하게 "노래 시작 = 노래 시작"끼리 맞춰짐. 가사를 못 찾았으면 그냥 바로 재생.
-  function startVoiceSyncWatch(){
-    clearInterval(syncPollTimer);
-    if (firstLyricIdx == null){
-      voiceAudio.play().catch(()=>{});
+  // 목소리 재생 위치가 감지된 "노래 시작 지점"에 닿는 순간 악보(화면)만 재생을 시작함.
+  function scheduleScoreStart(delaySec){
+    clearInterval(syncPollTimer); syncPollTimer = null;
+    if (!delaySec || delaySec <= 0.05){
+      triggerPlayback();
       return;
     }
-    const deadline = Date.now() + 60000;
     syncPollTimer = setInterval(() => {
-      let hit = false;
-      try{
-        const doc = scoreFrame.contentDocument;
-        const el = doc.querySelector('.slot.playing');
-        if (el && +el.dataset.idx >= firstLyricIdx) hit = true;
-      }catch(e){}
-      if (hit || Date.now() > deadline){
+      if (voiceAudio.currentTime >= delaySec || voiceAudio.ended){
         clearInterval(syncPollTimer); syncPollTimer = null;
-        if (hit) voiceAudio.play().catch(()=>{});
+        triggerPlayback();
       }
     }, 50);
   }
 
   manualPlayBtn.addEventListener('click', () => {
+    if (wantAudio) voiceAudio.play().catch(()=>{});
     triggerPlayback();
   });
 })();
