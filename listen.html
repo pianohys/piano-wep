@@ -238,7 +238,14 @@
   // 완벽한 음성인식은 아니고, 조용한 구간 vs 소리 나는 구간을 구분하는 수준의 간단한 추정임.
   async function analyzeVoice(url){
     try{
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 분석이 막히지 않도록 최대 10초만 기다림
+      let res;
+      try{
+        res = await fetch(url, {signal: controller.signal});
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!res.ok) return {onset:0, gain:1};
       const buf = await res.arrayBuffer();
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -395,17 +402,20 @@
     }
   }
 
-  async function onScoreReady(voicePrepPromise){
+  function onScoreReady(voicePrepPromise){
     loadingOverlay.hidden = true;
     if (wantAudio){
-      try{ await voicePrepPromise; }catch(e){}
+      // 악기 음소거와 목소리 재생은 분석 결과를 기다리지 않고 바로 시작 — 분석(시작 지점/음량
+      // 감지)이 느리거나 실패해도 재생 자체가 멈춰 서지 않게 함.
       try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
       playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
       // 목소리는 녹음된 그대로(자르지 않고) 처음부터 재생 — 전주가 녹음에 포함돼 있으면 그대로 들림.
       try{ voiceAudio.currentTime = 0; }catch(e){}
       voiceAudio.play().catch(()=>{ manualPlayBtn.hidden = false; });
-      // 녹음에서 자동 감지한 "진짜 노래 시작 지점"에 맞춰, 그 순간 악보 화면 재생을 시작함.
-      scheduleScoreStart(voiceOnsetSec);
+      // 분석(시작 지점 감지)이 끝나는 대로(늦게 끝나도) 그 지점에 맞춰 악보 재생을 시작함.
+      voicePrepPromise
+        .then(() => scheduleScoreStart(voiceOnsetSec))
+        .catch(() => scheduleScoreStart(0));
     } else {
       playStatus.textContent = '준비됐어요! 재생할게요.';
       triggerPlayback();
@@ -440,7 +450,10 @@
   }
 
   manualPlayBtn.addEventListener('click', () => {
-    if (wantAudio) voiceAudio.play().catch(()=>{});
+    if (wantAudio){
+      try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
+      voiceAudio.play().catch(()=>{});
+    }
     triggerPlayback();
   });
 })();
