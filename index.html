@@ -4906,6 +4906,29 @@ if(submitDriveBtn) submitDriveBtn.addEventListener('click', async ()=>{
     }
     if(json && json.ok){
       setRecStatus(`선생님 드라이브로 제출했어요: <b>${filename}</b>`);
+      // 제출한 음성파일 + 지금 악보 상태를 합쳐서, 열면 바로 "악보+목소리"를 함께 들을 수 있는
+      // 링크를 만들어 교사용 목록에 기록함(이 부분이 실패해도 위의 제출 자체는 이미 끝난
+      // 상태라 안내만 못 바뀔 뿐, 제출 결과엔 영향 없음).
+      try{
+        const code=encodeState();
+        const shareId=randomShareId();
+        await shareApiRequestWithRetry('set', {key:'compshare:'+shareId, value:code});
+        const dirUrl=location.origin+location.pathname.replace(/[^/]*$/,'');
+        const label=(cls?cls+'반 ':'')+(num?num+'번 ':'')+name;
+        const playLink=dirUrl+'play.html'
+          +'?audio='+encodeURIComponent(json.fileId)
+          +'&link='+encodeURIComponent(dirUrl+'#s='+shareId)
+          +'&name='+encodeURIComponent(label);
+        fetch(DRIVE_UPLOAD_URL, {
+          method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify({action:'logLink', grade, cls, num, name, fileId:json.fileId, scoreShareId:shareId, playLink})
+        }).catch(()=>{});
+        setRecStatus(`선생님 드라이브로 제출했어요: <b>${filename}</b><br>`+
+          `🎧 <a href="${playLink}" target="_blank" rel="noopener">악보+목소리 바로 듣기 링크 열기</a> `+
+          `<button type="button" id="copyPlayLinkBtn" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer">🔗 링크 복사</button>`);
+        const copyBtn=document.getElementById('copyPlayLinkBtn');
+        if(copyBtn) copyBtn.addEventListener('click', ()=>copyUrlToClipboard(playLink, '링크를 복사했어요!'));
+      }catch(e){ /* 링크 생성 실패해도 위의 제출 완료 안내는 이미 떴으니 조용히 넘어감 */ }
     } else {
       setRecStatus(`제출에 실패했어요. 선생님께 "${filename}" 파일과 아래 오류 내용을 알려주세요: <b>${lastErr||'알 수 없는 오류'}</b>`);
     }
