@@ -117,6 +117,7 @@
   <!-- 재생 화면 -->
   <div class="screen playScreen" id="screen-play">
     <p class="status" id="playStatus">악보를 불러오는 중…</p>
+    <p class="status" id="tempoDebug" style="font-size:12px;opacity:.7"></p>
     <div class="scoreBox">
       <iframe id="scoreFrame" title="악보"></iframe>
       <div class="loadingOverlay" id="loadingOverlay">불러오는 중…</div>
@@ -399,18 +400,19 @@
   function matchScoreTempoToRecording(doc){
     const measEl = doc.getElementById('meascount');
     const tempoEl = doc.getElementById('tempo');
-    if (!measEl || !tempoEl) return;
+    if (!measEl || !tempoEl) return {done:false, reason:'악보 요소를 못 찾음'};
     const measures = +measEl.textContent;
     const origBPM = +tempoEl.value;
-    if (!measures || !origBPM) return;
+    if (!measures || !origBPM) return {done:false, reason:'마디수/템포 읽기 실패(' + measEl.textContent + '/' + tempoEl.value + ')'};
     const naturalDuration = measures * 4 * (60/origBPM); // 4/4박자 고정(이 앱은 항상 4박)
     const dur = voiceAudio.duration;
-    if (!isFinite(dur) || dur <= 0) return;
+    if (!isFinite(dur) || dur <= 0) return {done:false, reason:'녹음 길이를 못 읽음'};
     const sungDuration = Math.max(1, dur - voiceOnsetSec);
-    let adjusted = origBPM * naturalDuration / sungDuration;
-    adjusted = Math.min(140, Math.max(50, Math.round(adjusted)));
+    let adjustedRaw = origBPM * naturalDuration / sungDuration;
+    const adjusted = Math.min(140, Math.max(50, Math.round(adjustedRaw)));
     tempoEl.value = adjusted;
     tempoEl.dispatchEvent(new Event('input', {bubbles:true}));
+    return {done:true, origBPM, adjusted, adjustedRaw, measures, dur, sungDuration};
   }
 
   function teardownPlayback(){
@@ -423,6 +425,8 @@
     manualPlayBtn.hidden = true;
     syncAdjust.hidden = true;
     syncSaveMsg.textContent = '';
+    const tempoDebug = document.getElementById('tempoDebug');
+    if (tempoDebug) tempoDebug.textContent = '';
     loadingOverlay.hidden = false;
     loadingOverlay.textContent = '불러오는 중…';
   }
@@ -540,7 +544,15 @@
       // 학생이 실제로 노래한 빠르기에 맞춰 악보 재생 속도 자체를 조절함 — 시작 지점만 맞춰서는
       // 곡이 길어질수록 (학생 템포와 원곡 템포가 다르면) 점점 어긋나 버리는 문제를 막아줌.
       await waitForAudioMetadata();
-      try{ matchScoreTempoToRecording(scoreFrame.contentDocument); }catch(e){}
+      const tempoDebug = document.getElementById('tempoDebug');
+      try{
+        const tm = matchScoreTempoToRecording(scoreFrame.contentDocument);
+        if (tempoDebug){
+          tempoDebug.textContent = tm.done
+            ? ('템포 보정: ' + tm.origBPM + ' → ' + tm.adjusted + ' BPM (마디 ' + tm.measures + ', 녹음길이 ' + tm.dur.toFixed(1) + '초, 노래구간 ' + tm.sungDuration.toFixed(1) + '초)')
+            : ('템포 보정 안 됨: ' + tm.reason);
+        }
+      }catch(e){ if (tempoDebug) tempoDebug.textContent = '템포 보정 오류: ' + e.message; }
       playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
       syncAdjust.hidden = false;
       // 목소리는 녹음된 그대로(자르지 않고) 처음부터 재생 — 전주가 녹음에 포함돼 있으면 그대로 들림.
