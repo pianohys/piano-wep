@@ -589,7 +589,9 @@
         '&offset=' + encodeURIComponent(voiceOnsetSec.toFixed(2));
       const res = await fetch(url);
       const json = await res.json();
-      syncSaveMsg.textContent = (json && json.ok) ? '저장했어요! 다음부터 이 학생은 이 타이밍으로 재생돼요.' : '저장하지 못했어요. 다시 시도해주세요.';
+      syncSaveMsg.textContent = (json && json.ok)
+        ? (voiceOnsetSec.toFixed(1) + '초로 저장했어요! 다음부터 이 학생은 이 타이밍으로 재생돼요.')
+        : ('저장하지 못했어요: ' + ((json && json.error) || '다시 시도해주세요.'));
     }catch(e){
       syncSaveMsg.textContent = '저장하지 못했어요. 다시 시도해주세요.';
     }
