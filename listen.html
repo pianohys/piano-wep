@@ -74,6 +74,7 @@
     display:block; margin:16px auto 0; border:none; border-radius:12px; padding:14px 28px;
     font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; background:var(--amber); color:var(--ink);
   }
+  #stopBtn{ background:var(--line); color:var(--ink); }
   .errorNote{ text-align:center; color:var(--coral); font-size:14.5px; padding:30px 10px; }
   .syncAdjust{ margin-top:18px; text-align:center; }
   .syncAdjust[hidden]{ display:none; }
@@ -123,13 +124,14 @@
       <div class="loadingOverlay" id="loadingOverlay">불러오는 중…</div>
     </div>
     <button class="manualPlayBtn" id="manualPlayBtn" hidden>▶ 재생이 안 되면 눌러주세요</button>
+    <button class="manualPlayBtn" id="stopBtn" hidden>■ 정지</button>
     <div class="syncAdjust" id="syncAdjust" hidden>
       <p class="syncLabel">시작 지점이 안 맞으면 (지금 보정: <b id="syncVal">0.0</b>초)</p>
       <div class="syncBtnRow">
         <button type="button" id="syncEarlier">◀ 더 일찍</button>
         <button type="button" id="syncLater">더 늦게 ▶</button>
       </div>
-      <p class="syncLabel">전체 속도가 안 맞으면 (지금 템포: <b id="tempoVal">0</b> BPM)</p>
+      <p class="syncLabel">전체 속도가 안 맞으면 (원래 템포: <b id="origTempoVal">0</b> BPM / 지금 템포: <b id="tempoVal">0</b> BPM)</p>
       <div class="syncBtnRow">
         <button type="button" id="tempoSlower">◀ 더 느리게</button>
         <button type="button" id="tempoFaster">더 빠르게 ▶</button>
@@ -223,10 +225,12 @@
   const loadingOverlay = document.getElementById('loadingOverlay');
   const playStatus = document.getElementById('playStatus');
   const manualPlayBtn = document.getElementById('manualPlayBtn');
+  const stopBtn = document.getElementById('stopBtn');
   const voiceAudio = document.getElementById('voiceAudio');
   const syncAdjust = document.getElementById('syncAdjust');
   const syncVal = document.getElementById('syncVal');
   const tempoVal = document.getElementById('tempoVal');
+  const origTempoVal = document.getElementById('origTempoVal');
   const syncSaveMsg = document.getElementById('syncSaveMsg');
 
   let pollTimer = null;
@@ -417,6 +421,7 @@
     if (voiceAudio.src && voiceAudio.src.indexOf('blob:')===0) URL.revokeObjectURL(voiceAudio.src);
     voiceAudio.removeAttribute('src');
     manualPlayBtn.hidden = true;
+    stopBtn.hidden = true;
     syncAdjust.hidden = true;
     syncSaveMsg.textContent = '';
     const tempoDebug = document.getElementById('tempoDebug');
@@ -430,6 +435,7 @@
     showScreen('screen-play', currentStudent.name);
     playStatus.textContent = wantAudio ? '악보와 노래를 함께 준비하는 중…' : '악보를 준비하는 중…';
     manualPlayBtn.hidden = true;
+    stopBtn.hidden = true;
     loadingOverlay.hidden = false;
     loadingOverlay.textContent = '불러오는 중…';
     voiceOnsetSec = 0;
@@ -543,6 +549,8 @@
       try{
         const doc = scoreFrame.contentDocument;
         const tempoEl = doc.getElementById('tempo');
+        // 조절하실 때 기준으로 삼을 수 있게, 저장된 값 적용 전의 "원래(작곡된) 템포"를 따로 기억해둠.
+        if (tempoEl) origTempoVal.textContent = tempoEl.value;
         // 자동으로 템포를 추정해서 바꾸는 건 꺼둠 — 녹음 끝의 여백(정지 누르기 전 공백)까지
         // "노래 시간"으로 잘못 계산해서, 멀쩡한 템포까지 틀어버리는 경우가 많았음. 저장해둔
         // 보정값이 있을 때만 적용하고, 그 외에는 원래 작곡된 템포를 그대로 씀.
@@ -571,7 +579,23 @@
     }
     // 브라우저가 자동재생을 막는 경우를 대비해, 재생 시도와 별개로 수동 버튼도 항상 보여줌.
     manualPlayBtn.hidden = false;
+    stopBtn.hidden = false;
   }
+
+  function stopPlayback(){
+    try{
+      const doc = scoreFrame.contentDocument;
+      const btn = doc.getElementById('stop');
+      if (btn) btn.click();
+    }catch(e){}
+    clearInterval(syncPollTimer); syncPollTimer = null;
+    voiceAudio.pause();
+    // 악보 쪽은 항상 처음부터 다시 재생되는 구조라, 같은 자리에서 이어듣기는 못 하고
+    // "정지 → 다시 재생"은 둘 다 처음부터 다시 시작하는 것으로 통일함.
+    try{ voiceAudio.currentTime = 0; }catch(e){}
+    playStatus.textContent = '정지했어요. 다시 들으려면 위 버튼("재생이 안 되면 눌러주세요")을 눌러주세요.';
+  }
+  stopBtn.addEventListener('click', stopPlayback);
 
   function triggerPlayback(){
     try{
@@ -602,7 +626,11 @@
     if (wantAudio){
       try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
       if (voiceCtx) voiceCtx.resume().catch(()=>{});
-      if (voiceAudio.src) voiceAudio.play().catch(()=>{});
+      if (voiceAudio.src){
+        voiceAudio.play().catch(()=>{});
+        scheduleScoreStart(voiceOnsetSec);
+        return;
+      }
     }
     triggerPlayback();
   });
