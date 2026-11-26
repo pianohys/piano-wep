@@ -75,6 +75,10 @@
     font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; background:var(--amber); color:var(--ink);
   }
   .errorNote{ text-align:center; color:var(--coral); font-size:14.5px; padding:30px 10px; }
+  .voiceBox{ margin-top:14px; }
+  .voiceBox[hidden]{ display:none; }
+  .voiceLabel{ font-size:13.5px; color:var(--ink-soft); margin:0 0 6px; text-align:center; }
+  .voiceBox iframe{ width:100%; height:120px; border:none; border-radius:12px; }
 </style>
 </head>
 <body>
@@ -112,7 +116,10 @@
       <div class="loadingOverlay" id="loadingOverlay">불러오는 중…</div>
     </div>
     <button class="manualPlayBtn" id="manualPlayBtn" hidden>▶ 재생이 안 되면 눌러주세요</button>
-    <audio id="voiceAudio" hidden></audio>
+    <div class="voiceBox" id="voiceBox" hidden>
+      <p class="voiceLabel">🎤 학생 노래 — 아래에서 재생 버튼을 눌러주세요</p>
+      <iframe id="voiceFrame" allow="autoplay"></iframe>
+    </div>
   </div>
 </div>
 
@@ -194,22 +201,23 @@
   const loadingOverlay = document.getElementById('loadingOverlay');
   const playStatus = document.getElementById('playStatus');
   const manualPlayBtn = document.getElementById('manualPlayBtn');
-  const voiceAudio = document.getElementById('voiceAudio');
+  const voiceBox = document.getElementById('voiceBox');
+  const voiceFrame = document.getElementById('voiceFrame');
 
   let pollTimer = null;
   let pollDeadline = 0;
   let readyToPlay = false;
   let wantAudio = false;
 
-  function driveAudioUrl(id){
-    return 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id);
+  function drivePreviewUrl(id){
+    return 'https://drive.google.com/file/d/' + encodeURIComponent(id) + '/preview';
   }
 
   function teardownPlayback(){
     clearInterval(pollTimer); pollTimer = null;
     scoreFrame.src = 'about:blank';
-    voiceAudio.pause();
-    voiceAudio.removeAttribute('src');
+    voiceFrame.src = 'about:blank';
+    voiceBox.hidden = true;
     manualPlayBtn.hidden = true;
     loadingOverlay.hidden = false;
     loadingOverlay.textContent = '불러오는 중…';
@@ -240,7 +248,10 @@
     const hash = raw.slice(hashIdx);
 
     if (wantAudio){
-      voiceAudio.src = driveAudioUrl(currentStudent.audio);
+      voiceFrame.src = drivePreviewUrl(currentStudent.audio);
+      voiceBox.hidden = false;
+    } else {
+      voiceBox.hidden = true;
     }
 
     scoreFrame.onload = () => {
@@ -301,7 +312,7 @@
   function onScoreReady(){
     loadingOverlay.hidden = true;
     readyToPlay = true;
-    playStatus.textContent = wantAudio ? '준비됐어요! 함께 재생할게요.' : '준비됐어요! 재생할게요.';
+    playStatus.textContent = wantAudio ? '준비됐어요! 악보가 재생돼요. 아래에서 학생 노래도 재생 버튼을 눌러주세요.' : '준비됐어요! 재생할게요.';
     triggerPlayback();
     // 브라우저가 자동재생을 막는 경우를 대비해, 재생 시도와 별개로 수동 버튼도 항상 보여줌.
     manualPlayBtn.hidden = false;
@@ -314,11 +325,6 @@
       if (btn) btn.click();
     }catch(e){
       manualPlayBtn.hidden = false;
-      return;
-    }
-    if (wantAudio){
-      voiceAudio.currentTime = 0;
-      voiceAudio.play().catch(() => { manualPlayBtn.hidden = false; });
     }
   }
 
