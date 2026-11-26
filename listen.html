@@ -222,21 +222,26 @@
   const GAIN_MIN = 0.35, GAIN_MAX = 2.2;
   let voiceGainNode = null, voiceCompressor = null, voiceSourceLinked = false;
 
+  let voiceCtx = null;
   function ensureVoiceAudioGraph(){
-    if (voiceSourceLinked) return;
+    if (voiceSourceLinked){
+      if (voiceCtx && voiceCtx.state !== 'running') voiceCtx.resume().catch(()=>{});
+      return;
+    }
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
-    const source = ctx.createMediaElementSource(voiceAudio);
-    voiceGainNode = ctx.createGain();
+    voiceCtx = new Ctx();
+    voiceCtx.resume().catch(()=>{}); // 일부 브라우저는 만들자마자 suspended 상태라 명시적으로 깨워줘야 함
+    const source = voiceCtx.createMediaElementSource(voiceAudio);
+    voiceGainNode = voiceCtx.createGain();
     voiceGainNode.gain.value = 1;
-    voiceCompressor = ctx.createDynamicsCompressor();
+    voiceCompressor = voiceCtx.createDynamicsCompressor();
     // 혹시라도 유난히 크게 녹음된 파일이 있어도 귀 아프게 튀지 않도록 안전망으로 한 번 더 눌러줌.
     voiceCompressor.threshold.value = -20;
     voiceCompressor.knee.value = 6;
     voiceCompressor.ratio.value = 10;
     voiceCompressor.attack.value = 0.003;
     voiceCompressor.release.value = 0.15;
-    source.connect(voiceGainNode).connect(voiceCompressor).connect(ctx.destination);
+    source.connect(voiceGainNode).connect(voiceCompressor).connect(voiceCtx.destination);
     voiceSourceLinked = true;
   }
 
@@ -438,7 +443,8 @@
       playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
       // 목소리는 녹음된 그대로(자르지 않고) 처음부터 재생 — 전주가 녹음에 포함돼 있으면 그대로 들림.
       try{ voiceAudio.currentTime = 0; }catch(e){}
-      voiceAudio.play().catch(()=>{ manualPlayBtn.hidden = false; });
+      if (voiceCtx) voiceCtx.resume().catch(()=>{});
+      voiceAudio.play().catch(()=>{ playStatus.textContent = '자동 재생이 막혔어요. 아래 버튼을 눌러주세요.'; manualPlayBtn.hidden = false; });
       // 녹음에서 자동 감지한 "진짜 노래 시작 지점"에 맞춰, 그 순간 악보 화면 재생을 시작함.
       scheduleScoreStart(voiceOnsetSec);
     } else {
@@ -477,7 +483,8 @@
   manualPlayBtn.addEventListener('click', () => {
     if (wantAudio){
       try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
-      voiceAudio.play().catch(()=>{});
+      if (voiceCtx) voiceCtx.resume().catch(()=>{});
+      if (voiceAudio.src) voiceAudio.play().catch(()=>{});
     }
     triggerPlayback();
   });
