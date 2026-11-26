@@ -208,6 +208,13 @@
     return AUDIO_PROXY_URL + '?id=' + encodeURIComponent(id);
   }
 
+  function base64ToArrayBuffer(b64){
+    const binStr = atob(b64);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i=0;i<binStr.length;i++) bytes[i] = binStr.charCodeAt(i);
+    return bytes.buffer;
+  }
+
   // ---- 학생 목소리 음량을 한결같게: 기기별 볼륨 차이가 큰 녹음을 분석해서, 너무 크거나
   // 너무 작은 아이 없이 비슷한 크기로 들리도록 매번 자동으로 게인을 맞춤(+ 혹시 남는 피크는
   // 아래 리미터가 한 번 더 눌러줌). ----
@@ -233,63 +240,74 @@
     voiceSourceLinked = true;
   }
 
-  // ---- 녹음 파일에서 "진짜 노래가 시작되는 지점"을 에너지 분석으로 대략 추정하고,
-  // 전체적인 음량(RMS)도 같이 재서 목표 음량에 맞추는 배수를 계산함 ----
-  // 완벽한 음성인식은 아니고, 조용한 구간 vs 소리 나는 구간을 구분하는 수준의 간단한 추정임.
-  async function analyzeVoice(url){
+  // ---- Apps Script 중계기에서 base64로 감싼 음성 파일을 받아서(한 번만 내려받음),
+  // 재생 가능한 Blob URL로 만들고, 동시에 "진짜 노래가 시작되는 지점"/전체 음량도
+  // 에너지 분석으로 대략 추정함(완벽한 음성인식은 아니고, 조용한 구간 vs 소리 나는
+  // 구간을 구분하는 수준의 간단한 추정임). ----
+  async function loadAndAnalyzeVoice(id){
     try{
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 분석이 막히지 않도록 최대 10초만 기다림
+      const timeout = setTimeout(() => controller.abort(), 15000); // 막히지 않도록 최대 15초만 기다림
       let res;
       try{
-        res = await fetch(url, {signal: controller.signal});
+        res = await fetch(proxyAudioUrl(id), {signal: controller.signal});
       } finally {
         clearTimeout(timeout);
       }
-      if (!res.ok) return {onset:0, gain:1};
-      const buf = await res.arrayBuffer();
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const audioBuf = await ctx.decodeAudioData(buf);
-      const data = audioBuf.getChannelData(0);
-      const sr = audioBuf.sampleRate;
-      ctx.close();
+      const json = await res.json();
+      if (!json || !json.ok || !json.base64) return {objectUrl:null, onset:0, gain:1};
 
-      const winSize = Math.floor(sr * 0.02); // 20ms 단위로 에너지 측정
-      const numWins = Math.floor(data.length / winSize);
-      if (numWins < 10) return {onset:0, gain:1};
-      const energies = new Float32Array(numWins);
-      for (let i=0;i<numWins;i++){
-        let sum=0;
-        const base=i*winSize;
-        for (let j=0;j<winSize;j++){ const v=data[base+j]; sum += v*v; }
-        energies[i] = Math.sqrt(sum/winSize);
-      }
-      // 맨 앞 0.3초를 "조용한 구간(소음 바닥)" 기준으로 삼음
-      const noiseWins = Math.min(numWins, Math.round(0.3/0.02));
-      let noiseFloor=0;
-      for (let i=0;i<noiseWins;i++) noiseFloor += energies[i];
-      noiseFloor = noiseWins ? noiseFloor/noiseWins : 0;
-      const threshold = Math.max(noiseFloor*3, 0.008);
-      let sustain=0, startWin=-1;
-      for (let i=0;i<numWins;i++){
-        if (energies[i] > threshold){
-          sustain++;
-          if (sustain>=4){ startWin = i-3; break; }
-        } else sustain=0;
-      }
-      const onset = startWin<0 ? 0 : Math.max(0, startWin*0.02 - 0.05);
+      const buf = base64ToArrayBuffer(json.base64);
+      const blob = new Blob([buf], {type: json.mimeType || 'audio/mpeg'});
+      const objectUrl = URL.createObjectURL(blob);
 
-      // 실제 노래 구간(시작 지점 이후)만으로 평균 음량을 재서, 앞의 무음 구간이 평균을
-      // 낮춰 보이게 하는 걸 피함.
-      const fromWin = startWin<0 ? 0 : startWin;
-      let sum=0, cnt=0;
-      for (let i=fromWin;i<numWins;i++){ sum += energies[i]*energies[i]; cnt++; }
-      const rms = cnt ? Math.sqrt(sum/cnt) : 0.09;
-      let gain = rms>0.0005 ? TARGET_RMS/rms : 1;
-      gain = Math.min(GAIN_MAX, Math.max(GAIN_MIN, gain));
-      return {onset, gain};
+      let onset = 0, gain = 1;
+      try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuf = await ctx.decodeAudioData(buf.slice(0)); // decodeAudioData가 버퍼를 소비하므로 복사본 사용
+        const data = audioBuf.getChannelData(0);
+        const sr = audioBuf.sampleRate;
+        ctx.close();
+
+        const winSize = Math.floor(sr * 0.02); // 20ms 단위로 에너지 측정
+        const numWins = Math.floor(data.length / winSize);
+        if (numWins >= 10){
+          const energies = new Float32Array(numWins);
+          for (let i=0;i<numWins;i++){
+            let sum=0;
+            const base=i*winSize;
+            for (let j=0;j<winSize;j++){ const v=data[base+j]; sum += v*v; }
+            energies[i] = Math.sqrt(sum/winSize);
+          }
+          // 맨 앞 0.3초를 "조용한 구간(소음 바닥)" 기준으로 삼음
+          const noiseWins = Math.min(numWins, Math.round(0.3/0.02));
+          let noiseFloor=0;
+          for (let i=0;i<noiseWins;i++) noiseFloor += energies[i];
+          noiseFloor = noiseWins ? noiseFloor/noiseWins : 0;
+          const threshold = Math.max(noiseFloor*3, 0.008);
+          let sustain=0, startWin=-1;
+          for (let i=0;i<numWins;i++){
+            if (energies[i] > threshold){
+              sustain++;
+              if (sustain>=4){ startWin = i-3; break; }
+            } else sustain=0;
+          }
+          onset = startWin<0 ? 0 : Math.max(0, startWin*0.02 - 0.05);
+
+          // 실제 노래 구간(시작 지점 이후)만으로 평균 음량을 재서, 앞의 무음 구간이
+          // 평균을 낮춰 보이게 하는 걸 피함.
+          const fromWin = startWin<0 ? 0 : startWin;
+          let sum=0, cnt=0;
+          for (let i=fromWin;i<numWins;i++){ sum += energies[i]*energies[i]; cnt++; }
+          const rms = cnt ? Math.sqrt(sum/cnt) : 0.09;
+          gain = rms>0.0005 ? TARGET_RMS/rms : 1;
+          gain = Math.min(GAIN_MAX, Math.max(GAIN_MIN, gain));
+        }
+      }catch(e){ /* 분석 실패해도 재생 자체는 그대로 진행 */ }
+
+      return {objectUrl, onset, gain};
     }catch(e){
-      return {onset:0, gain:1}; // 분석 실패 시 원래 음량 그대로
+      return {objectUrl:null, onset:0, gain:1};
     }
   }
 
@@ -308,6 +326,7 @@
     clearInterval(syncPollTimer); syncPollTimer = null;
     scoreFrame.src = 'about:blank';
     voiceAudio.pause();
+    if (voiceAudio.src && voiceAudio.src.indexOf('blob:')===0) URL.revokeObjectURL(voiceAudio.src);
     voiceAudio.removeAttribute('src');
     manualPlayBtn.hidden = true;
     loadingOverlay.hidden = false;
@@ -340,12 +359,13 @@
     const voicePrepPromise = wantAudio
       ? (async () => {
           ensureVoiceAudioGraph();
-          voiceAudio.src = proxyAudioUrl(currentStudent.audio);
-          const {onset, gain} = await analyzeVoice(proxyAudioUrl(currentStudent.audio));
+          const {objectUrl, onset, gain} = await loadAndAnalyzeVoice(currentStudent.audio);
           voiceOnsetSec = onset;
           if (voiceGainNode) voiceGainNode.gain.value = gain;
+          if (objectUrl) voiceAudio.src = objectUrl;
+          return !!objectUrl;
         })()
-      : Promise.resolve();
+      : Promise.resolve(true);
 
     scoreFrame.onload = () => {
       injectCleanView();
@@ -402,20 +422,25 @@
     }
   }
 
-  function onScoreReady(voicePrepPromise){
+  async function onScoreReady(voicePrepPromise){
     loadingOverlay.hidden = true;
     if (wantAudio){
-      // 악기 음소거와 목소리 재생은 분석 결과를 기다리지 않고 바로 시작 — 분석(시작 지점/음량
-      // 감지)이 느리거나 실패해도 재생 자체가 멈춰 서지 않게 함.
+      // 악기 음소거는 목소리 파일이 준비되길 기다리지 않고 바로 해둠.
       try{ muteInstruments(scoreFrame.contentDocument); }catch(e){}
+      playStatus.textContent = '학생 목소리를 불러오는 중…';
+      let gotAudio = false;
+      try{ gotAudio = await voicePrepPromise; }catch(e){}
+      if (!gotAudio){
+        playStatus.textContent = '학생 목소리를 불러오지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.';
+        manualPlayBtn.hidden = false;
+        return;
+      }
       playStatus.textContent = '준비됐어요! 학생 목소리를 재생하고, 노래가 시작되면 악보도 같이 움직일게요.';
       // 목소리는 녹음된 그대로(자르지 않고) 처음부터 재생 — 전주가 녹음에 포함돼 있으면 그대로 들림.
       try{ voiceAudio.currentTime = 0; }catch(e){}
       voiceAudio.play().catch(()=>{ manualPlayBtn.hidden = false; });
-      // 분석(시작 지점 감지)이 끝나는 대로(늦게 끝나도) 그 지점에 맞춰 악보 재생을 시작함.
-      voicePrepPromise
-        .then(() => scheduleScoreStart(voiceOnsetSec))
-        .catch(() => scheduleScoreStart(0));
+      // 녹음에서 자동 감지한 "진짜 노래 시작 지점"에 맞춰, 그 순간 악보 화면 재생을 시작함.
+      scheduleScoreStart(voiceOnsetSec);
     } else {
       playStatus.textContent = '준비됐어요! 재생할게요.';
       triggerPlayback();
