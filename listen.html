@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>학생 작품 감상</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F0E8; --panel:#fff; --ink:#232842; --ink-soft:#716b5c; --line:#DCD4C2;
+    --coral:#E4572E; --teal:#2A9D8F; --amber:#F4C95D;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink); font-family:'Noto Sans KR',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  .wrap{ max-width:960px; margin:0 auto; padding:22px 16px 60px; }
+  .topbar{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .topbar h1{ font-size:20px; margin:0; flex:1; }
+  .backBtn{
+    border:none; background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    padding:9px 14px; border-radius:10px; font-size:14px; font-family:inherit; cursor:pointer;
+  }
+  .backBtn:active{ background:var(--bg); }
+
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (min-width:520px){ .grid.students{ grid-template-columns:repeat(3,1fr); } }
+  @media (min-width:760px){ .grid.students{ grid-template-columns:repeat(4,1fr); } }
+
+  .tile{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:22px 14px; text-align:center; cursor:pointer; font-family:inherit;
+    box-shadow:0 1px 2px rgba(35,40,66,.04);
+  }
+  .tile:active{ background:#EDE8DB; }
+  .tile.cls{ font-size:22px; font-weight:700; padding:34px 14px; }
+  .tile.student{ font-size:16px; font-weight:500; }
+  .tile.student .num{ display:block; font-size:12px; color:var(--ink-soft); margin-bottom:4px; }
+
+  .detailCard{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    padding:30px 22px; text-align:center; max-width:420px; margin:30px auto 0;
+  }
+  .detailCard h2{ margin:0 0 24px; font-size:24px; }
+  .listenBtn{
+    display:block; width:100%; border:none; border-radius:12px; padding:16px 14px;
+    font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; margin-bottom:12px;
+    background:var(--coral); color:#fff;
+  }
+  .listenBtn.together{ background:var(--teal); }
+  .listenBtn:disabled{ background:#D8D2C2; color:var(--ink-soft); cursor:default; }
+  .listenBtn:active:not(:disabled){ filter:brightness(0.92); }
+  .noAudioNote{ font-size:12.5px; color:var(--ink-soft); margin:-4px 0 10px; }
+
+  .playScreen .status{
+    text-align:center; font-size:14px; color:var(--ink-soft); margin:6px 0 14px; min-height:18px;
+  }
+  .scoreBox{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    overflow:hidden; position:relative;
+  }
+  .scoreBox iframe{ width:100%; border:none; display:block; height:420px; background:#fff; }
+  .loadingOverlay{
+    position:absolute; inset:0; background:rgba(255,255,255,.9);
+    display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--ink-soft);
+  }
+  .loadingOverlay[hidden]{ display:none; }
+  .manualPlayBtn{
+    display:block; margin:16px auto 0; border:none; border-radius:12px; padding:14px 28px;
+    font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; background:var(--amber); color:var(--ink);
+  }
+  .errorNote{ text-align:center; color:var(--coral); font-size:14.5px; padding:30px 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="backBtn" id="backBtn" style="display:none">← 뒤로</button>
+    <h1 id="screenTitle">학생 작품 감상</h1>
+  </div>
+
+  <!-- 반 선택 -->
+  <div class="screen active" id="screen-classes">
+    <div class="grid" id="classGrid"></div>
+  </div>
+
+  <!-- 학생 목록 -->
+  <div class="screen" id="screen-students">
+    <div class="grid students" id="studentGrid"></div>
+  </div>
+
+  <!-- 학생 상세: 듣기 방법 선택 -->
+  <div class="screen" id="screen-detail">
+    <div class="detailCard">
+      <h2 id="detailName"></h2>
+      <button class="listenBtn" id="btnWorkOnly">🎼 작품만 듣기</button>
+      <button class="listenBtn together" id="btnWithVoice">🎤 학생의 노래와 함께 듣기</button>
+      <p class="noAudioNote" id="noAudioNote" hidden>아직 이 학생의 노래 음성파일이 없어요.</p>
+    </div>
+  </div>
+
+  <!-- 재생 화면 -->
+  <div class="screen playScreen" id="screen-play">
+    <p class="status" id="playStatus">악보를 불러오는 중…</p>
+    <div class="scoreBox">
+      <iframe id="scoreFrame" title="악보"></iframe>
+      <div class="loadingOverlay" id="loadingOverlay">불러오는 중…</div>
+    </div>
+    <button class="manualPlayBtn" id="manualPlayBtn" hidden>▶ 재생이 안 되면 눌러주세요</button>
+    <audio id="voiceAudio" hidden></audio>
+  </div>
+</div>
+
+<script>
+(function(){
+  const DATA = {"1반": [{"num": 1, "name": "김건우", "link": "https://pianohys.github.io/piano-wep/#s=00i0nvs9eiz", "audio": "1uypINQ8ssjAknnRkkTRn_7Ply7uQZi5L"}, {"num": 2, "name": "김단우", "link": "https://pianohys.github.io/piano-wep/#s=bfv40ca257j", "audio": "1h1Doxo9M93ZzhFx3AYAzIN5aBhK2Wurw"}, {"num": 3, "name": "김수아", "link": "https://pianohys.github.io/piano-wep/#s=fzfddkdqd0g", "audio": "1IEMAYKRNG9zdLOSxkhwAqi9Yn544UP5J"}, {"num": 4, "name": "김정원", "link": "https://pianohys.github.io/piano-wep/#s=a0npn1qx43c", "audio": "1d-OQBEHsNFOJIUwKUfLk61tCJeGQhk2m"}, {"num": 6, "name": "박시윤", "link": "https://pianohys.github.io/piano-wep/#s=bg0mrc5uuh6", "audio": "1oMqjAWEViN1THK3wKtLx7AaIqN-qPFtK"}, {"num": 7, "name": "이예나", "link": "https://pianohys.github.io/piano-wep/#s=bg0weyoedfq", "audio": "1phHp0WUbYCwmIMVQkbBFXzoO_o6dZH8M"}, {"num": 8, "name": "이정호", "link": "https://pianohys.github.io/piano-wep/#s=vf67ut2nl6u", "audio": "1Z808KZISunfpn_CF4dZM0GfsPjaVLwmh"}, {"num": 9, "name": "이창주", "link": "https://pianohys.github.io/piano-wep/#s=benrc59i0a9", "audio": "1itIbYaDQsoYXOzvzWICzc5Xjm5KmTbEO"}, {"num": 10, "name": "장석훈", "link": "https://pianohys.github.io/piano-wep/#s=beifj74voxm", "audio": "1SgrzyH25oRQjgcyf6hezkr12tjFpBKCa"}, {"num": 11, "name": "차승태", "link": "https://pianohys.github.io/piano-wep/#s=bg0jg841lk5", "audio": "18iJvQF1APclWRAF23DvSLqfMtLKwTmhx"}, {"num": 12, "name": "최로아", "link": "https://pianohys.github.io/piano-wep/#s=bfyp7xy7yuf", "audio": "1hQnKFoyCXMu2lh1xH7yLR0B8QgCgn_1C"}, {"num": 13, "name": "최진혁", "link": "https://pianohys.github.io/piano-wep/#s=9zynlryk6wm", "audio": "1xswZYoaL_hW_O-RZ8n2Rw4zO_9fRyBbQ"}, {"num": 14, "name": "한승우", "link": "https://pianohys.github.io/piano-wep/#s=00drupeq24e", "audio": "1mVn59gzTiJjvzfLisyBn357H5eaWTbqT"}, {"num": 15, "name": "홍석주", "link": "https://pianohys.github.io/piano-wep/#s=bg7asn46f8y", "audio": "1Iezj2KwGs-h-gj-qjrf_VSoFyP3gPrdj"}, {"num": 16, "name": "홍지후", "link": "https://pianohys.github.io/piano-wep/#s=bg0cyeqbzn4", "audio": "1xg_oApKfbPl60_4oWHMt6oyev_aBXMSE"}], "2반": [{"num": 1, "name": "김강희", "link": "https://pianohys.github.io/piano-wep/#s=a48hfmppm4b", "audio": "1CPaHhYgKQQF6zLmkQnRQkIQoiA_aPEPt"}, {"num": 2, "name": "김준서", "link": "https://pianohys.github.io/piano-wep/#s=abfdkjyltb0", "audio": "1NVq_w9T9T1yKiSKTNkj_VSxscq1b8ulc"}, {"num": 3, "name": "류경현", "link": "https://pianohys.github.io/piano-wep/#s=vgub0rd1h2k", "audio": "1VLtGauLVnm2c6C8qm7EJDMv3LJwEs3oh"}, {"num": 4, "name": "박도윤", "link": "https://pianohys.github.io/piano-wep/#s=vgucxkyahpj", "audio": "1QS8-oJ7c4y2bww69ji1EkUPSEz0qALyT"}, {"num": 5, "name": "박선우", "link": "https://pianohys.github.io/piano-wep/#s=bi721vxtq9n", "audio": "1YgF-M8Y0aANs7qf-Jidx-PY-jv5SeEAp"}, {"num": 6, "name": "박정민", "link": "https://pianohys.github.io/piano-wep/#s=vgtpdyf4eh2", "audio": "1Qj6w-Fd_-RyJTBQFDJxmkcmciFPxYeop"}, {"num": 7, "name": "배준영", "link": "https://pianohys.github.io/piano-wep/#s=a4b6444ehwy", "audio": "1vKH2hAnvhhcekF57B59s1EtG2errUIfD"}, {"num": 8, "name": "송은서", "link": "https://pianohys.github.io/piano-wep/#s=a4cxxan9nbg", "audio": "1inNmCQnJpUzoZv5XnR7PGG6nqSmhikZ4"}, {"num": 9, "name": "송은율", "link": "https://pianohys.github.io/piano-wep/#s=vh471hqzw9s", "audio": "16BD3jTS-w5tXquA--jRVSDrBL6WPd1JW"}, {"num": 10, "name": "양서율", "link": "https://pianohys.github.io/piano-wep/#s=bhzr2pcbi7z", "audio": "16nlHSGf_-7O8-5lDxkjihqziIgMApMww"}, {"num": 11, "name": "유승완", "link": "https://pianohys.github.io/piano-wep/#s=bhc6fc0g1bu", "audio": "1-l4cntnH4nksqV7sizGWKom-Fe9FyUZC"}, {"num": 12, "name": "윤서진", "link": "https://pianohys.github.io/piano-wep/#s=x1rvr45tm8b", "audio": "1f3mZR3QK2HE51oejo3CxOSB3dIKINU5X"}, {"num": 13, "name": "임은유", "link": "https://pianohys.github.io/piano-wep/#s=a3vqlnw3n12", "audio": "1skXYaHLOmgw9vnA_SAyGfZslYvTE22zh"}, {"num": 14, "name": "정승원", "link": "https://pianohys.github.io/piano-wep/#s=bhjvg1cebwx", "audio": "1BT5AhtleVmXGLyfVabWaNnhi33q8-I_E"}, {"num": 15, "name": "진현종", "link": "https://pianohys.github.io/piano-wep/#s=bhptvri20n6", "audio": "1UBXfUz_E81Qhltx9HX0IeZ17PE1PumQk"}, {"num": 16, "name": "차승우", "link": "https://pianohys.github.io/piano-wep/#s=a473jqmf1eg", "audio": "1y2OByUiuZ8rEDY2MOO-AYZODlqhIEE6X"}, {"num": 17, "name": "최예정", "link": "https://pianohys.github.io/piano-wep/#s=a499ber110m", "audio": "18WFhhc2pLDOhEix2oLg1W_qaxukBUnXm"}], "3반": [{"num": 1, "name": "김지율", "link": "https://pianohys.github.io/piano-wep/#s=vd17hbzktp6", "audio": "1peutmVWH6ez2R-7_VwYFRFl1Txl7vQ_5"}, {"num": 2, "name": "박윤서", "link": "https://pianohys.github.io/piano-wep/#d=eyJiIjo4OCwibSI6MTEsIm4iOlsicSIsInEiLCJlZSIsInEiLCJxciIsInEiLCJkcSIsIiIsImVlIiwiZGVfcyIsInFyIiwicXIiLCJlZSIsInEiLCJoIiwiIiwicSIsInEiLCJlZSIsInFyIiwiaCIsIiIsImVlIiwicSIsInEiLCJxIiwicSIsInEiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiLCIiXSwibCI6eyIwXzAiOiLrgpgiLCIxXzAiOiLripQiLCIyXzAiOiLrr7wiLCIyXzEiOiLrk6QiLCI1XzAiOiLtmYAiLCI2XzAiOiLslKgiLCI3XzAiOiLqsJkiLCI4XzEiOiLsgqwiLCI4XzAiOiLsnYAiLCI5XzEiOiLsnbQiLCI5XzAiOiLrnowiLCIxNl8wIjoi7ZmAIiwiMTdfMCI6IuyUqCIsIjE4XzAiOiLsspgiLCIxOF8xIjoi65+8IiwiMjJfMCI6IuustSIsIjIwXzAiOiLrrLUiLCIyMl8xIjoi7ZWYIiwiMjNfMCI6IuqyjCIsIjE1XzAiOiIiLCIxMl8wIjoi65CYIiwiMTJfMSI6IuqzoCIsIjEzXzAiOiLsi7YiLCIxNF8wIjoi64ukIiwiMjlfMCI6IiIsIjQzXzAiOiIiLCIyOF8wIjoiIiwiMzBfMCI6IiIsIjMyXzAiOiIiLCIzM18wIjoiIiwiNDBfMCI6IiIsIjQxXzAiOiIiLCI0Ml8wIjoiIiwiMzZfMCI6IiIsIjM3XzAiOiIiLCIzOF8wIjoiIiwiMzlfMCI6IiIsIjM1XzAiOiIiLCIzNF8wIjoiIiwiMzFfMCI6IiIsIjNfMCI6IuugiCIsIjRfMCI6IiIsIjI0XzAiOiLrgqAiLCIyNV8wIjoi7JWEIiwiMjZfMCI6IuqwgCIsIjI3XzAiOiLripQifSwicCI6W1syXSxbMV0sWzAsLTJdLFstMl0sWzBdLFstMV0sWzIsMl0sWzBdLFszLDNdLFsyLDJdLFswXSxbMF0sWzEsMV0sWy0yXSxbMF0sWzBdLFsyXSxbMV0sWzIsMl0sWzBdLFstMl0sWzBdLFsxLDNdLFszXSxbMl0sWzFdLFswXSxbLTJdLFswXSxbMF0sWzBdLFswXSxbMF0sWzBdLFswXSxbMF0sWzBdLFswXSxbMF0sWzBdLFswXSxbMF0sWzBdLFswXV0sImYiOnt9LCJrIjoibWFqb3IiLCJhIjp7fSwiYyI6W3siZGVnIjoxLCJtb2RlIjoxfSx7ImRlZyI6NSwibW9kZSI6MX0seyJkZWciOjEsIm1vZGUiOjF9LHsiZGVnIjoxLCJtb2RlIjoxfSx7ImRlZyI6MSwibW9kZSI6MX0seyJkZWciOjQsIm1vZGUiOjF9LHsiZGVnIjo1LCJtb2RlIjoxfSwiIiwiIiwiIiwiIl0sInN0IjoiaG9sZF9waWFubyIsIm1pIjoicGlhbm8iLCJkcyI6Im9mZiIsImJzIjoib2ZmIiwidHkiOltdLCJ2bSI6MTAwLCJ2YyI6MTAwLCJ2YiI6MTAwLCJ2ZCI6MTAwLCJncmFkZSI6IjEiLCJjbHMiOiIzIiwibnVtIjoiMiIsInNuYW1lIjoi67CV7Jyk7IScIn0=", "audio": "1-Frr8HKuNQM5HM27RxzkupNkp1o_Yabb"}, {"num": 3, "name": "배예은", "link": "https://pianohys.github.io/piano-wep/#s=bdt3zgu5mfo", "audio": "1loZ9_BZcpT5zQCbW75muULcXzXuKj8mA"}, {"num": 4, "name": "연태흠", "link": "https://pianohys.github.io/piano-wep/#s=vcqy02y24r3", "audio": "1LiJjbpgOKOwwE-O8ErVJZmdf5bRRfCDm"}, {"num": 5, "name": "이다은", "link": "https://pianohys.github.io/piano-wep/#s=vcqseoaals6", "audio": "1tHaiPUgY9UYXungjp7m1lKn-IVLne1tv"}, {"num": 6, "name": "이승민", "link": "https://pianohys.github.io/piano-wep/#s=vdvfj6vi2gr", "audio": "1fixSiJSoKzl_oTp_uo7De-JON_R0ggFI"}, {"num": 7, "name": "이은재", "link": "https://pianohys.github.io/piano-wep/#s=t5n5rswsdz8", "audio": "1Qbx4Xodnf4t9ynLEIhkq5LFuiafyUQ7f"}, {"num": 8, "name": "이준우", "link": "https://pianohys.github.io/piano-wep/#s=bdkqud0me59", "audio": "1BlRLvKiCBgh1a3sFuN8sCZr9KMGR6Cvr"}, {"num": 9, "name": "이하율", "link": "https://pianohys.github.io/piano-wep/#s=vd5qpj1ffg4", "audio": "1P4Py86aIvBlIMhDYAKIEENBaoJXD-zSr"}, {"num": 10, "name": "이호승", "link": "https://pianohys.github.io/piano-wep/#s=t6d74cveop5", "audio": "1_cj0sCm0XwudKX2Xj9fFumZt309xbPzd"}, {"num": 12, "name": "차승현", "link": "https://pianohys.github.io/piano-wep/#s=vd5qpj1ffg4", "audio": "16CQ4rBkTggo_ymnsb7BgOIOm58VwuV_L"}, {"num": 13, "name": "최이윤", "link": "https://pianohys.github.io/piano-wep/#s=vcqzuhmrzgi", "audio": "13MMonKMz0weLtQCNsGaW36xrQwNyyMbi"}, {"num": 14, "name": "한경민", "link": "https://pianohys.github.io/piano-wep/#s=bduee1rdt9f", "audio": "1lk_ateoTfa0KF07m5IjNECIrDAvXBXQ2"}, {"num": 15, "name": "허민혁", "link": "https://pianohys.github.io/piano-wep/#s=g9wgttw8ex1", "audio": "1FSkk5nGuGZZVcgmsipAHfQggvBpIPc23"}, {"num": 16, "name": "허유주", "link": "https://pianohys.github.io/piano-wep/#s=t6txdghr51c", "audio": "1cHojETMXQuw5Vn5gz73zwINoUUI7lS2g"}], "4반": [{"num": 1, "name": "강예준", "link": "https://pianohys.github.io/piano-wep/#s=bjr3z0cx207", "audio": "11OYkmTT2_m6XGNkyG5_69oWOrzTyZmvC"}, {"num": 2, "name": "김강우", "link": "https://pianohys.github.io/piano-wep/#s=vj4jyyc98uh", "audio": "1rY4yKtcULgQEeWzxA9Bua0cPARsabre5"}, {"num": 3, "name": "김시현", "link": "https://pianohys.github.io/piano-wep/#s=4cnlav5c2ki", "audio": "1xPiYT0HZu9SrMoKLvWzzR0krKA7x6FS2"}, {"num": 4, "name": "김윤서", "link": "https://pianohys.github.io/piano-wep/#s=bjo1jb1tuhp", "audio": "1ieHQ0icHowYlBCrFedOp2WN_8MGxTk1p"}, {"num": 5, "name": "김진오", "link": "https://pianohys.github.io/piano-wep/#s=bjkn7s5a09z", "audio": "1l7_DOMURl7ftFOu1jszXCTunCJu5Wwji"}, {"num": 6, "name": "김채윤", "link": "https://pianohys.github.io/piano-wep/#s=bjg87kcphpq", "audio": "1S2-s98iIyGITLu7AhRYFWiH7UxKaEKlS"}, {"num": 7, "name": "서준영", "link": "https://pianohys.github.io/piano-wep/#s=bj3v3ngntky", "audio": "1NdOdFeBfPBgCI4Ragb-zSlnxlU78C6pG"}, {"num": 8, "name": "신비", "link": "https://pianohys.github.io/piano-wep/#s=vits5n1ybpi", "audio": "1ZrYH3pxhtWej4qteYCzpW1UF0KS0ea8r"}, {"num": 9, "name": "심서연", "link": "https://pianohys.github.io/piano-wep/#s=vin3vcjmqrp", "audio": "11petYT-c6PFkQNLpXHDCuWc58Jukq0Cd"}, {"num": 10, "name": "이상민", "link": "https://pianohys.github.io/piano-wep/#s=4cmp5stf21n", "audio": "1yZd4aaCAlNAW-gJwvSpDHRxQrcBn-O2X"}, {"num": 11, "name": "이시연", "link": "https://pianohys.github.io/piano-wep/#s=vinomz4wfoh", "audio": "1B7TmGDbEB9xfqdxuoVUB7XKw3bLiZ1XU"}, {"num": 12, "name": "이은찬", "link": "https://pianohys.github.io/piano-wep/#s=bjxaarzm467", "audio": "1XNTaTmA1-ZBdgG5aj9lTnpXkd42GZawU"}, {"num": 13, "name": "이주혁", "link": "https://drive.google.com/file/d/1UUQyQbXj_kM7_ZmLDGRx3A16FVmOVWkO/view?usp=drivesdk", "audio": "1PD7FXMQnNBU1yP53W9xsywmCGy60JEAC"}, {"num": 14, "name": "조이진", "link": "https://pianohys.github.io/piano-wep/#s=bjnydbukfia", "audio": "1zqzNNm01aBueIXJZ2z1onHWggQR8Tv7u"}, {"num": 15, "name": "최원준", "link": "https://pianohys.github.io/piano-wep/#s=kbeuhtfzxx6", "audio": null}, {"num": 16, "name": "최형진", "link": "https://pianohys.github.io/piano-wep/#s=kc654lqenzq", "audio": "1_RiLzYSqmO8eNm8rnqn6YpqHLHMPmmkp"}, {"num": 17, "name": "허은", "link": "https://pianohys.github.io/piano-wep/#s=uaer41w3ylo", "audio": "1QyARQQohID80lUkB_VBf15X8FlXeeTFP"}]};
+
+  // ---------- 화면 전환 ----------
+  const screens = {};
+  document.querySelectorAll('.screen').forEach(el => screens[el.id] = el);
+  const backBtn = document.getElementById('backBtn');
+  const screenTitle = document.getElementById('screenTitle');
+  let history = ['screen-classes'];
+
+  function showScreen(id, title, pushHistory){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[id].classList.add('active');
+    screenTitle.textContent = title;
+    backBtn.style.display = id === 'screen-classes' ? 'none' : '';
+    if (pushHistory !== false) history.push(id);
+    if (id !== 'screen-play') teardownPlayback();
+  }
+  backBtn.addEventListener('click', () => {
+    if (history.length > 1){
+      history.pop();
+      const prev = history[history.length-1];
+      showScreen(prev, titleFor(prev), false);
+    }
+  });
+  function titleFor(id){
+    if (id==='screen-classes') return '학생 작품 감상';
+    if (id==='screen-students') return currentCls + ' 학생 목록';
+    if (id==='screen-detail') return currentStudent.name;
+    return '';
+  }
+
+  // ---------- 반 목록 ----------
+  const classGrid = document.getElementById('classGrid');
+  Object.keys(DATA).forEach(cls => {
+    const btn = document.createElement('button');
+    btn.className = 'tile cls';
+    btn.textContent = cls;
+    btn.addEventListener('click', () => openClass(cls));
+    classGrid.appendChild(btn);
+  });
+
+  let currentCls = null;
+  let currentStudent = null;
+
+  function openClass(cls){
+    currentCls = cls;
+    const grid = document.getElementById('studentGrid');
+    grid.innerHTML = '';
+    DATA[cls].forEach(stu => {
+      const btn = document.createElement('button');
+      btn.className = 'tile student';
+      btn.innerHTML = '<span class="num">' + stu.num + '번</span>' + stu.name;
+      btn.addEventListener('click', () => openStudent(stu));
+      grid.appendChild(btn);
+    });
+    showScreen('screen-students', cls + ' 학생 목록');
+  }
+
+  function openStudent(stu){
+    currentStudent = stu;
+    document.getElementById('detailName').textContent = stu.name;
+    const withVoiceBtn = document.getElementById('btnWithVoice');
+    const noAudioNote = document.getElementById('noAudioNote');
+    withVoiceBtn.disabled = !stu.audio;
+    noAudioNote.hidden = !!stu.audio;
+    showScreen('screen-detail', stu.name);
+  }
+
+  document.getElementById('btnWorkOnly').addEventListener('click', () => openPlay(false));
+  document.getElementById('btnWithVoice').addEventListener('click', () => openPlay(true));
+
+  // ---------- 재생 화면 ----------
+  const scoreFrame = document.getElementById('scoreFrame');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const playStatus = document.getElementById('playStatus');
+  const manualPlayBtn = document.getElementById('manualPlayBtn');
+  const voiceAudio = document.getElementById('voiceAudio');
+
+  let pollTimer = null;
+  let pollDeadline = 0;
+  let readyToPlay = false;
+  let wantAudio = false;
+
+  function driveAudioUrl(id){
+    return 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id);
+  }
+
+  function teardownPlayback(){
+    clearInterval(pollTimer); pollTimer = null;
+    scoreFrame.src = 'about:blank';
+    voiceAudio.pause();
+    voiceAudio.removeAttribute('src');
+    manualPlayBtn.hidden = true;
+    loadingOverlay.hidden = false;
+    loadingOverlay.textContent = '불러오는 중…';
+    readyToPlay = false;
+  }
+
+  function openPlay(withAudio){
+    wantAudio = withAudio && !!currentStudent.audio;
+    showScreen('screen-play', currentStudent.name);
+    playStatus.textContent = wantAudio ? '악보와 노래를 함께 준비하는 중…' : '악보를 준비하는 중…';
+    manualPlayBtn.hidden = true;
+    loadingOverlay.hidden = false;
+    loadingOverlay.textContent = '불러오는 중…';
+    readyToPlay = false;
+
+    const raw = currentStudent.link || '';
+    const hashIdx = raw.indexOf('#');
+    if (hashIdx === -1 || !(raw.slice(hashIdx).indexOf('#s=')===0 || raw.slice(hashIdx).indexOf('#d=')===0)){
+      loadingOverlay.hidden = true;
+      playStatus.textContent = '';
+      scoreFrame.src = 'about:blank';
+      document.querySelector('.scoreBox').insertAdjacentHTML('beforeend',
+        '<p class="errorNote" id="errNote">이 학생의 악보 링크가 올바르지 않아요. 엑셀의 링크를 다시 확인해주세요.</p>');
+      return;
+    }
+    const oldErr = document.getElementById('errNote');
+    if (oldErr) oldErr.remove();
+    const hash = raw.slice(hashIdx);
+
+    if (wantAudio){
+      voiceAudio.src = driveAudioUrl(currentStudent.audio);
+    }
+
+    scoreFrame.onload = () => {
+      injectCleanView();
+      startPolling();
+    };
+    scoreFrame.src = 'index.html' + hash;
+  }
+
+  function injectCleanView(){
+    try{
+      const doc = scoreFrame.contentDocument;
+      const style = doc.createElement('style');
+      style.textContent = 'header.top,.palSticky,.accBox,.controls,.savebar,.hint,.how,' +
+        '.keymode-row,.studentInfoHint,.chordPickPopup,#floatingStop,#topActions,' +
+        '#instrVolRow{display:none!important}' +
+        '.wrap{padding:10px 10px 24px!important;max-width:none!important}' +
+        '.panel.score{border:none!important;box-shadow:none!important;padding:0!important;margin:0!important}' +
+        'body{background:#fff!important}';
+      doc.head.appendChild(style);
+    }catch(e){ /* 같은 출처가 아니면 조용히 건너뜀 */ }
+  }
+
+  function startPolling(){
+    clearInterval(pollTimer);
+    pollDeadline = Date.now() + 15000;
+    pollTimer = setInterval(checkReady, 200);
+    checkReady();
+  }
+
+  function checkReady(){
+    let txt = '';
+    try{
+      const doc = scoreFrame.contentDocument;
+      const statusEl = doc.getElementById('status');
+      txt = statusEl ? statusEl.textContent : '';
+    }catch(e){}
+
+    if (txt.indexOf('불러왔어요') !== -1){
+      clearInterval(pollTimer); pollTimer = null;
+      onScoreReady();
+      return;
+    }
+    const failPhrases = ['찾을 수 없어요','불러오지 못했어요','읽지 못했어요'];
+    if (failPhrases.some(p => txt.indexOf(p) !== -1)){
+      clearInterval(pollTimer); pollTimer = null;
+      loadingOverlay.hidden = true;
+      playStatus.textContent = '이 학생의 악보를 불러오지 못했어요. 공유 링크가 만료됐거나 잘못됐을 수 있어요.';
+      return;
+    }
+    if (Date.now() > pollDeadline){
+      clearInterval(pollTimer); pollTimer = null;
+      loadingOverlay.hidden = true;
+      playStatus.textContent = '불러오는 데 시간이 너무 오래 걸려요. 네트워크 상태를 확인하고 다시 시도해주세요.';
+    }
+  }
+
+  function onScoreReady(){
+    loadingOverlay.hidden = true;
+    readyToPlay = true;
+    playStatus.textContent = wantAudio ? '준비됐어요! 함께 재생할게요.' : '준비됐어요! 재생할게요.';
+    triggerPlayback();
+    // 브라우저가 자동재생을 막는 경우를 대비해, 재생 시도와 별개로 수동 버튼도 항상 보여줌.
+    manualPlayBtn.hidden = false;
+  }
+
+  function triggerPlayback(){
+    try{
+      const doc = scoreFrame.contentDocument;
+      const btn = doc.getElementById('playnomet');
+      if (btn) btn.click();
+    }catch(e){
+      manualPlayBtn.hidden = false;
+      return;
+    }
+    if (wantAudio){
+      voiceAudio.currentTime = 0;
+      voiceAudio.play().catch(() => { manualPlayBtn.hidden = false; });
+    }
+  }
+
+  manualPlayBtn.addEventListener('click', () => {
+    triggerPlayback();
+  });
+})();
+</script>
+</body>
+</html>
